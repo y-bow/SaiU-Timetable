@@ -1,132 +1,191 @@
-const CACHE_NAME = 'timetable-v13';
-const ASSETS = [
-  'index.html',
-  'style.css',
-  'manifest.json',
-  'js/config.js',
-  'js/parser.js',
-  'js/utils.js',
-  'js/storage.js',
-  'js/schools.js',
-  'js/navigation.js',
-  'js/ui.js',
-  'js/app.js',
-  'icons/favicon-32.png',
-  'icons/favicon.png',
-  'icons/icon-192.png',
-  'icons/icon-512.png',
-  'icons/icon-maskable-192.png',
-  'icons/icon-maskable-512.png',
-  'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap'
-];
-
-const SHEET_CACHE = 'timetable-sheet-v1';
-
+// ============================================================
+// SaiU Timetable Service Worker
+// ============================================================
+//
+// Update strategy (production):
+//   - The build id below is injected by build.mjs on every build. That
+//     changes this file's bytes each deployment, so browsers always detect
+//     a new Service Worker and install it.
+//   - A unique cache version is created per build (saiu-timetable-v{ID}).
+//     Old caches are deleted on activate, so stale assets never survive.
+//   - HTML (navigations) is NETWORK-FIRST: the latest page is always
+//     fetched when online; the cached copy is only an offline fallback.
+//   - Static assets (CSS/JS/icons/fonts) use versioned URLs (?v=BUILD_ID),
+//     so Cache-First is safe: a new build references new URLs and the old
+//     ones are purged with the old cache. A consistent version is served.
+//   - Timetable data (Google Sheets) is NETWORK-FIRST with cache fallback.
+//
 // Local / dev hosts must NEVER be controlled by a service worker. A stale
 // worker serves the cached app shell (cache-first), so edits made while
 // developing with Live Server (or any local static server) never appear.
-// A stale worker also serves old JS that may not know how to unregister
-// itself, which permanently locks the browser onto old files.
 const DEV_HOSTS = ['localhost', '127.0.0.1', '::1', '0.0.0.0'];
 const isDevHost = DEV_HOSTS.includes(self.location.hostname);
 
-// Install Service Worker
+// Replaced by build.mjs on every build — the file's bytes change every
+// deployment so the Service Worker update is always detected.
+const BUILD_ID = '2026-08-06-001';
+
+const CACHE_NAME = 'saiu-timetable-v' + BUILD_ID;
+const SHEET_CACHE = 'timetable-sheet-v1';
+
+const versioned = (url) => `${url}?v=${BUILD_ID}`;
+
+// Precached on install. URLs are versioned so a new build always fetches
+// the newest files and the old cache is removed on activation.
+const ASSETS = [
+  'index.html',
+  versioned('style.css'),
+  versioned('manifest.json'),
+  versioned('js/build.js'),
+  versioned('js/config.js'),
+  versioned('js/parser.js'),
+  versioned('js/utils.js'),
+  versioned('js/storage.js'),
+  versioned('js/schools.js'),
+  versioned('js/navigation.js'),
+  versioned('js/ui.js'),
+  versioned('js/analytics.js'),
+  versioned('js/app.js'),
+  versioned('icons/favicon-32.png'),
+  versioned('icons/favicon.png'),
+  versioned('icons/icon-192.png'),
+  versioned('icons/icon-512.png'),
+  versioned('icons/icon-maskable-192.png'),
+  versioned('icons/icon-maskable-512.png'),
+  versioned('icons/apple-touch-icon.png'),
+];
+
+const FONT_CSS = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap';
+
+// --- Helpers ---------------------------------------------------------------
+
+async function precache() {
+  const cache = await caches.open(CACHE_NAME);
+  // addAll would abort the whole install if a single asset fails
+  // (e.g. a transient network error). One bad asset must not block
+  // the update, so each URL is cached independently.
+  await Promise.allSettled(
+    ASSETS.map((url) => cache.add(url).catch(() => {}))
+  );
+  // Precache the Google Fonts stylesheet as an opaque (no-cors) response.
+  try {
+    const font = await fetch(FONT_CSS, { mode: 'no-cors' });
+    if (font && (font.ok || font.type === 'opaque')) await cache.put(FONT_CSS, font);
+  } catch { /* fonts are optional */ }
+}
+
+const cacheable = (response) => response && (response.ok || response.type === 'opaque');
+
+async function cacheFirst(request, cacheName) {
+  const cached = await caches.match(request);
+  if (cached) return cached;
+  const response = await fetch(request);
+  if (cacheable(response)) {
+    const copy = response.clone();
+    const cache = await caches.open(cacheName);
+    await cache.put(request, copy);
+  }
+  return response;
+}
+
+async function networkFirst(request, cacheName, fallback) {
+  try {
+    const response = await fetch(request);
+    if (cacheable(response)) {
+      const copy = response.clone();
+      const cache = await caches.open(cacheName);
+      await cache.put(request, copy);
+    }
+    return response;
+  } catch {
+    const cached = await caches.match(request);
+    if (cached) return cached;
+    if (fallback) return caches.match(fallback);
+    throw new Error('Network request failed and no cached copy exists');
+  }
+}
+
+// --- Install ---------------------------------------------------------------
+
 self.addEventListener('install', (event) => {
   if (isDevHost) {
     // On dev hosts the service worker destroys itself instead of caching.
-    // Unregistering here also frees the origin from any older stale worker,
-    // so Live Server reloads always show fresh files.
     self.registration.unregister();
     self.skipWaiting();
     return;
   }
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
-  );
+  event.waitUntil(precache());
   self.skipWaiting();
 });
 
-// Activate Service Worker
+// --- Activate --------------------------------------------------------------
+
 self.addEventListener('activate', (event) => {
   if (isDevHost) {
     // Remove any leftover caches on dev hosts.
     event.waitUntil(
-      caches.keys().then((cacheNames) =>
-        Promise.all(cacheNames.map((name) => caches.delete(name)))
-      )
+      caches.keys().then((names) => Promise.all(names.map((name) => caches.delete(name))))
     );
     return;
   }
   event.waitUntil(
-    caches.keys().then((cacheNames) =>
-      Promise.all(
-        cacheNames.map((cache) => {
-          if (cache !== CACHE_NAME && cache !== SHEET_CACHE) {
-            return caches.delete(cache);
-          }
-        })
-      )
-    ).then(() => self.clients.claim())
+    caches.keys()
+      .then((names) => Promise.all(
+        names.map((name) => (name !== CACHE_NAME && name !== SHEET_CACHE ? caches.delete(name) : null))
+      ))
+      // Take control of all open clients immediately so the freshly
+      // installed version applies without closing/reopening the app.
+      .then(() => self.clients.claim())
   );
 });
 
-// Fetch Strategy:
-//   - Navigation (HTML): network-first so updates/deploys are never hidden
-//     behind a stale cached page.
-//   - App shell assets: cache-first.
-//   - Google Sheet CSV: network-first, fall back to last cached copy.
+// The page asks the waiting worker to activate right away.
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
+// --- Fetch ----------------------------------------------------------------
+
 self.addEventListener('fetch', (event) => {
+  const request = event.request;
+  if (request.method !== 'GET') return;
   if (isDevHost) return; // never intercept on dev hosts
 
-  const url = event.request.url;
+  const url = new URL(request.url);
 
-  // Never intercept Google Analytics — always fetch fresh from the network
-  // so GA4 gets its latest gtag.js and page views are never served stale.
-  if (url.includes('googletagmanager.com')) {
+  // Never intercept analytics or the Service Worker script itself.
+  if (url.hostname.endsWith('googletagmanager.com') || url.hostname.endsWith('google-analytics.com')) return;
+  if (url.pathname.endsWith('/sw.js')) return;
+
+  // Timetable data (Google Sheets): network-first, offline falls back to
+  // the last successfully fetched copy.
+  if (url.hostname.endsWith('docs.google.com') && url.pathname.includes('/spreadsheets')) {
+    event.respondWith(networkFirst(request, SHEET_CACHE));
     return;
   }
 
-  if (url.includes('docs.google.com/spreadsheets') && url.includes('export')) {
-    event.respondWith(
-      fetch(event.request)
-        .then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            const cacheCopy = networkResponse.clone();
-            caches.open(SHEET_CACHE).then((cache) => cache.put(event.request, cacheCopy));
-          }
-          return networkResponse;
-        })
-        .catch(() => caches.match(event.request))
-    );
+  // HTML navigations: network-first so a deployed update is never hidden
+  // behind a stale cached page. The cache copy is only an offline fallback.
+  if (request.mode === 'navigate') {
+    event.respondWith(networkFirst(request, CACHE_NAME, 'index.html'));
     return;
   }
 
-  if (event.request.mode === 'navigate') {
-    event.respondWith(
-      fetch(event.request)
-        .then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            const cacheCopy = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, cacheCopy));
-          }
-          return networkResponse;
-        })
-        .catch(() => caches.match(event.request).then((cached) => cached || caches.match('index.html')))
-    );
+  // Google Fonts: cache-first (they change infrequently).
+  if (url.hostname.endsWith('fonts.googleapis.com') || url.hostname.endsWith('fonts.gstatic.com')) {
+    event.respondWith(cacheFirst(request, CACHE_NAME));
     return;
   }
 
-  event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) return cachedResponse;
-      const fetchPromise = fetch(event.request).then((networkResponse) => {
-        if (networkResponse && networkResponse.status === 200) {
-          const cacheCopy = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, cacheCopy));
-        }
-        return networkResponse;
-      });
-      return fetchPromise;
-    })
-  );
+  // Same-origin static assets: cache-first. Safe because every referenced
+  // URL is versioned (?v=BUILD_ID), so a new build never reuses old files.
+  if (url.origin === self.location.origin) {
+    event.respondWith(cacheFirst(request, CACHE_NAME));
+    return;
+  }
+
+  // Anything else: network-first with cache fallback.
+  event.respondWith(networkFirst(request, CACHE_NAME));
 });

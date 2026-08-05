@@ -1,10 +1,10 @@
-import { CONFIG } from './config.js';
-import { parseCSV } from './parser.js';
-import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen } from './storage.js';
-import * as nav from './navigation.js';
-import * as ui from './ui.js';
-import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js';
-import { init as initAnalytics, trackEvent } from './analytics.js';
+import { CONFIG } from './config.js?v=2026-08-06-001';
+import { parseCSV } from './parser.js?v=2026-08-06-001';
+import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen } from './storage.js?v=2026-08-06-001';
+import * as nav from './navigation.js?v=2026-08-06-001';
+import * as ui from './ui.js?v=2026-08-06-001';
+import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-08-06-001';
+import { init as initAnalytics, trackEvent } from './analytics.js?v=2026-08-06-001';
 
 /**
  * App bootstrap, fetch, and interactivity.
@@ -355,22 +355,120 @@ function hideInstallButton() {
     $('#install-btn-mobile')?.classList.add('hidden');
 }
 
-function initPWA() {
-    // Register service worker
-    if ('serviceWorker' in navigator) {
-        const devHost = ['localhost', '127.0.0.1', '::1', '0.0.0.0'].includes(location.hostname);
-        if (!devHost && location.protocol.startsWith('https')) {
-            navigator.serviceWorker.register('./sw.js')
-                .then((reg) => {
-                    console.log('[PWA] Service Worker registered, scope:', reg.scope);
-                })
-                .catch((err) => {
-                    console.warn('[PWA] Service Worker registration failed:', err);
-                });
-        } else {
-            console.log('[PWA] Skipping SW registration on dev host');
-        }
+// ============================================================
+// PWA update flow
+// ============================================================
+
+const UPDATE_RELOAD_KEY = 'tt-update-reload';
+
+function isDevHost() {
+    return ['localhost', '127.0.0.1', '::1', '0.0.0.0'].includes(location.hostname);
+}
+
+/**
+ * Reload the page at most once per target version. The sessionStorage key
+ * holds the version we already reloaded to, so reload loops are impossible.
+ */
+function reloadOnce(version) {
+    try {
+        if (sessionStorage.getItem(UPDATE_RELOAD_KEY) === version) return false;
+        sessionStorage.setItem(UPDATE_RELOAD_KEY, version);
+    } catch { /* private mode — reload freely */ }
+    if (document.hidden) {
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) window.location.reload();
+        }, { once: true });
+    } else {
+        window.location.reload();
     }
+    return true;
+}
+
+function controllerBuildId() {
+    const scriptURL = navigator.serviceWorker.controller && navigator.serviceWorker.controller.scriptURL;
+    if (!scriptURL) return null;
+    try { return new URL(scriptURL).searchParams.get('v'); } catch { return null; }
+}
+
+/**
+ * Register the Service Worker and drive the update lifecycle:
+ *
+ *   - Every build registers a versioned script URL (sw.js?v=BUILD_ID) so
+ *     browsers always check for an update on startup.
+ *   - When a new worker installs or is waiting, it is asked to
+ *     skipWaiting() immediately (no manual reload, no closing the app).
+ *   - When the new worker takes control (controllerchange) the page
+ *     reloads exactly once, then runs a fully consistent version.
+ *   - The deployed BUILD_ID (build.json) is compared against the running
+ *     BUILD_ID as a safety net for browsers not using the SW; a newer
+ *     version triggers the same single reload.
+ */
+async function initServiceWorkerUpdate() {
+    if (!('serviceWorker' in navigator) || isDevHost() || !location.protocol.startsWith('https')) return;
+
+    const hadController = !!navigator.serviceWorker.controller;
+
+    try {
+        const reg = await navigator.serviceWorker.register('./sw.js?v=' + encodeURIComponent(CONFIG.BUILD_ID));
+
+        const askToActivate = (worker) => {
+            if (worker && worker.state === 'installed') {
+                worker.postMessage({ type: 'SKIP_WAITING' });
+            }
+        };
+
+        // A new worker takes control → reload once to run the new version.
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (!hadController) return; // first install — no reload needed
+            const version = controllerBuildId() || CONFIG.BUILD_ID;
+            reloadOnce(version);
+        });
+
+        // Worker already waiting from a previous session → activate now.
+        askToActivate(reg.waiting);
+
+        // New worker installing → activate as soon as it finishes installing.
+        const watchInstalling = () => {
+            const worker = reg.installing;
+            if (!worker) return;
+            worker.addEventListener('statechange', () => {
+                if (worker.state === 'installed') askToActivate(worker);
+            });
+        };
+        watchInstalling();
+        reg.addEventListener('updatefound', watchInstalling);
+
+        // Re-check for updates while the app stays open, so a deployment
+        // is picked up even in a long-running session.
+        setInterval(() => reg.update().catch(() => {}), 60 * 60 * 1000);
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) reg.update().catch(() => {});
+        });
+
+        console.log('[PWA] Service Worker registered, scope:', reg.scope);
+    } catch (err) {
+        console.warn('[PWA] Service Worker registration/update failed:', err);
+    }
+}
+
+/**
+ * Compare the deployed BUILD_ID against the running one. A difference
+ * means the served HTML predates the deployment, so reload once.
+ * Network-first HTML makes this rare, but it is a cheap guarantee.
+ */
+async function checkForRemoteUpdate() {
+    if (!navigator.onLine || isDevHost()) return;
+    try {
+        const res = await fetch('build.json?v=' + Date.now(), { cache: 'no-store' });
+        if (!res.ok) return;
+        const meta = await res.json();
+        if (meta && meta.id && meta.id !== CONFIG.BUILD_ID) reloadOnce(meta.id);
+    } catch { /* offline / transient — ignore */ }
+}
+
+function initPWA() {
+    initServiceWorkerUpdate();
+    checkForRemoteUpdate();
 
     // Already installed — hide button
     if (isStandalone()) {

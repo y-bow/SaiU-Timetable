@@ -1,0 +1,10 @@
+{
+  "name": "saiu-timetable",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Real-time university timetable PWA",
+  "scripts": {
+    "build": "node build.mjs"
+  }
+}

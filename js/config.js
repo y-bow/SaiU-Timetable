@@ -6,6 +6,11 @@
  * navigation state is available (e.g. first paint before init completes).
  */
 export const CONFIG = {
+    // Build version injected by build.mjs (see js/build.js). Every
+    // deployment produces a new BUILD_ID used to version assets and to
+    // detect updates at startup.
+    BUILD_ID: (window.__TT_BUILD_ID__ && String(window.__TT_BUILD_ID__)) || 'dev',
+
     // Fallback sheet (used only when navigation state is not yet resolved).
     SHEET_ID: '1Jk3KCLqHHzi-jxigIcPpcXZestcxb8Y0BeQLjhiezb8',
     GID: '0',
