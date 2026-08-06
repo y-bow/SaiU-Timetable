@@ -1,10 +1,10 @@
-import { CONFIG } from './config.js?v=2026-08-06-002';
-import { parseCSV } from './parser.js?v=2026-08-06-002';
-import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen, getSelectedDay, setSelectedDay } from './storage.js?v=2026-08-06-002';
-import * as nav from './navigation.js?v=2026-08-06-002';
-import * as ui from './ui.js?v=2026-08-06-002';
-import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-08-06-002';
-import { init as initAnalytics, trackEvent } from './analytics.js?v=2026-08-06-002';
+import { CONFIG } from './config.js?v=2026-08-06-003';
+import { parseCSV } from './parser.js?v=2026-08-06-003';
+import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen, getSelectedDay, setSelectedDay } from './storage.js?v=2026-08-06-003';
+import * as nav from './navigation.js?v=2026-08-06-003';
+import * as ui from './ui.js?v=2026-08-06-003';
+import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-08-06-003';
+import { init as initAnalytics, trackEvent } from './analytics.js?v=2026-08-06-003';
 
 /**
  * App bootstrap, fetch, and interactivity.

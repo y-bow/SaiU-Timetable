@@ -61,6 +61,23 @@ input { font-family: inherit; }
 .hidden { display: none !important; }
 :focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: var(--radius-sm); }
 
+/* ---------- Scrollbar (dark, matches theme) ---------- */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border: 2px solid transparent;
+    border-radius: var(--radius-pill);
+    background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: var(--primary);
+    border: 2px solid transparent;
+    background-clip: padding-box;
+}
+::-webkit-scrollbar-corner { background: transparent; }
+* { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+
 /* ---------- Mobile top bar ---------- */
 .mobile-topbar {
     display: flex;
