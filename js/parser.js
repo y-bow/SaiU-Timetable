@@ -15,19 +15,32 @@ const SECTION_REGEX = /\(Sec\s*(\d+)\)/i;
  * Parse a CSV string into an array of class objects.
  * @param {string} text - raw CSV content
  * @param {string} [parserType='grid'] - 'grid' or 'list'
- * @param {string[]} [trackedCourses] - optional filter list for course names
+ * @param {string[]} [mandatoryCourses] - optional mandatory course names
+ * @param {Array<{id: string, label: string}>} [electives] - optional elective configs
  */
-export function parseCSV(text, parserType = 'grid', trackedCourses = null) {
+export function parseCSV(text, parserType = 'grid', mandatoryCourses = null, electives = null) {
     const raw = parserType === 'list'
-        ? parseListCSV(text)
-        : parseGridCSV(text, trackedCourses);
-    if (!trackedCourses || !trackedCourses.length) return raw;
+        ? parseListCSV(text, electives)
+        : parseGridCSV(text, mandatoryCourses, electives);
+    return filterCourses(raw, mandatoryCourses);
+}
 
-    // Normalize tracked names for case-insensitive prefix matching.
-    const tracked = trackedCourses.map(c => c.trim().toLowerCase());
+/**
+ * Keep only classes a student actually attends. Unsectioned cells are already
+ * scoped to mandatory/elective matches during grid parsing; this also drops
+ * sectioned cells (grid) / rows (list) whose subject is not a mandatory course
+ * when a mandatory list is configured.
+ */
+function filterCourses(raw, mandatoryCourses) {
+    if (!raw.length) return raw;
+    if (!mandatoryCourses || !mandatoryCourses.length) return raw;
+
+    // Normalize mandatory names for case-insensitive prefix matching.
+    const mandatory = mandatoryCourses.map(c => c.trim().toLowerCase());
     return raw.filter(c => {
+        if (c.elective) return true; // selected electives are kept as-is
         const subj = c.subject.trim().toLowerCase();
-        return tracked.some(t => subj === t || subj.startsWith(t) || t.startsWith(subj));
+        return mandatory.some(t => subj === t || subj.startsWith(t) || t.startsWith(subj));
     });
 }
 
@@ -35,15 +48,34 @@ export function parseCSV(text, parserType = 'grid', trackedCourses = null) {
 // Grid parser (SCDS format)
 // ============================================================
 
-function parseGridCSV(text, trackedCourses = null) {
+function parseGridCSV(text, mandatoryCourses = null, electives = null) {
     const lines = text.split(/\r?\n/);
     const data = [];
     let currentDay = null;
 
-    // Build a lookup for fast tracked-course matching
-    const trackedSet = trackedCourses
-        ? new Set(trackedCourses.map(c => c.trim().toLowerCase()))
+    // Normalize mandatory course names for case-insensitive prefix matching.
+    const mandatoryList = mandatoryCourses
+        ? mandatoryCourses.map(c => c.trim().toLowerCase())
         : null;
+
+    // Elective configs. Matching is strict — the elective's full label must be
+    // a prefix of the parsed subject (covers exact matches and suffixed names
+    // like "Course II"). The reverse prefix rule used for mandatory courses is
+    // deliberately avoided here, otherwise a stray one-letter cell such as "I"
+    // would wrongly match "Intelligent Embedded Systems".
+    const electiveList = electives && electives.length ? electives : null;
+
+    const matchesName = (subject, name) =>
+        subject === name || subject.startsWith(name) || name.startsWith(subject);
+
+    const matchElective = (subject) => {
+        if (!electiveList) return null;
+        for (const e of electiveList) {
+            const name = e.label.trim().toLowerCase();
+            if (subject === name || subject.startsWith(name)) return e;
+        }
+        return null;
+    };
 
     for (let i = 0; i < lines.length; i++) {
         if (!lines[i].trim()) continue;
@@ -85,22 +117,30 @@ function parseGridCSV(text, trackedCourses = null) {
                     startTime: times.start,
                     endTime: times.end,
                 });
-            } else if (trackedSet) {
-                // Unsectioned cell — only parse when tracked courses are active
+            } else if (mandatoryList || electiveList) {
+                // Unsectioned cell — parse only when it is a mandatory course
+                // or a configured elective. Everything else belongs to another
+                // year/program and is skipped.
                 const { subject, faculty } = splitSubjectFaculty(cell);
                 const subjLower = subject.trim().toLowerCase();
-                if (subjLower && [...trackedSet].some(t => subjLower === t || subjLower.startsWith(t) || t.startsWith(subjLower))) {
-                    const room = findRoom(lines, i, j);
-                    data.push({
-                        day: currentDay,
-                        subject,
-                        faculty,
-                        room,
-                        section: 1,
-                        startTime: times.start,
-                        endTime: times.end,
-                    });
-                }
+                if (!subjLower) continue;
+
+                const isMandatory = !!mandatoryList &&
+                    mandatoryList.some(t => matchesName(subjLower, t));
+                const elective = isMandatory ? null : matchElective(subjLower);
+                if (!isMandatory && !elective) continue;
+
+                const room = findRoom(lines, i, j);
+                data.push({
+                    day: currentDay,
+                    subject,
+                    faculty,
+                    room,
+                    section: 1,
+                    startTime: times.start,
+                    endTime: times.end,
+                    ...(elective ? { elective: elective.id } : {}),
+                });
             }
         }
     }
@@ -151,6 +191,9 @@ export function splitSubjectFaculty(cell) {
         const m = cell.match(/-\s*(.+)$/);
         if (m) faculty = m[1].trim();
     }
+    // Unwrap a fully-parenthesized faculty name, e.g. "(Aravind)" → "Aravind".
+    const unwrapped = faculty.match(/^\((.+)\)$/);
+    if (unwrapped) faculty = unwrapped[1].trim();
     return { subject, faculty };
 }
 
@@ -160,9 +203,11 @@ export function splitSubjectFaculty(cell) {
 // Time column may be a range "09:00-10:00" or "09:00 AM - 10:00 AM".
 // ============================================================
 
-function parseListCSV(text) {
+function parseListCSV(text, electives = null) {
     const lines = text.split(/\r?\n/);
     const data = [];
+
+    const electiveList = electives && electives.length ? electives : null;
 
     // Detect header row — skip it if the first column looks like a label.
     let startIdx = 0;
@@ -198,6 +243,20 @@ function parseListCSV(text) {
             if (Number.isFinite(n) && n > 0) section = n;
         }
 
+        // Tag rows whose subject is one of the configured electives so the
+        // app can show them only when the student selects them.
+        let elective = null;
+        if (electiveList) {
+            const subjLower = subject.trim().toLowerCase();
+            for (const e of electiveList) {
+                const name = e.label.trim().toLowerCase();
+                if (subjLower === name || subjLower.startsWith(name)) {
+                    elective = e.id;
+                    break;
+                }
+            }
+        }
+
         data.push({
             day,
             subject,
@@ -206,6 +265,7 @@ function parseListCSV(text) {
             section,
             startTime: times.start,
             endTime: times.end,
+            ...(elective ? { elective } : {}),
         });
     }
     return data;

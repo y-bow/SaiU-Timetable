@@ -1,12 +1,13 @@
-import { SCHOOLS, buildYearMap, resolveYears, resolveSections, shouldShowProgram, shouldShowSection } from './schools.js?v=2026-08-06-001';
-import { getNavState, setNavState } from './storage.js?v=2026-08-06-001';
+import { SCHOOLS, buildYearMap, resolveYears, resolveSections, shouldShowProgram, shouldShowSection } from './schools.js?v=2026-08-06-002';
+import { getNavState, setNavState, getStoredElectives, setStoredElectives } from './storage.js?v=2026-08-06-002';
 
 /**
  * Navigation state management.
  *
  * Tracks the current position in the school → program → year → section
- * hierarchy. On every change the module persists the selection and emits
- * a `navchange` CustomEvent so the UI and data layers can react.
+ * hierarchy plus the student's elective selections for the active year.
+ * On every change the module persists the selection and emits a `navchange`
+ * CustomEvent so the UI and data layers can react.
  */
 
 let state = {
@@ -15,6 +16,7 @@ let state = {
     year: null,
     section: null,
     yearConfig: null,
+    electives: [],
 };
 
 const yearMap = buildYearMap();
@@ -27,6 +29,7 @@ export function getYear() { return state.year; }
 export function getSection() { return state.section; }
 export function getYearConfig() { return state.yearConfig; }
 export function getState() { return { ...state }; }
+export function getSelectedElectives() { return state.electives; }
 
 // --- Helpers ---
 
@@ -50,6 +53,15 @@ function resolveYearConfig(school, program, yearId) {
     if (!school || !yearId) return null;
     const years = program ? (program.years || []) : (school.years || []);
     return years.find(y => y.id === yearId) || null;
+}
+
+// Restore the student's saved electives for a year, dropping ids that are no
+// longer offered by the config (e.g. electives removed from the timetable).
+function loadElectivesForYear(yearConfig) {
+    const available = (yearConfig && yearConfig.electives) || [];
+    if (!available.length) return [];
+    const saved = yearConfig ? getStoredElectives(yearConfig.id) : [];
+    return saved.filter(id => available.some(e => e.id === id));
 }
 
 // --- Navigation ---
@@ -109,7 +121,7 @@ export function initNavigation() {
         }
     }
 
-    state = { school, program, year: yearConfig, section, yearConfig };
+    state = { school, program, year: yearConfig, section, yearConfig, electives: loadElectivesForYear(yearConfig) };
     persist();
     emit();
     return state;
@@ -142,7 +154,7 @@ export function navigateToSchool(schoolId) {
         }
     }
 
-    state = { school, program, year: yearConfig, section, yearConfig };
+    state = { school, program, year: yearConfig, section, yearConfig, electives: loadElectivesForYear(yearConfig) };
     persist();
     emit();
 }
@@ -172,7 +184,7 @@ export function navigateToProgram(programId) {
         }
     }
 
-    state = { ...state, program, year: yearConfig, section, yearConfig };
+    state = { ...state, program, year: yearConfig, section, yearConfig, electives: loadElectivesForYear(yearConfig) };
     persist();
     emit();
 }
@@ -200,7 +212,7 @@ export function navigateToYear(yearId) {
         }
     }
 
-    state = { ...state, year: yearConfig, section, yearConfig };
+    state = { ...state, year: yearConfig, section, yearConfig, electives: loadElectivesForYear(yearConfig) };
     persist();
     emit();
 }
@@ -211,6 +223,19 @@ export function navigateToYear(yearId) {
 export function navigateToSection(section) {
     state = { ...state, section };
     persist();
+    emit();
+}
+
+/**
+ * Set the student's selected electives for the active year.
+ * Only ids offered by the current year config are kept, so a stale or
+ * forged selection never leaks into the timetable.
+ */
+export function setSelectedElectives(ids) {
+    const available = availableElectives();
+    const valid = (ids || []).filter(id => available.some(e => e.id === id));
+    state = { ...state, electives: valid };
+    if (state.year) setStoredElectives(state.year.id, valid);
     emit();
 }
 
@@ -245,6 +270,10 @@ export function availableSections() {
     return resolveSections(state.year);
 }
 
+export function availableElectives() {
+    return (state.year && state.year.electives) || [];
+}
+
 export function showProgramSelector() {
     return state.school ? shouldShowProgram(state.school) : false;
 }
@@ -260,8 +289,12 @@ export function getSheetUrl() {
     return `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid || '0'}`;
 }
 
-export function getTrackedCourses() {
-    return state.year?.trackedCourses || null;
+export function getMandatoryCourses() {
+    return state.year?.mandatoryCourses || null;
+}
+
+export function getElectives() {
+    return state.year?.electives || null;
 }
 
 export function getParserType() {

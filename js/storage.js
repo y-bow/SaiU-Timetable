@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=2026-08-06-001';
+import { CONFIG } from './config.js?v=2026-08-06-002';
 
 /**
  * localStorage persistence: timetable cache, room-change map,
@@ -114,4 +114,42 @@ export function hasSeenSectionModal() {
 
 export function markSectionModalSeen() {
     localStorage.setItem('tt-section-modal-seen', '1');
+}
+
+// --- Elective selections (persisted per year) ---
+//
+// Stored under a per-year key so switching schools/programs/years restores
+// each year's own elective choices instead of leaking them across classes.
+
+export function getStoredElectives(yearId) {
+    if (!yearId) return [];
+    const raw = localStorage.getItem(`tt-nav-electives-${yearId}`);
+    if (!raw) return [];
+    try {
+        const arr = JSON.parse(raw);
+        return Array.isArray(arr) ? arr : [];
+    } catch { return []; }
+}
+
+export function setStoredElectives(yearId, ids) {
+    if (!yearId) return;
+    const key = `tt-nav-electives-${yearId}`;
+    const clean = (ids || []).filter(Boolean);
+    if (!clean.length) localStorage.removeItem(key);
+    else localStorage.setItem(key, JSON.stringify(clean));
+}
+
+// --- Selected weekday (persisted across sessions/updates) ---
+
+export function getSelectedDay() {
+    const day = localStorage.getItem('tt-nav-day');
+    return day && CONFIG.WEEKDAYS.includes(day) ? day : null;
+}
+
+export function setSelectedDay(day) {
+    if (day && CONFIG.WEEKDAYS.includes(day)) {
+        localStorage.setItem('tt-nav-day', day);
+    } else {
+        localStorage.removeItem('tt-nav-day');
+    }
 }

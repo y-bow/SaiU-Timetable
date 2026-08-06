@@ -15,6 +15,15 @@
 //     ones are purged with the old cache. A consistent version is served.
 //   - Timetable data (Google Sheets) is NETWORK-FIRST with cache fallback.
 //
+// Application Cache vs User Preferences:
+//   - This worker only ever manages the Cache Storage API (the application
+//     cache). On activation it deletes every cache except the current
+//     versioned build cache and the timetable-sheet cache.
+//   - User preferences (selected school/program/year/section/electives/day)
+//     live in localStorage under `tt-*` keys. Service workers cannot even
+//     access localStorage, so cache purging can never touch them — updates
+//     replace cached assets while every user selection survives.
+//
 // Local / dev hosts must NEVER be controlled by a service worker. A stale
 // worker serves the cached app shell (cache-first), so edits made while
 // developing with Live Server (or any local static server) never appear.
@@ -23,7 +32,7 @@ const isDevHost = DEV_HOSTS.includes(self.location.hostname);
 
 // Replaced by build.mjs on every build — the file's bytes change every
 // deployment so the Service Worker update is always detected.
-const BUILD_ID = '2026-08-06-001';
+const BUILD_ID = '2026-08-06-002';
 
 const CACHE_NAME = 'saiu-timetable-v' + BUILD_ID;
 const SHEET_CACHE = 'timetable-sheet-v1';

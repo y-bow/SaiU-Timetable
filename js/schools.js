@@ -1,10 +1,23 @@
 /**
  * Multi-school configuration.
  *
- * Each school defines its hierarchy: school → program (optional) → year →
- * section (optional) → timetable source. The UI reads this tree and
- * automatically renders the correct selectors — no hardcoded UI changes
- * are needed when a new school is added.
+ * Each school defines its hierarchy:
+ *
+ *     school → program (optional) → year → section (optional)
+ *              → mandatory courses → elective courses
+ *
+ * The UI reads this tree and automatically renders the correct selectors —
+ * no hardcoded UI changes are needed when a new school is added.
+ *
+ * Course lists (per year):
+ *   - mandatoryCourses: unsectioned courses that every student attends.
+ *     Used for formats where the class has no `(Sec N)` label but still
+ *     belongs to the year (e.g. SOAI / SOB). Optional.
+ *   - electives: optional courses chosen individually by each student
+ *     (zero, one, or many). Students pick them in the sidebar and the
+ *     timetable merges the selected electives with the mandatory classes.
+ *     Each elective needs a stable `id` and a `label` that matches the
+ *     course name in the timetable data.
  *
  * Adding a school = editing this file. No UI code changes required.
  */
@@ -22,7 +35,11 @@ export const SCHOOLS = [
                 sheetId: '1Jk3KCLqHHzi-jxigIcPpcXZestcxb8Y0BeQLjhiezb8',
                 gid: '0',
                 parser: 'grid',
-                trackedCourses: null,
+                mandatoryCourses: null,
+                electives: [
+                    { id: 'intelligent-embedded-systems', label: 'Intelligent Embedded Systems' },
+                    { id: 'emerging-tools-and-applications', label: 'Emerging Tools and Applications' },
+                ],
             },
         ],
     },
@@ -38,12 +55,13 @@ export const SCHOOLS = [
                 sheetId: '1Jk3KCLqHHzi-jxigIcPpcXZestcxb8Y0BeQLjhiezb8',
                 gid: '0',
                 parser: 'grid',
-                trackedCourses: [
+                mandatoryCourses: [
                     'Differential Equations',
                     'Frontiers of Machine Learning',
                     'Discrete Mathematics',
                     'Human AI Interaction',
                 ],
+                electives: null,
             },
         ],
     },
@@ -62,12 +80,13 @@ export const SCHOOLS = [
                         sheetId: '1Jk3KCLqHHzi-jxigIcPpcXZestcxb8Y0BeQLjhiezb8',
                         gid: '0',
                         parser: 'grid',
-                        trackedCourses: [
+                        mandatoryCourses: [
                             'Corporate and Business Law',
                             'Operations Research',
                             'Human Resource Management',
                             'Principles in Financial Management',
                         ],
+                        electives: null,
                     },
                 ],
             },

@@ -1,5 +1,5 @@
-import { CONFIG } from './config.js?v=2026-08-06-001';
-import { toMinutes, minutesToLabel, minutesToClock, todayName, isBeforeToday, WEEKDAYS } from './utils.js?v=2026-08-06-001';
+import { CONFIG } from './config.js?v=2026-08-06-002';
+import { toMinutes, minutesToLabel, minutesToClock, todayName, isBeforeToday, WEEKDAYS } from './utils.js?v=2026-08-06-002';
 
 /**
  * DOM rendering — sidebar filters + timeline.
@@ -61,6 +61,15 @@ export function renderSidebar(state) {
         sectionWrapper.classList.toggle('hidden', !show);
         if (show) {
             renderSidebarSectionList('sidebar-sections', state.sections, state.sectionId);
+        }
+    }
+
+    const electiveSection = $('#sidebar-elective-section');
+    if (electiveSection) {
+        const show = state.electives && state.electives.length > 0;
+        electiveSection.classList.toggle('hidden', !show);
+        if (show) {
+            renderSidebarElectives('sidebar-electives', state.electives, state.selectedElectives);
         }
     }
 }
@@ -127,6 +136,44 @@ function renderSidebarSectionList(containerId, sections, selectedId) {
         btn.innerHTML = `<span class="sidebar-item-radio"></span><span class="sidebar-item-label">Section ${s}</span>`;
         btn.addEventListener('click', () => {
             window.dispatchEvent(new CustomEvent('sectionchange', { detail: { section: s } }));
+        });
+        container.appendChild(btn);
+    }
+}
+
+/**
+ * Multi-select elective list. Unlike the radio-style selectors, each item is
+ * an independent checkbox: a student may pick zero, one, or many electives.
+ */
+function renderSidebarElectives(containerId, electives, selectedIds) {
+    const container = $(`#${containerId}`);
+    if (!container) return;
+
+    const sig = electives.map(e => e.id).join(',');
+    if (container.dataset.sig === sig) {
+        for (const btn of container.children) {
+            const active = !!(selectedIds && selectedIds.includes(btn.dataset.electiveId));
+            btn.classList.toggle('active', active);
+            btn.setAttribute('aria-checked', active ? 'true' : 'false');
+        }
+        return;
+    }
+
+    container.innerHTML = '';
+    container.dataset.sig = sig;
+    for (const e of electives) {
+        const selected = selectedIds && selectedIds.includes(e.id);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'sidebar-item sidebar-item-check' + (selected ? ' active' : '');
+        btn.dataset.electiveId = e.id;
+        btn.setAttribute('role', 'checkbox');
+        btn.setAttribute('aria-checked', selected ? 'true' : 'false');
+        btn.setAttribute('aria-label', e.label);
+        btn.innerHTML = `<span class="sidebar-item-checkbox"></span><span class="sidebar-item-label">${escapeHtml(e.label)}</span>`;
+        btn.addEventListener('click', () => {
+            const checked = !btn.classList.contains('active');
+            window.dispatchEvent(new CustomEvent('electivetoggle', { detail: { electiveId: e.id, checked } }));
         });
         container.appendChild(btn);
     }

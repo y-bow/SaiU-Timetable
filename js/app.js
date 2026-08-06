@@ -1,10 +1,10 @@
-import { CONFIG } from './config.js?v=2026-08-06-001';
-import { parseCSV } from './parser.js?v=2026-08-06-001';
-import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen } from './storage.js?v=2026-08-06-001';
-import * as nav from './navigation.js?v=2026-08-06-001';
-import * as ui from './ui.js?v=2026-08-06-001';
-import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-08-06-001';
-import { init as initAnalytics, trackEvent } from './analytics.js?v=2026-08-06-001';
+import { CONFIG } from './config.js?v=2026-08-06-002';
+import { parseCSV } from './parser.js?v=2026-08-06-002';
+import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen, getSelectedDay, setSelectedDay } from './storage.js?v=2026-08-06-002';
+import * as nav from './navigation.js?v=2026-08-06-002';
+import * as ui from './ui.js?v=2026-08-06-002';
+import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-08-06-002';
+import { init as initAnalytics, trackEvent } from './analytics.js?v=2026-08-06-002';
 
 /**
  * App bootstrap, fetch, and interactivity.
@@ -27,9 +27,19 @@ function contextDay() {
 
 function sectionClasses() {
     const yearConfig = nav.getYear();
-    const hasSections = yearConfig && yearConfig.sections && yearConfig.sections.length > 1;
-    if (!hasSections) return classes;
-    return selectedSection == null ? [] : classes.filter(c => c.section === selectedSection);
+    if (!yearConfig) return classes;
+
+    const hasSections = yearConfig.sections && yearConfig.sections.length > 1;
+    const selectedElectives = new Set(nav.getSelectedElectives());
+
+    return classes.filter((c) => {
+        // Electives are individual choices — show only the ones selected.
+        if (c.elective) return selectedElectives.has(c.elective);
+        // Mandatory sectioned classes depend on the selected section.
+        if (hasSections) return selectedSection != null && c.section === selectedSection;
+        // Single-section / mandatory-course years show everything else.
+        return true;
+    });
 }
 
 // ============================================================
@@ -50,6 +60,8 @@ function renderNavigation() {
         yearId: year?.id || null,
         sections: nav.availableSections(),
         sectionId: selectedSection,
+        electives: nav.availableElectives(),
+        selectedElectives: nav.getSelectedElectives(),
     });
 
     ui.renderDayFilter(selectedDay || contextDay());
@@ -119,7 +131,7 @@ async function load({ silent = false, background = false } = {}) {
         const res = await fetch(sheetUrl);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const text = await res.text();
-        const parsed = parseCSV(text, nav.getParserType(), nav.getTrackedCourses());
+        const parsed = parseCSV(text, nav.getParserType(), nav.getMandatoryCourses(), nav.getElectives());
         if (!parsed.length) throw new Error('No classes parsed');
         classes = parsed;
         lastUpdated = new Date();
@@ -319,8 +331,17 @@ function initNavigationListeners() {
         trackEvent('section_changed', { section: s });
         render(); ui.closeDrawer();
     });
+    window.addEventListener('electivetoggle', (e) => {
+        const ids = new Set(nav.getSelectedElectives());
+        if (e.detail.checked) ids.add(e.detail.electiveId);
+        else ids.delete(e.detail.electiveId);
+        nav.setSelectedElectives([...ids]);
+        trackEvent('elective_toggled', { elective: e.detail.electiveId, checked: e.detail.checked });
+        render();
+    });
     window.addEventListener('daychange', (e) => {
         selectedDay = e.detail.day;
+        setSelectedDay(selectedDay);
         trackEvent('weekday_changed', { weekday: e.detail.day });
         render();
     });
@@ -532,6 +553,7 @@ function init() {
     nav.initNavigation();
     migrateLegacySection();
     selectedSection = nav.getState().section;
+    selectedDay = getSelectedDay();
 
     initHamburger();
     initPullToRefresh();
