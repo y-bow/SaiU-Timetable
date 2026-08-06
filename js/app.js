@@ -1,10 +1,10 @@
-import { CONFIG } from './config.js?v=2026-08-06-003';
-import { parseCSV } from './parser.js?v=2026-08-06-003';
-import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen, getSelectedDay, setSelectedDay } from './storage.js?v=2026-08-06-003';
-import * as nav from './navigation.js?v=2026-08-06-003';
-import * as ui from './ui.js?v=2026-08-06-003';
-import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-08-06-003';
-import { init as initAnalytics, trackEvent } from './analytics.js?v=2026-08-06-003';
+import { CONFIG } from './config.js?v=2026-08-06-010';
+import { parseCSV, offeringKey } from './parser.js?v=2026-08-06-010';
+import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen, getSelectedDay, setSelectedDay } from './storage.js?v=2026-08-06-010';
+import * as nav from './navigation.js?v=2026-08-06-010';
+import * as ui from './ui.js?v=2026-08-06-010';
+import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-08-06-010';
+import { init as initAnalytics, trackEvent } from './analytics.js?v=2026-08-06-010';
 
 /**
  * App bootstrap, fetch, and interactivity.
@@ -32,14 +32,39 @@ function sectionClasses() {
     const hasSections = yearConfig.sections && yearConfig.sections.length > 1;
     const selectedElectives = new Set(nav.getSelectedElectives());
 
-    return classes.filter((c) => {
-        // Electives are individual choices — show only the ones selected.
-        if (c.elective) return selectedElectives.has(c.elective);
+    return classes.flatMap((c) => {
+        // Electives are individual choices — show only the ones selected,
+        // resolving the student's chosen offering into a single normal class.
+        if (c.elective) {
+            if (!selectedElectives.has(c.elective)) return [];
+            return [resolveOffering(c)];
+        }
         // Mandatory sectioned classes depend on the selected section.
-        if (hasSections) return selectedSection != null && c.section === selectedSection;
+        if (hasSections) return selectedSection != null && c.section === selectedSection ? [c] : [];
         // Single-section / mandatory-course years show everything else.
-        return true;
+        return [c];
     });
+}
+
+// Resolve a (possibly multi-offering) elective event down to the one offering
+// the student attends. Falls back to the first offering when nothing is
+// stored or the stored key no longer matches. Resulting classes carry the
+// chosen offering's faculty/room/section, so every downstream consumer
+// (timeline, countdown, search, room-change) sees one normal class.
+function resolveOffering(c) {
+    if (!c.offerings || c.offerings.length <= 1) return c;
+    const stored = nav.getSelectedOffering(c.elective);
+    const idx = stored ? c.offerings.findIndex(o => offeringKey(o) === stored) : -1;
+    const chosen = c.offerings[idx >= 0 ? idx : 0];
+    const resolved = {
+        ...c,
+        selectedOffering: idx >= 0 ? idx : 0,
+        faculty: chosen.faculty,
+        room: chosen.room,
+        section: chosen.section,
+    };
+    applyRoomChange(resolved);
+    return resolved;
 }
 
 // ============================================================
@@ -159,21 +184,47 @@ function writeCache(key, data) {
     catch { /* full */ }
 }
 
+const PLACEHOLDER_ROOM = /^(tba|tbd|to be announced|to be decided|room tba|n\/?a)$/i;
+
+// Compute the stable room-change key + normalized room for one class/offering
+// and detect a change against the persisted map. The key must stay identical
+// to what updateRoomMapWithKey stores.
+function roomChangeFor(c, map) {
+    const ck = `${c.subject}|${c.faculty}|${c.section ?? ''}|${c.day ?? ''}|${c.startTime ?? ''}`;
+    const rawRoom = String(c.room ?? '').replace(/\s+/g, ' ').trim();
+    const room = rawRoom && !PLACEHOLDER_ROOM.test(rawRoom) ? rawRoom.toLowerCase() : '';
+    const prevRaw = String(map[ck] ?? '').trim();
+    const prev = prevRaw && !PLACEHOLDER_ROOM.test(prevRaw) ? prevRaw.toLowerCase() : '';
+    return { key: ck, room: rawRoom, changed: !!(room && prev && prev !== room), original: prevRaw };
+}
+
 function updateRoomMapWithKey(classes) {
     const key = getRoomCacheKey();
-    const PLACEHOLDER = /^(tba|tbd|to be announced|to be decided|room tba|n\/?a)$/i;
     let map = {};
     try { const raw = localStorage.getItem(key); map = raw ? JSON.parse(raw) : {}; } catch { map = {}; }
     for (const c of classes) {
-        const ck = `${c.subject}|${c.faculty}|${c.section ?? ''}|${c.day ?? ''}|${c.startTime ?? ''}`;
-        const rawRoom = String(c.room ?? '').replace(/\s+/g, ' ').trim();
-        const room = rawRoom && !PLACEHOLDER.test(rawRoom) ? rawRoom.toLowerCase() : '';
-        const prevRaw = String(map[ck] ?? '').trim();
-        const prev = prevRaw && !PLACEHOLDER.test(prevRaw) ? prevRaw.toLowerCase() : '';
-        if (room && prev && prev !== room) { c.roomChanged = true; c.originalRoom = prevRaw; }
-        if (room) map[ck] = rawRoom;
+        // Multi-offering events register a map entry per offering, keyed by
+        // each offering's faculty/section, so the chosen offering's room
+        // change is detected after resolution.
+        const entries = (c.offerings && c.offerings.length > 1)
+            ? c.offerings.map(o => ({ subject: c.subject, faculty: o.faculty, section: o.section, day: c.day, startTime: c.startTime, room: o.room }))
+            : [c];
+        for (const e of entries) {
+            const r = roomChangeFor(e, map);
+            if (e === c && r.changed) { c.roomChanged = true; c.originalRoom = r.original; }
+            if (r.room) map[r.key] = r.room;
+        }
     }
     try { localStorage.setItem(key, JSON.stringify(map)); } catch { /* full */ }
+}
+
+// Recompute the room-change badge for an already-resolved class (used for the
+// offering chosen after a multi-offering event is resolved).
+function applyRoomChange(c) {
+    let map = {};
+    try { const raw = localStorage.getItem(getRoomCacheKey()); map = raw ? JSON.parse(raw) : {}; } catch { map = {}; }
+    const r = roomChangeFor(c, map);
+    if (r.changed) { c.roomChanged = true; c.originalRoom = r.original; }
 }
 
 // ============================================================
@@ -337,6 +388,11 @@ function initNavigationListeners() {
         else ids.delete(e.detail.electiveId);
         nav.setSelectedElectives([...ids]);
         trackEvent('elective_toggled', { elective: e.detail.electiveId, checked: e.detail.checked });
+        render();
+    });
+    window.addEventListener('offeringchange', (e) => {
+        nav.setSelectedOffering(e.detail.electiveId, e.detail.offeringKey);
+        trackEvent('offering_changed', { elective: e.detail.electiveId });
         render();
     });
     window.addEventListener('daychange', (e) => {

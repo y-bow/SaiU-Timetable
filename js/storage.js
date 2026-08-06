@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=2026-08-06-003';
+import { CONFIG } from './config.js?v=2026-08-06-010';
 
 /**
  * localStorage persistence: timetable cache, room-change map,
@@ -137,6 +137,32 @@ export function setStoredElectives(yearId, ids) {
     const clean = (ids || []).filter(Boolean);
     if (!clean.length) localStorage.removeItem(key);
     else localStorage.setItem(key, JSON.stringify(clean));
+}
+
+// --- Elective offering selection (persisted per year) ---
+//
+// Maps electiveId → chosen offeringKey (see parser.offeringKey). Stored per
+// year so each course keeps its own offering choice, and stale keys (from a
+// removed offering) are silently ignored by the resolver.
+
+export function getStoredOfferings(yearId) {
+    if (!yearId) return {};
+    const raw = localStorage.getItem(`tt-nav-offerings-${yearId}`);
+    if (!raw) return {};
+    try {
+        const obj = JSON.parse(raw);
+        return obj && typeof obj === 'object' ? obj : {};
+    } catch { return {}; }
+}
+
+export function setStoredOffering(yearId, electiveId, offeringKey) {
+    if (!yearId || !electiveId) return;
+    const key = `tt-nav-offerings-${yearId}`;
+    const map = getStoredOfferings(yearId);
+    if (offeringKey == null) delete map[electiveId];
+    else map[electiveId] = offeringKey;
+    if (!Object.keys(map).length) localStorage.removeItem(key);
+    else localStorage.setItem(key, JSON.stringify(map));
 }
 
 // --- Selected weekday (persisted across sessions/updates) ---

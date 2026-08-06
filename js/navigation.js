@@ -1,11 +1,12 @@
-import { SCHOOLS, buildYearMap, resolveYears, resolveSections, shouldShowProgram, shouldShowSection } from './schools.js?v=2026-08-06-003';
-import { getNavState, setNavState, getStoredElectives, setStoredElectives } from './storage.js?v=2026-08-06-003';
+import { SCHOOLS, buildYearMap, resolveYears, resolveSections, shouldShowProgram, shouldShowSection } from './schools.js?v=2026-08-06-010';
+import { getNavState, setNavState, getStoredElectives, setStoredElectives, getStoredOfferings, setStoredOffering } from './storage.js?v=2026-08-06-010';
 
 /**
  * Navigation state management.
  *
  * Tracks the current position in the school → program → year → section
- * hierarchy plus the student's elective selections for the active year.
+ * hierarchy plus the student's elective selections (which electives are
+ * taken, and which offering of each elective is chosen) for the active year.
  * On every change the module persists the selection and emits a `navchange`
  * CustomEvent so the UI and data layers can react.
  */
@@ -17,6 +18,7 @@ let state = {
     section: null,
     yearConfig: null,
     electives: [],
+    offeringSelections: {},
 };
 
 const yearMap = buildYearMap();
@@ -30,6 +32,9 @@ export function getSection() { return state.section; }
 export function getYearConfig() { return state.yearConfig; }
 export function getState() { return { ...state }; }
 export function getSelectedElectives() { return state.electives; }
+export function getSelectedOffering(electiveId) {
+    return (state.offeringSelections && state.offeringSelections[electiveId]) || null;
+}
 
 // --- Helpers ---
 
@@ -62,6 +67,12 @@ function loadElectivesForYear(yearConfig) {
     if (!available.length) return [];
     const saved = yearConfig ? getStoredElectives(yearConfig.id) : [];
     return saved.filter(id => available.some(e => e.id === id));
+}
+
+// Restore the saved offering choice per elective for a year. Keys for
+// offerings that no longer exist are ignored by the resolver at render time.
+function loadOfferingsForYear(yearConfig) {
+    return yearConfig ? getStoredOfferings(yearConfig.id) : {};
 }
 
 // --- Navigation ---
@@ -121,7 +132,7 @@ export function initNavigation() {
         }
     }
 
-    state = { school, program, year: yearConfig, section, yearConfig, electives: loadElectivesForYear(yearConfig) };
+    state = { school, program, year: yearConfig, section, yearConfig, electives: loadElectivesForYear(yearConfig), offeringSelections: loadOfferingsForYear(yearConfig) };
     persist();
     emit();
     return state;
@@ -154,7 +165,7 @@ export function navigateToSchool(schoolId) {
         }
     }
 
-    state = { school, program, year: yearConfig, section, yearConfig, electives: loadElectivesForYear(yearConfig) };
+    state = { school, program, year: yearConfig, section, yearConfig, electives: loadElectivesForYear(yearConfig), offeringSelections: loadOfferingsForYear(yearConfig) };
     persist();
     emit();
 }
@@ -184,7 +195,7 @@ export function navigateToProgram(programId) {
         }
     }
 
-    state = { ...state, program, year: yearConfig, section, yearConfig, electives: loadElectivesForYear(yearConfig) };
+    state = { ...state, program, year: yearConfig, section, yearConfig, electives: loadElectivesForYear(yearConfig), offeringSelections: loadOfferingsForYear(yearConfig) };
     persist();
     emit();
 }
@@ -212,7 +223,7 @@ export function navigateToYear(yearId) {
         }
     }
 
-    state = { ...state, year: yearConfig, section, yearConfig, electives: loadElectivesForYear(yearConfig) };
+    state = { ...state, year: yearConfig, section, yearConfig, electives: loadElectivesForYear(yearConfig), offeringSelections: loadOfferingsForYear(yearConfig) };
     persist();
     emit();
 }
@@ -237,6 +248,20 @@ export function setSelectedElectives(ids) {
     state = { ...state, electives: valid };
     if (state.year) setStoredElectives(state.year.id, valid);
     emit();
+}
+
+/**
+ * Set which offering of an elective the student attends. Persisted per year;
+ * the chosen key is matched against each course event's offerings at render
+ * time, so it only applies where the offering actually exists.
+ */
+export function setSelectedOffering(electiveId, offeringKey) {
+    if (!electiveId) return;
+    const next = { ...state.offeringSelections };
+    if (offeringKey == null) delete next[electiveId];
+    else next[electiveId] = offeringKey;
+    state = { ...state, offeringSelections: next };
+    if (state.year) setStoredOffering(state.year.id, electiveId, offeringKey);
 }
 
 function persist() {

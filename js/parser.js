@@ -6,6 +6,15 @@
  *   2. `list` — flat list format: Day, Time, Subject, Faculty, Room, Section
  *
  * The parser is selected dynamically per school/year from the config.
+ *
+ * Parsed output is normalized before it reaches the app:
+ *   - consecutive sessions of one continuous class are merged into a single
+ *     event (same course, faculty, room and slot continuity; a small gap
+ *     between back-to-back slots is allowed),
+ *   - parallel offerings of the same elective that share a slot are grouped
+ *     into ONE event carrying an `offerings` array (faculty/room/section).
+ *   This is fully data-driven — any elective with multiple offerings in the
+ *   sheet is supported with no per-course configuration.
  */
 
 const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
@@ -22,7 +31,7 @@ export function parseCSV(text, parserType = 'grid', mandatoryCourses = null, ele
     const raw = parserType === 'list'
         ? parseListCSV(text, electives)
         : parseGridCSV(text, mandatoryCourses, electives);
-    return filterCourses(raw, mandatoryCourses);
+    return normalizeEvents(filterCourses(raw, mandatoryCourses));
 }
 
 /**
@@ -42,6 +51,146 @@ function filterCourses(raw, mandatoryCourses) {
         const subj = c.subject.trim().toLowerCase();
         return mandatory.some(t => subj === t || subj.startsWith(t) || t.startsWith(subj));
     });
+}
+
+// ============================================================
+// Normalization: merge consecutive sessions + group parallel
+// elective offerings into a single course event.
+//
+//   Course → Offerings → Faculty → Room → Section → Selection
+//
+// Both steps run at parse time, so the rest of the app only ever
+// sees merged, de-duplicated timetable entries.
+// ============================================================
+
+const norm = (s) => String(s ?? '').trim().toLowerCase();
+
+function toMinutesOfDay(t) {
+    const [h, m] = String(t ?? '0:00').split(':').map(Number);
+    return (h || 0) * 60 + (m || 0);
+}
+
+/**
+ * Stable identity of a single offering. Persisted as the student's choice,
+ * so it must stay stable across refreshes and only change when the
+ * timetable data itself changes.
+ */
+export function offeringKey(offering) {
+    return [offering.section ?? '', norm(offering.faculty), norm(offering.room)].join('|');
+}
+
+/**
+ * Merge sessions that are one continuous class into a single entry.
+ *
+ * Merge ONLY when all of the following hold:
+ *   - same day
+ *   - same section
+ *   - same subject (never different courses)
+ *   - same elective (or both non-elective)
+ *   - same faculty (or both unknown)
+ *   - same room (or both unknown)
+ *   - time slots are consecutive or near-consecutive: the gap between
+ *     last.endTime and c.startTime is a small break (<= MERGE_GAP_MIN),
+ *     covering back-to-back slots like 3:00-3:55 + 4:00-4:55 that are one
+ *     continuous class. The identical course/faculty/room requirement keeps
+ *     unrelated 5-minute-apart classes from being merged.
+ */
+const MERGE_GAP_MIN = 10;
+
+function mergeConsecutive(classes) {
+    if (classes.length < 2) return classes;
+
+    const dayOrder = Object.fromEntries(DAYS.map((d, i) => [norm(d), i]));
+    const sorted = [...classes].sort((a, b) => {
+        const da = dayOrder[norm(a.day)] ?? 0;
+        const db = dayOrder[norm(b.day)] ?? 0;
+        if (da !== db) return da - db;
+        return toMinutesOfDay(a.startTime) - toMinutesOfDay(b.startTime);
+    });
+
+    const out = [];
+    for (const c of sorted) {
+        const last = out[out.length - 1];
+        const gap = toMinutesOfDay(c.startTime) - toMinutesOfDay(last && last.endTime);
+        const mergeable = last &&
+            norm(last.day) === norm(c.day) &&
+            last.section === c.section &&
+            (last.elective || null) === (c.elective || null) &&
+            norm(last.subject) === norm(c.subject) &&
+            norm(last.faculty) === norm(c.faculty) &&
+            norm(last.room) === norm(c.room) &&
+            gap >= 0 && gap <= MERGE_GAP_MIN;
+        if (mergeable) {
+            last.endTime = c.endTime;
+        } else {
+            out.push({ ...c });
+        }
+    }
+    return out;
+}
+
+/**
+ * Group parallel offerings of the same elective that share a time slot into
+ * ONE course event. The offerings are kept side-by-side; a single-offering
+ * elective stays a flat, backward-compatible class object.
+ */
+function groupElectiveOfferings(classes) {
+    if (!classes.length) return classes;
+
+    const groups = new Map();
+    for (const c of classes) {
+        if (!c.elective) continue;
+        const key = `${c.elective}|${c.day}|${c.startTime}|${c.endTime}`;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(c);
+    }
+    if (!groups.size) return classes;
+
+    const out = [];
+    const emitted = new Set();
+    for (const c of classes) {
+        if (c.elective) {
+            const key = `${c.elective}|${c.day}|${c.startTime}|${c.endTime}`;
+            if (emitted.has(key)) continue;
+            emitted.add(key);
+
+            const offerings = [];
+            const seen = new Set();
+            for (const g of groups.get(key)) {
+                const off = {
+                    faculty: g.faculty || '',
+                    room: g.room || '',
+                    section: g.section ?? 1,
+                };
+                const k = offeringKey(off);
+                if (seen.has(k)) continue;
+                seen.add(k);
+                offerings.push(off);
+            }
+
+            if (offerings.length > 1) {
+                out.push({
+                    day: c.day,
+                    subject: c.subject,
+                    startTime: c.startTime,
+                    endTime: c.endTime,
+                    elective: c.elective,
+                    offerings,
+                });
+            } else {
+                const off = offerings[0];
+                out.push({ ...c, faculty: off.faculty, room: off.room, section: off.section });
+            }
+        } else {
+            out.push(c);
+        }
+    }
+    return out;
+}
+
+function normalizeEvents(classes) {
+    if (!classes.length) return classes;
+    return groupElectiveOfferings(mergeConsecutive(classes));
 }
 
 // ============================================================
