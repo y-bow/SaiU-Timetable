@@ -60,6 +60,8 @@ export const SCHOOLS = [
                     { id: 'computer-networks', label: 'Computer Networks' },
                     { id: 'financial-reporting-and-analysis', label: 'Financial Reporting and Analysis' },
                     { id: 'organizational-psychology', label: 'Organizational Psychology' },
+                    { id: 'computer-organization-and-architecture', label: 'Computer Organization and Architecture' },
+                    { id: 'human-ai-interaction', label: 'Human AI Interaction' },
                 ],
             },
         ],
