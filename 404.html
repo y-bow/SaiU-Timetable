@@ -401,7 +401,7 @@
         }
 
         function handlePointerMove(e) {
-            if (state !== 'playing' || !isPointerDown) return;
+            if (state !== 'playing' || !isPointerDown || e.pointerType !== 'touch') return;
             const x = getCanvasRelativeX(e.clientX);
             // Center the paddle on the pointer, clamped cleanly within insets
             paddle.x = Math.max(PADDLE_MARGIN, Math.min(LOGICAL_WIDTH - paddle.width - PADDLE_MARGIN, x - paddle.width / 2));
@@ -414,14 +414,14 @@
         }
 
         function handlePointerDown(e) {
-            if (state !== 'playing') return;
+            if (state !== 'playing' || e.pointerType !== 'touch') return;
             isPointerDown = true;
             
-            // Set position immediately on click/touch down
+            // Set position immediately on touch down
             const x = getCanvasRelativeX(e.clientX);
             paddle.x = Math.max(PADDLE_MARGIN, Math.min(LOGICAL_WIDTH - paddle.width - PADDLE_MARGIN, x - paddle.width / 2));
 
-            // Launch ball on tap/click if attached
+            // Launch ball on tap if attached
             launchBall();
         }
 
