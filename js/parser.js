@@ -80,6 +80,9 @@ function filterCourses(raw, mandatoryCourses) {
     return raw.filter(c => {
         if (c.elective) return true; // selected electives are kept as-is
         const subj = c.subject.trim().toLowerCase();
+        // Skip stray single-character cells (e.g. a lone "I" left in the
+        // sheet) that would otherwise match a course via reverse-prefix.
+        if (subj.length < 2) return false;
         return mandatory.some(t => subj === t || subj.startsWith(t) || t.startsWith(subj));
     });
 }
