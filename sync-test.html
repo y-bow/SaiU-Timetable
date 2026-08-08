@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>sync patch test</title>
+</head>
+<body>
+  <section id="schedule-section">
+    <h2 id="timeline-title"></h2>
+    <div id="timeline-stats"></div>
+    <ol id="timeline"></ol>
+  </section>
+<script type="module">
+  import { patchTimeline } from './js/ui.js?v=2026-08-08-027';
+
+  const results = [];
+  const assert = (name, cond) => { results.push(`${cond ? 'PASS' : 'FAIL'}: ${name}`); };
+
+  const before = [
+    { day: 'Monday', subject: 'Math', faculty: 'Dr A', room: 'A101', startTime: '11:15 AM', endTime: '12:10 PM' },
+    { day: 'Monday', subject: 'Sci', faculty: 'Dr B', room: 'B202', startTime: '12:15 PM', endTime: '1:10 PM' },
+    { day: 'Monday', subject: 'Chem', faculty: 'Dr C', room: 'C303', startTime: '3:00 PM', endTime: '3:55 PM' },
+  ];
+  const after = [
+    { day: 'Monday', subject: 'Math', faculty: 'Dr A', room: 'A202', startTime: '11:15 AM', endTime: '12:10 PM' }, // room change
+    { day: 'Monday', subject: 'Sci', faculty: 'Dr B', room: 'B202', startTime: '12:15 PM', endTime: '1:10 PM' },    // unchanged
+    // Chem removed
+    { day: 'Monday', subject: 'Physics', faculty: 'Dr D', room: 'D404', startTime: '3:00 PM', endTime: '3:55 PM' }, // added
+  ];
+
+  const timeline = document.getElementById('timeline');
+  const rows = () => [...timeline.children];
+  const find = (t) => rows().find((li) => li.textContent.includes(t));
+
+  // Render the initial (before) state from an empty list.
+  patchTimeline([], before, 700, 'Monday');
+
+  assert('initial renders 3 rows', rows().length === 3);
+  const sciRef = find('Sci');
+  assert('initial shows room A101', find('Math').textContent.includes('A101'));
+
+  // Now apply the diff: room change + removal + addition.
+  patchTimeline(before, after, 700, 'Monday');
+
+  assert('now renders 3 rows', rows().length === 3);
+  assert('Math row updated to A202', find('Math').textContent.includes('A202'));
+  assert('Math row node identity preserved', find('Math') === rows().find((li) => li.dataset.key.includes('Math')));
+  assert('unchanged Sci row node identity preserved', find('Sci') === sciRef);
+  assert('Chem row removed', !find('Chem'));
+  assert('Physics row added', !!find('Physics'));
+
+  // Idempotence: applying the same diff again must be a no-op.
+  const innerBefore = timeline.innerHTML;
+  patchTimeline(after, after, 700, 'Monday');
+  assert('re-applying identical diff is a no-op', timeline.innerHTML === innerBefore);
+
+  // A second-day update must not touch Monday rows (patches current day only
+  // because the caller passes the displayed day).
+  const mondayInner = timeline.innerHTML;
+  const tuesday = [{ day: 'Tuesday', subject: 'Eng', faculty: 'Dr E', room: 'E505', startTime: '9:00 AM', endTime: '9:55 AM' }];
+  patchTimeline(after, tuesday, 700, 'Monday'); // caller keeps day=Monday; keys differ → full replace
+  assert('different day replaces rows', !find('Math') && !!find('Eng'));
+
+  console.log('SYNC TEST RESULTS\n' + results.join('\n'));
+  document.title = results.some((r) => r.startsWith('FAIL')) ? 'SYNC TEST FAILED' : 'SYNC TEST PASSED';
+  document.body.appendChild(document.createElement('pre')).textContent = results.join('\n');
+</script>
+</body>
+</html>

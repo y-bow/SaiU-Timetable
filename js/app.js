@@ -5,6 +5,7 @@ import * as nav from './navigation.js?v=2026-08-08-027';
 import * as ui from './ui.js?v=2026-08-08-027';
 import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-08-08-027';
 import { init as initAnalytics, trackEvent } from './analytics.js?v=2026-08-08-027';
+import * as sync from './sync.js?v=2026-08-08-027';
 
 /**
  * App bootstrap, fetch, and interactivity.
@@ -25,14 +26,14 @@ function contextDay() {
     return isSchoolDay(t) ? t : nextSchoolDay(t);
 }
 
-function sectionClasses() {
+function sectionClasses(all = classes) {
     const yearConfig = nav.getYear();
-    if (!yearConfig) return classes;
+    if (!yearConfig) return all;
 
     const hasSections = yearConfig.sections && yearConfig.sections.length > 1;
     const selectedElectives = new Set(nav.getSelectedElectives());
 
-    return classes.flatMap((c) => {
+    return all.flatMap((c) => {
         // Electives are individual choices — show only the ones selected,
         // resolving the student's chosen offering into a single normal class.
         if (c.elective) {
@@ -44,6 +45,19 @@ function sectionClasses() {
         // Single-section / mandatory-course years show everything else.
         return [c];
     });
+}
+
+// The classes actually shown for `day` (post section/elective resolution).
+function dayClassesFor(day, all = classes) {
+    return sectionClasses(all).filter((c) => c.day === day);
+}
+
+// Stable identity of the highlighted (current/next) class. The countdown
+// timer uses it to decide whether the schedule changed since last render.
+function featureKey(ctx) {
+    return (ctx.current || ctx.next)
+        ? `${(ctx.current || ctx.next).subject}|${(ctx.current || ctx.next).startTime}|${ctx.current ? 1 : 0}`
+        : 'none';
 }
 
 // Resolve a (possibly multi-offering) elective event down to the one offering
@@ -141,10 +155,17 @@ async function load({ silent = false, background = false } = {}) {
     const cacheKey = getCacheKey();
     const cached = readCache(cacheKey);
     if (cached && cached.classes) {
-        classes = cached.classes;
-        if (cached.savedAt) lastUpdated = new Date(cached.savedAt);
-        syncSections();
-        render();
+        if (background) {
+            // Diff the cached copy against what's displayed and patch the
+            // timeline in place, so a refresh from another tab never causes
+            // a visible re-render here.
+            applyClasses(cached.classes, { patch: true, savedAt: cached.savedAt });
+        } else {
+            classes = cached.classes;
+            if (cached.savedAt) lastUpdated = new Date(cached.savedAt);
+            syncSections();
+            render();
+        }
     } else {
         ui.showLoading();
     }
@@ -158,19 +179,62 @@ async function load({ silent = false, background = false } = {}) {
         const text = await res.text();
         const parsed = parseCSV(text, nav.getParserType(), nav.getMandatoryCourses(), nav.getElectives());
         if (!parsed.length) throw new Error('No classes parsed');
-        classes = parsed;
-        lastUpdated = new Date();
-        writeCache(cacheKey, classes);
-        updateRoomMapWithKey(classes);
-        syncSections();
-        render();
-        trackEvent('timetable_refreshed', { source: background ? 'background' : silent ? 'manual' : 'initial' });
+        applyClasses(parsed, { source: silent ? 'manual' : 'initial' });
+        // The watcher must not re-detect data we just fetched ourselves.
+        sync.noteFetched(text);
+        trackEvent('timetable_refreshed', { source: silent ? 'manual' : 'initial' });
         if (!silent) ui.showToast('Timetable refreshed');
     } catch {
         if (!cached) ui.renderError();
         if (!silent) ui.showToast('Offline — showing cached schedule');
     } finally {
         ui.setRefreshSpinning(false);
+    }
+}
+
+/**
+ * Apply a freshly parsed timetable. With `patch` set, the visible timeline is
+ * diffed and updated in place (no page re-render, no scroll/flash); otherwise
+ * the full render path runs (initial load). State that is not part of the
+ * timeline — navigation selectors, the current/next highlight key, the
+ * "updated" clock — is kept in sync either way.
+ */
+function applyClasses(parsed, { patch = false, savedAt, source = 'sync' } = {}) {
+    const day = selectedDay || contextDay();
+    const before = dayClassesFor(day);
+
+    classes = parsed;
+    lastUpdated = savedAt ? new Date(savedAt) : new Date();
+    writeCache(getCacheKey(), classes);
+    updateRoomMapWithKey(classes);
+    syncSections();
+
+    if (patch) {
+        const after = dayClassesFor(day);
+        const applied = ui.patchTimeline(before, after, nowMinutes(), day);
+        if (applied) {
+            renderNavigation();
+            const ctx = ui.computeHighlight(after, nowMinutes(), day);
+            lastFeatureKey = featureKey(ctx);
+            ui.setLastUpdated(lastUpdated || new Date());
+            return true;
+        }
+    }
+    render();
+    return false;
+}
+
+// Handler invoked by the background watcher (js/sync.js) the moment a
+// fingerprint change is detected. The sheet text was already downloaded and
+// hashed by the watcher, so we only parse, diff and patch here.
+function applySyncText(text) {
+    let parsed;
+    try {
+        parsed = parseCSV(text, nav.getParserType(), nav.getMandatoryCourses(), nav.getElectives());
+    } catch { return; }
+    if (!parsed.length) return;
+    if (applyClasses(parsed, { patch: true, source: 'sync' })) {
+        ui.showToast('Timetable updated');
     }
 }
 
@@ -241,9 +305,7 @@ function render() {
     const ctx = ui.computeHighlight(sc, now, day);
     ui.renderTimeline(now, day, ctx, '');
 
-    lastFeatureKey = (ctx.current || ctx.next)
-        ? `${(ctx.current || ctx.next).subject}|${(ctx.current || ctx.next).startTime}|${ctx.current ? 1 : 0}`
-        : 'none';
+    lastFeatureKey = featureKey(ctx);
 
     ui.setLastUpdated(lastUpdated || new Date());
 }
@@ -259,9 +321,7 @@ function startCountdown() {
         const day = selectedDay || contextDay();
         const sc = sectionClasses();
         const ctx = ui.computeHighlight(sc, now, day);
-        const key = ctx.current || ctx.next
-            ? `${(ctx.current || ctx.next).subject}|${(ctx.current || ctx.next).startTime}|${ctx.current ? 1 : 0}`
-            : 'none';
+        const key = featureKey(ctx);
         if (key !== lastFeatureKey) { lastFeatureKey = key; render(); return; }
         if (day === todayName()) ui.updateLiveClock(now, ctx.current, ctx.next);
     }, 60 * 1000);
@@ -619,6 +679,9 @@ function init() {
 
     load();
     startCountdown();
+    // Background change-detection: probe + full-hash watcher that patches the
+    // timeline in place the moment the sheet changes.
+    sync.start(applySyncText);
 }
 
 document.addEventListener('DOMContentLoaded', init);

@@ -52,6 +52,7 @@ const ASSETS = [
   versioned('js/storage.js'),
   versioned('js/schools.js'),
   versioned('js/navigation.js'),
+  versioned('js/sync.js'),
   versioned('js/ui.js'),
   versioned('js/analytics.js'),
   versioned('js/app.js'),

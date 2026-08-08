@@ -314,16 +314,7 @@ export function renderTimeline(nowMin, day, ctx, query = '') {
     const timeline = $('#timeline');
     if (!section || !timeline) return;
 
-    if (!timeline.dataset.offeringsBound) {
-        timeline.dataset.offeringsBound = '1';
-        timeline.addEventListener('click', (e) => {
-            const btn = e.target.closest('.tl-offering');
-            if (!btn) return;
-            window.dispatchEvent(new CustomEvent('offeringchange', {
-                detail: { electiveId: btn.dataset.elective, offeringKey: btn.dataset.offering },
-            }));
-        });
-    }
+    ensureOfferingsBound(timeline);
 
     const today = ctx.dayClasses;
     const q = query.trim().toLowerCase();
@@ -333,7 +324,6 @@ export function renderTimeline(nowMin, day, ctx, query = '') {
 
     $('#timeline-title').textContent = isToday ? "Today's Schedule" : `${day}'s Schedule`;
     section.classList.remove('hidden');
-    timeline.innerHTML = '';
 
     if (q) {
         const matches = today.filter((c) => [c.subject, c.faculty, c.room].join(' ').toLowerCase().includes(q));
@@ -342,39 +332,239 @@ export function renderTimeline(nowMin, day, ctx, query = '') {
             timeline.innerHTML = `<li class="tl-search-empty">No classes match "${escapeHtml(query.trim())}".</li>`;
             return;
         }
+        timeline.innerHTML = '';
         buildTimeline(timeline, matches, nowMin, true, dayStatus, null);
         $('#timeline-stats').textContent = `${matches.length} match${matches.length > 1 ? 'es' : ''}`;
         return;
     }
 
-    if (!today.length) {
-        $('#timeline-stats').textContent = '';
-        timeline.innerHTML = `
-            <li class="tl-done empty">
-                <div class="tl-done-icon">${ICONS.calendarX}</div>
-                <strong>No classes scheduled</strong>
-                <span>There are no classes on ${day}.</span>
-            </li>`;
-        return;
+    const items = timelineDescriptors(today, nowMin, day, dayStatus, highlight);
+    timeline.innerHTML = '';
+    for (const item of items) timeline.appendChild(createItem(item));
+    updateTimelineStats(today, nowMin, isToday);
+}
+
+/**
+ * Targeted timeline update: diff the previously displayed day classes against
+ * the new ones and patch only the affected <li> rows (added, removed, moved or
+ * content-changed) in place. Rows whose rendered content is unchanged keep
+ * their node identity, so nothing flashes and the page scroll position is
+ * untouched. Returns false when a full re-render is the safer path.
+ */
+export function patchTimeline(before, after, nowMin, day) {
+    const section = $('#schedule-section');
+    const timeline = $('#timeline');
+    if (!section || !timeline) return false;
+    if (section.classList.contains('hidden')) return true;
+    if (timeline.querySelector('.tl-search-empty')) return false;
+
+    ensureOfferingsBound(timeline);
+
+    const isToday = day === todayName();
+    const dayStatus = isToday ? 'today' : (isBeforeToday(day) ? 'past' : 'future');
+    const ctx = computeHighlight(after, nowMin, day);
+    const highlight = isToday ? (ctx.current || ctx.next) : (dayStatus === 'future' ? ctx.next : null);
+
+    const items = timelineDescriptors(after, nowMin, day, dayStatus, highlight);
+    reconcileTimeline(timeline, items);
+    updateTimelineStats(after, nowMin, isToday);
+    return true;
+}
+
+function ensureOfferingsBound(timeline) {
+    if (timeline.dataset.offeringsBound) return;
+    timeline.dataset.offeringsBound = '1';
+    timeline.addEventListener('click', (e) => {
+        const btn = e.target.closest('.tl-offering');
+        if (!btn) return;
+        window.dispatchEvent(new CustomEvent('offeringchange', {
+            detail: { electiveId: btn.dataset.elective, offeringKey: btn.dataset.offering },
+        }));
+    });
+}
+
+// A stable per-row identity for the timeline <ol>. Includes the start time so
+// two sessions of the same course on the same day never collide.
+function tlKey(c) {
+    return `c|${c.day}|${c.startTime}|${escapeHtml(c.subject)}|${c.section ?? ''}|${c.elective || ''}`;
+}
+
+function tlClassDesc(c, status, hl, nowMin, dayStatus) {
+    const startMin = toMinutes(c.startTime);
+    const endMin = toMinutes(c.endTime);
+    const badge = hl
+        ? { cls: 'status-next', label: dayStatus === 'future' ? 'First class' : (status === 'current' ? 'In progress' : 'Next') }
+        : { cls: `status-${status}`, label: { completed: 'Done', current: 'In progress', upcoming: 'Upcoming' }[status] };
+
+    const head =
+        `<div class="tl-marker"></div>` +
+        `<div class="tl-card">` +
+            `<div class="tl-card-top">` +
+                `<div>` +
+                    `<div class="tl-subject">${escapeHtml(c.subject)}</div>` +
+                    `<div class="tl-meta">` +
+                        `${c.faculty && status !== 'completed' ? `<span class="tl-faculty">${escapeHtml(c.faculty)}</span>` : ''}` +
+                        `<span class="tl-room">${ICONS.mapPin}<span>${escapeHtml(c.room || 'Room TBA')}</span></span>` +
+                    `</div>` +
+                `</div>` +
+                `<span class="status-badge ${badge.cls}">${badge.label}</span>` +
+            `</div>` +
+            `${c.roomChanged ? `<span class="room-change-badge">${ICONS.alertTriangle}<span>${c.originalRoom ? `Room changed · ${escapeHtml(c.originalRoom)} → ${escapeHtml(c.room)}` : 'Room changed'}</span></span>` : ''}` +
+            `${renderOfferings(c, status)}`;
+    const tail =
+        `<div class="tl-time-row">` +
+            `<span>${minutesToClock(startMin)} – ${minutesToClock(endMin)}</span>` +
+            `<span class="tl-duration">${minutesToLabel(endMin - startMin)}</span>` +
+        `</div>` +
+        `</div>`;
+
+    // Live countdown/progress change every minute — they are excluded from
+    // the row signature so only real data changes rewrite a row. The minute
+    // tick keeps them fresh via updateLiveClock().
+    const live = dayStatus === 'today' && hl ? `
+        <div class="tl-countdown">${ICONS.clock}<span>${status === 'current'
+            ? `${naturalDur(endMin - nowMin)} remaining`
+            : `Starts in ${naturalDur(startMin - nowMin)}`}</span></div>` : '';
+    const progress = dayStatus === 'today' && hl && status === 'current' ? `
+        <div class="progress-wrap">
+            <div class="progress-track"><div class="progress-fill" style="width:${Math.min(100, Math.max(0, ((nowMin - startMin) / (endMin - startMin)) * 100))}%"></div></div>
+            <div class="progress-meta">
+                <span class="progress-elapsed">${minutesToClock(startMin)}</span>
+                <span class="progress-remaining">${minutesToClock(endMin)}</span>
+            </div>
+        </div>` : '';
+
+    const card = head + live + progress + tail;
+    const stable = head + tail;
+    return {
+        kind: 'class',
+        key: tlKey(c),
+        className: `tl-item ${status}${hl ? ' highlight' : ''}`,
+        sig: `${stable}`,
+        html: card,
+    };
+}
+
+function tlBreakDesc(prevEnd, startMin) {
+    return {
+        kind: 'break',
+        key: `b|${prevEnd}`,
+        className: 'tl-break',
+        sig: `break::${minutesToLabel(startMin - prevEnd)}`,
+        html: `<span class="tl-break-line"></span><span class="tl-break-label">${ICONS.coffee}Lunch break · ${minutesToLabel(startMin - prevEnd)}</span><span class="tl-break-line"></span>`,
+    };
+}
+
+function tlDoneDesc(kind, day) {
+    if (kind === 'empty') {
+        return {
+            kind: 'done',
+            key: 'done',
+            className: 'tl-done empty',
+            sig: 'done::empty',
+            html: `<div class="tl-done-icon">${ICONS.calendarX}</div><strong>No classes scheduled</strong><span>There are no classes on ${day}.</span>`,
+        };
     }
+    return {
+        kind: 'done',
+        key: 'done',
+        className: 'tl-done',
+        sig: 'done::all',
+        html: `<div class="tl-done-icon">${ICONS.checkCircle}</div><strong>No more classes today</strong><span>See you tomorrow.</span>`,
+    };
+}
 
-    buildTimeline(timeline, today, nowMin, false, dayStatus, highlight);
-
-    if (isToday) {
-        const remaining = today.filter((c) => toMinutes(c.endTime) > nowMin);
-        if (!remaining.length) {
-            $('#timeline-stats').textContent = 'All done';
-            timeline.insertAdjacentHTML('afterbegin', `
-                <li class="tl-done">
-                    <div class="tl-done-icon">${ICONS.checkCircle}</div>
-                    <strong>No more classes today</strong>
-                    <span>See you tomorrow.</span>
-                </li>`);
-        } else {
-            $('#timeline-stats').textContent = `${remaining.length} left`;
+// Ordered list of <li> descriptors (classes, lunch breaks, done banners) for
+// one day, in the exact order/format buildTimeline produced before the
+// descriptor refactor.
+function timelineDescriptors(dayClasses, nowMin, day, dayStatus, highlight) {
+    const items = [];
+    const isToday = dayStatus === 'today';
+    let prevEnd = null;
+    let lunchShown = false;
+    for (const c of dayClasses) {
+        const startMin = toMinutes(c.startTime);
+        const endMin = toMinutes(c.endTime);
+        const status = dayStatus === 'past' ? 'completed'
+            : dayStatus === 'future' ? 'upcoming'
+            : (endMin <= nowMin ? 'completed' : (startMin <= nowMin ? 'current' : 'upcoming'));
+        if (prevEnd !== null && startMin - prevEnd >= CONFIG.BREAK_THRESHOLD_MIN) {
+            const overlapsLunch = prevEnd < CONFIG.LUNCH_END && startMin > CONFIG.LUNCH_START;
+            if (overlapsLunch && !lunchShown) {
+                lunchShown = true;
+                items.push(tlBreakDesc(prevEnd, startMin));
+            }
+        }
+        items.push(tlClassDesc(c, status, c === highlight, nowMin, dayStatus));
+        prevEnd = endMin;
+    }
+    if (dayClasses.length) {
+        if (isToday) {
+            const remaining = dayClasses.filter((c) => toMinutes(c.endTime) > nowMin);
+            if (!remaining.length) items.unshift(tlDoneDesc('all'));
         }
     } else {
-        $('#timeline-stats').textContent = `${today.length} class${today.length > 1 ? 'es' : ''}`;
+        items.push(tlDoneDesc('empty', day));
+    }
+    return items;
+}
+
+function createItem(desc) {
+    const li = document.createElement('li');
+    li.className = desc.className;
+    li.dataset.key = desc.key;
+    li.dataset.sig = desc.sig;
+    li.innerHTML = desc.html;
+    return li;
+}
+
+function updateTimelineStats(dayClasses, nowMin, isToday) {
+    const el = $('#timeline-stats');
+    if (!el) return;
+    if (!dayClasses.length) { el.textContent = ''; return; }
+    if (isToday) {
+        const remaining = dayClasses.filter((c) => toMinutes(c.endTime) > nowMin);
+        el.textContent = !remaining.length ? 'All done' : `${remaining.length} left`;
+    } else {
+        el.textContent = `${dayClasses.length} class${dayClasses.length > 1 ? 'es' : ''}`;
+    }
+}
+
+// Keyed reconciliation: keep existing rows where the signature is unchanged,
+// update in place where it changed, insert new rows in time order, and drop
+// rows that no longer exist. Unchanged rows keep their DOM node, so focus,
+// countdown and scroll are never disturbed.
+function reconcileTimeline(timeline, items) {
+    const existing = [...timeline.children];
+    const byKey = new Map();
+    for (const el of existing) {
+        const k = el.dataset && el.dataset.key;
+        if (k && !byKey.has(k)) byKey.set(k, el);
+    }
+    const keep = new Set();
+    let anchor = null;
+    for (const item of items) {
+        let node = byKey.get(item.key);
+        if (node) {
+            keep.add(node);
+        } else {
+            node = createItem(item);
+        }
+        if (node.dataset.sig !== item.sig) {
+            node.className = item.className;
+            node.innerHTML = item.html;
+            node.dataset.sig = item.sig;
+            node.dataset.key = item.key;
+        }
+        if (!anchor) {
+            if (timeline.firstElementChild !== node) timeline.prepend(node);
+        } else if (node.previousElementSibling !== anchor) {
+            anchor.after(node);
+        }
+        anchor = node;
+    }
+    for (const el of existing) {
+        if (!keep.has(el)) el.remove();
     }
 }
 

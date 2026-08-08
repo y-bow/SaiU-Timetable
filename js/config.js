@@ -19,6 +19,22 @@ export const CONFIG = {
 
     REFRESH_INTERVAL: 5 * 60 * 1000,
 
+    // Background timetable change-detection (js/sync.js). The watcher runs a
+    // tiny ~300-byte gviz probe once per CHECK_INTERVAL (catches rows added/
+    // removed) and reconciles a full-sheet hash (28 KB for this sheet) every
+    // FULL_INTERVAL (catches in-place edits such as room/faculty/time
+    // changes). A full fetch + diff only happens when the fingerprint
+    // actually changes, so steady-state traffic is ~1 request per interval.
+    SYNC_CHECK_INTERVAL: 15 * 1000,
+    SYNC_FULL_INTERVAL: 60 * 1000,
+    // After a detected change, full re-checks run more frequently for a short
+    // window (a sheet is often edited in a burst), then settle back.
+    SYNC_FAST_FULL_INTERVAL: 30 * 1000,
+    SYNC_CHANGE_WINDOW: 10 * 60 * 1000,
+    // Backoff ceiling for repeated network failures (doubling from
+    // CHECK_INTERVAL); the probe pauses entirely while offline/hidden.
+    SYNC_MAX_BACKOFF: 5 * 60 * 1000,
+
     WEEKDAYS: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
 
     // Cache keys (localStorage)
