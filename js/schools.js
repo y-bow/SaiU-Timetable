@@ -31,6 +31,7 @@ export const SCHOOLS = [
             {
                 id: 'scds-2',
                 label: 'Year 2',
+                level: 2,
                 sections: [1, 2, 3, 4, 5, 6, 7],
                 sheetId: '1Jk3KCLqHHzi-jxigIcPpcXZestcxb8Y0BeQLjhiezb8',
                 gid: '0',
@@ -39,6 +40,26 @@ export const SCHOOLS = [
                 electives: [
                     { id: 'intelligent-embedded-systems', label: 'Intelligent Embedded Systems' },
                     { id: 'emerging-tools-and-applications', label: 'Emerging Tools and Applications' },
+                ],
+            },
+            {
+                id: 'scds-3',
+                label: 'Year 3',
+                level: 3,
+                sections: null,
+                sheetId: '1Jk3KCLqHHzi-jxigIcPpcXZestcxb8Y0BeQLjhiezb8',
+                gid: '0',
+                parser: 'grid',
+                mandatoryCourses: [
+                    'Deep Learning',
+                    'Theory of Computation',
+                ],
+                electives: [
+                    { id: 'quantum-machine-learning', label: 'Quantum Machine Learning' },
+                    { id: 'cyber-security', label: 'Cybersecurity: Fundamental Concepts and Management' },
+                    { id: 'computer-networks', label: 'Computer Networks' },
+                    { id: 'financial-reporting-and-analysis', label: 'Financial Reporting and Analysis' },
+                    { id: 'organizational-psychology', label: 'Organizational Psychology' },
                 ],
             },
         ],
@@ -51,6 +72,7 @@ export const SCHOOLS = [
             {
                 id: 'soai-2',
                 label: 'Year 2',
+                level: 2,
                 sections: null,
                 sheetId: '1Jk3KCLqHHzi-jxigIcPpcXZestcxb8Y0BeQLjhiezb8',
                 gid: '0',
@@ -61,7 +83,9 @@ export const SCHOOLS = [
                     'Discrete Mathematics',
                     'Human AI Interaction',
                 ],
-                electives: null,
+                electives: [
+                    { id: 'intelligent-embedded-systems', label: 'Intelligent Embedded Systems' },
+                ],
             },
         ],
     },
@@ -76,6 +100,7 @@ export const SCHOOLS = [
                     {
                         id: 'sob-bba-2',
                         label: 'Year 2',
+                        level: 2,
                         sections: null,
                         sheetId: '1Jk3KCLqHHzi-jxigIcPpcXZestcxb8Y0BeQLjhiezb8',
                         gid: '0',
@@ -152,4 +177,24 @@ export function shouldShowProgram(school) {
 export function shouldShowSection(yearConfig) {
     const sections = resolveSections(yearConfig);
     return sections.length > 1;
+}
+
+/**
+ * Determine whether a school offers any year at the given level (Year 2,
+ * Year 3, …). Used to hide schools that don't have the currently selected
+ * year level yet — e.g. when Year 3 is selected, only schools with a Year 3
+ * config remain in the school selector.
+ */
+export function schoolHasLevel(school, level) {
+    if (level == null) return true;
+    const years = [];
+    if (school.programs) {
+        for (const program of school.programs) {
+            for (const year of program.years) years.push(year);
+        }
+    }
+    if (school.years) {
+        for (const year of school.years) years.push(year);
+    }
+    return years.some(y => y.level === level);
 }

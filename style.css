@@ -122,8 +122,8 @@ input { font-family: inherit; }
     gap: 8px;
 }
 .brand-logo {
-    width: 30px;
-    height: 30px;
+    width: 26px;
+    height: 22px;
     border-radius: var(--radius-sm);
     flex-shrink: 0;
     object-fit: contain;
@@ -180,8 +180,8 @@ input { font-family: inherit; }
     gap: 10px;
 }
 .sidebar-brand .brand-logo {
-    width: 40px;
-    height: 40px;
+    width: 36px;
+    height: 30px;
 }
 .sidebar-close-btn { display: none; }
 
@@ -214,7 +214,7 @@ input { font-family: inherit; }
     padding: 4px 10px;
     border-radius: var(--radius-sm);
     font-size: 0.82rem;
-    font-weight: 500;
+    font-weight: 600;
     color: var(--text-secondary);
     text-align: left; width: 100%;
     transition: background var(--fast), color var(--fast);
@@ -223,7 +223,6 @@ input { font-family: inherit; }
 .sidebar-item.active {
     background: rgba(201, 76, 76, 0.10);
     color: #C94C4C;
-    font-weight: 600;
 }
 
 .sidebar-item-radio {
@@ -281,23 +280,28 @@ input { font-family: inherit; }
     max-width: 110px;
 }
 
-/* Days row in sidebar */
-.sidebar-days {
-    display: flex; flex-wrap: wrap; gap: 4px;
-    padding: 0 10px;
+/* ---------- Day filter (main page, above the schedule) ---------- */
+.days-filter {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding-bottom: 14px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--border);
 }
-.sidebar-day-btn {
-    min-width: 40px; min-height: 32px;
-    padding: 4px 8px;
-    border-radius: var(--radius-sm);
-    font-size: 0.78rem;
+.day-filter-btn {
+    min-height: 34px;
+    padding: 5px 16px;
+    border-radius: var(--radius-pill);
+    font-size: 0.8rem;
     font-weight: 500;
     color: var(--text-secondary);
+    background: var(--surface-2);
     border: 1px solid var(--border);
     transition: background var(--fast), color var(--fast), border-color var(--fast);
 }
-.sidebar-day-btn:hover { background: var(--surface-2); color: var(--text); }
-.sidebar-day-btn.active {
+.day-filter-btn:hover { background: var(--surface-3); color: var(--text); }
+.day-filter-btn.active {
     background: #C94C4C;
     color: #fff;
     border-color: #C94C4C;

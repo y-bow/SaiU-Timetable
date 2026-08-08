@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=2026-08-06-012';
-import { toMinutes, minutesToLabel, minutesToClock, todayName, isBeforeToday, WEEKDAYS } from './utils.js?v=2026-08-06-012';
-import { offeringKey } from './parser.js?v=2026-08-06-012';
+import { CONFIG } from './config.js?v=2026-08-08-018';
+import { toMinutes, minutesToLabel, minutesToClock, todayName, isBeforeToday, WEEKDAYS } from './utils.js?v=2026-08-08-018';
+import { offeringKey } from './parser.js?v=2026-08-08-018';
 
 /**
  * DOM rendering — sidebar filters + timeline.
@@ -50,11 +50,8 @@ export function renderSidebar(state) {
 
     const yearSection = $('#sidebar-years')?.closest('.sidebar-section');
     if (yearSection) {
-        const singleYear = state.years && state.years.length <= 1;
-        yearSection.classList.toggle('hidden', singleYear);
-        if (!singleYear) {
-            renderSidebarList('sidebar-years', state.years, state.yearId, 'yearId', 'yearchange', 'yearId');
-        }
+        yearSection.classList.toggle('hidden', !state.years || state.years.length === 0);
+        renderSidebarList('sidebar-years', state.years || [], state.yearId, 'yearId', 'yearchange', 'yearId');
     }
 
     const sectionWrapper = $('#sidebar-section-wrapper');
@@ -182,13 +179,13 @@ function renderSidebarElectives(containerId, electives, selectedIds) {
 }
 
 export function renderDayFilter(selectedDay) {
-    const container = $('#sidebar-days');
+    const container = $('#days-filter');
     if (!container) return;
     if (!container.children.length) {
         for (const day of WEEKDAYS) {
             const btn = document.createElement('button');
             btn.type = 'button';
-            btn.className = 'sidebar-day-btn';
+            btn.className = 'day-filter-btn';
             btn.dataset.day = day;
             btn.textContent = day;
             btn.setAttribute('role', 'radio');
@@ -511,6 +508,10 @@ export function showLoading() {
     if (!el) return;
     clearTimeout(el._timer);
     el._timer = setTimeout(() => el.classList.add('visible'), 150);
+    // The splash covers the JS-load gap; once the app is running the
+    // in-app loading state takes over so a slow data fetch never holds
+    // the splash screen.
+    hideSplash();
 }
 
 export function hideLoading() {

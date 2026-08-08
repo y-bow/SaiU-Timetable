@@ -1,5 +1,5 @@
-import { SCHOOLS, buildYearMap, resolveYears, resolveSections, shouldShowProgram, shouldShowSection } from './schools.js?v=2026-08-06-012';
-import { getNavState, setNavState, getStoredElectives, setStoredElectives, getStoredOfferings, setStoredOffering } from './storage.js?v=2026-08-06-012';
+import { SCHOOLS, buildYearMap, resolveYears, resolveSections, shouldShowProgram, shouldShowSection, schoolHasLevel } from './schools.js?v=2026-08-08-018';
+import { getNavState, setNavState, getStoredElectives, setStoredElectives, getStoredOfferings, setStoredOffering } from './storage.js?v=2026-08-08-018';
 
 /**
  * Navigation state management.
@@ -276,7 +276,10 @@ function persist() {
 // --- Derived state helpers ---
 
 export function availableSchools() {
-    return SCHOOLS;
+    // Only show schools that offer the currently selected year level, so a
+    // year (e.g. Year 3) hides schools that don't have that level yet.
+    const level = state.year?.level;
+    return level == null ? SCHOOLS : SCHOOLS.filter(s => schoolHasLevel(s, level));
 }
 
 export function availablePrograms() {

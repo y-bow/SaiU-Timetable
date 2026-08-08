@@ -96,7 +96,7 @@ function versionRefs(html, patterns) {
   html = versionRefs(html, [
     'style\\.css',
     'manifest\\.json',
-    'icons/[A-Za-z0-9._-]+\\.png',
+    'icons/[A-Za-z0-9._/-]+\\.png',
     'js/app\\.js',
     'js/build\\.js',
   ]);
@@ -124,10 +124,9 @@ function versionRefs(html, patterns) {
 }
 
 // ---------------------------------------------------------------------------
-// manifest.json — version icon srcs.
+// manifest.json / manifest-light.json — version icon srcs.
 // ---------------------------------------------------------------------------
-{
-  const file = 'manifest.json';
+for (const file of ['manifest.json', 'manifest-light.json']) {
   const manifest = JSON.parse(read(file));
   if (manifest.icons) {
     for (const icon of manifest.icons) {

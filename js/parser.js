@@ -21,6 +21,37 @@ const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'
 const SECTION_REGEX = /\(Sec\s*(\d+)\)/i;
 
 /**
+ * Faculty name aliases — maps the free-text teacher names in the sheet to
+ * canonical display names. Applied at parse time so every consumer (timeline,
+ * search, offering keys) sees the normalized name.
+ */
+const FACULTY_ALIASES = [
+    { match: /^dr\.?\s*k\.?\s*k\.?\s*$/i, name: 'Dr.K.K.Singh' },
+];
+
+export function normalizeFacultyName(faculty) {
+    const raw = String(faculty ?? '').trim();
+    if (!raw) return raw;
+    let name = raw;
+    for (const alias of FACULTY_ALIASES) {
+        if (alias.match.test(name)) {
+            name = alias.name;
+            break;
+        }
+    }
+    // Normalize a leading title to its dotted "Title." form with correct case
+    // and attach it directly to the name — no space after the title, e.g.
+    // "Dr. Sanjay Bang" → "Dr.Sanjay Bang", "Dr Mridula" → "Dr.Mridula".
+    name = name.replace(/^(Dr|Prof|Ms|Mr|Mrs|Miss)(\.?)\s*/i, (m, title) => {
+        return title.charAt(0).toUpperCase() + title.slice(1).toLowerCase() + '.';
+    });
+    // Every teacher is shown with the "Prof." title followed by a space:
+    // "Prof. Ashok", "Prof. Dr.Sanjay Bang".
+    if (!/^Prof\.\s/i.test(name)) name = `Prof. ${name}`;
+    return name;
+}
+
+/**
  * Parse a CSV string into an array of class objects.
  * @param {string} text - raw CSV content
  * @param {string} [parserType='grid'] - 'grid' or 'list'
@@ -336,14 +367,14 @@ export function splitSubjectFaculty(cell) {
         .filter(p => !/^\(Sec\s*\d+\)$/i.test(p));
     let subject = (parts[0] || '').replace(/\s*\(Sec\s*\d+\)/i, '').trim();
     let faculty = parts.slice(1).join(' ');
-    if (!faculty && /-\s*\S/.test(cell)) {
+    if ((!faculty || faculty.trim().startsWith('-')) && /-\s*\S/.test(cell)) {
         const m = cell.match(/-\s*(.+)$/);
         if (m) faculty = m[1].trim();
     }
     // Unwrap a fully-parenthesized faculty name, e.g. "(Aravind)" → "Aravind".
     const unwrapped = faculty.match(/^\((.+)\)$/);
     if (unwrapped) faculty = unwrapped[1].trim();
-    return { subject, faculty };
+    return { subject, faculty: normalizeFacultyName(faculty) };
 }
 
 // ============================================================
@@ -382,7 +413,7 @@ function parseListCSV(text, electives = null) {
         const subject = (row[2] || '').trim();
         if (!subject) continue;
 
-        const faculty = (row[3] || '').trim();
+        const faculty = normalizeFacultyName(row[3] || '');
         const room = (row[4] || '').trim();
 
         // Section is optional — defaults to 1 for single-section schools.

@@ -32,7 +32,7 @@ const isDevHost = DEV_HOSTS.includes(self.location.hostname);
 
 // Replaced by build.mjs on every build — the file's bytes change every
 // deployment so the Service Worker update is always detected.
-const BUILD_ID = '2026-08-06-012';
+const BUILD_ID = '2026-08-08-018';
 
 const CACHE_NAME = 'saiu-timetable-v' + BUILD_ID;
 const SHEET_CACHE = 'timetable-sheet-v1';
@@ -55,13 +55,18 @@ const ASSETS = [
   versioned('js/ui.js'),
   versioned('js/analytics.js'),
   versioned('js/app.js'),
-  versioned('icons/favicon-32.png'),
-  versioned('icons/favicon.png'),
-  versioned('icons/icon-192.png'),
-  versioned('icons/icon-512.png'),
-  versioned('icons/icon-maskable-192.png'),
-  versioned('icons/icon-maskable-512.png'),
-  versioned('icons/apple-touch-icon.png'),
+  versioned('icons/white/favicon-32.png'),
+  versioned('icons/white/favicon-48.png'),
+  versioned('icons/white/favicon-192.png'),
+  versioned('icons/white/icon-512.png'),
+  versioned('icons/white/icon-maskable-192.png'),
+  versioned('icons/white/icon-maskable-512.png'),
+  versioned('icons/black/apple-touch-icon.png'),
+  versioned('icons/black/favicon-192.png'),
+  versioned('icons/black/icon-512.png'),
+  versioned('icons/black/icon-maskable-192.png'),
+  versioned('icons/black/icon-maskable-512.png'),
+  versioned('manifest-light.json'),
 ];
 
 const FONT_CSS = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap';
