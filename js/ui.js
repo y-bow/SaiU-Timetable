@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=2026-08-08-025';
-import { toMinutes, minutesToLabel, minutesToClock, todayName, isBeforeToday, WEEKDAYS } from './utils.js?v=2026-08-08-025';
-import { offeringKey } from './parser.js?v=2026-08-08-025';
+import { CONFIG } from './config.js?v=2026-08-08-026';
+import { toMinutes, minutesToLabel, minutesToClock, todayName, isBeforeToday, WEEKDAYS } from './utils.js?v=2026-08-08-026';
+import { offeringKey } from './parser.js?v=2026-08-08-026';
 
 /**
  * DOM rendering — sidebar filters + timeline.

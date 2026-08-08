@@ -370,6 +370,7 @@ export function splitSubjectFaculty(cell) {
     if ((!faculty || faculty.trim().startsWith('-')) && /-\s*\S/.test(cell)) {
         const m = cell.match(/-\s*(.+)$/);
         if (m) faculty = m[1].trim();
+        subject = subject.replace(/\s*-\s*.+$/, '').trim();
     }
     // Unwrap a fully-parenthesized faculty name, e.g. "(Aravind)" → "Aravind".
     const unwrapped = faculty.match(/^\((.+)\)$/);
