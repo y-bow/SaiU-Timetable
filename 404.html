@@ -318,6 +318,9 @@
             ]
         };
 
+        // Pointer tracking state
+        let isPointerDown = false;
+
         // --- Setup & Listeners ---
         function initListeners() {
             window.addEventListener('resize', handleResize);
@@ -327,8 +330,10 @@
             window.addEventListener('keyup', handleKeyUp);
 
             // Pointer (Mouse / Touch) controls
-            canvas.addEventListener('pointermove', handlePointerMove);
             canvas.addEventListener('pointerdown', handlePointerDown);
+            canvas.addEventListener('pointermove', handlePointerMove);
+            window.addEventListener('pointerup', handlePointerUp);
+            window.addEventListener('pointercancel', handlePointerUp);
 
             // Button clicks
             startBtn.addEventListener('click', startGame);
@@ -390,13 +395,13 @@
         }
 
         function getCanvasRelativeX(clientX) {
-            const rect = canvas.getBoundingClientRect();
+            const bgRect = canvas.getBoundingClientRect();
             // Scale clientX to our logical width coordinate system
-            return ((clientX - rect.left) / rect.width) * LOGICAL_WIDTH;
+            return ((clientX - bgRect.left) / bgRect.width) * LOGICAL_WIDTH;
         }
 
         function handlePointerMove(e) {
-            if (state !== 'playing') return;
+            if (state !== 'playing' || !isPointerDown) return;
             const x = getCanvasRelativeX(e.clientX);
             // Center the paddle on the pointer, clamped cleanly within insets
             paddle.x = Math.max(PADDLE_MARGIN, Math.min(LOGICAL_WIDTH - paddle.width - PADDLE_MARGIN, x - paddle.width / 2));
@@ -410,7 +415,18 @@
 
         function handlePointerDown(e) {
             if (state !== 'playing') return;
+            isPointerDown = true;
+            
+            // Set position immediately on click/touch down
+            const x = getCanvasRelativeX(e.clientX);
+            paddle.x = Math.max(PADDLE_MARGIN, Math.min(LOGICAL_WIDTH - paddle.width - PADDLE_MARGIN, x - paddle.width / 2));
+
+            // Launch ball on tap/click if attached
             launchBall();
+        }
+
+        function handlePointerUp() {
+            isPointerDown = false;
         }
 
         // --- Game Logic ---
