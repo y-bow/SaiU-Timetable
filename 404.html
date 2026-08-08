@@ -83,6 +83,8 @@
             letter-spacing: 0.05em;
             color: var(--text-secondary);
             padding: 0 4px;
+            flex-wrap: wrap;
+            gap: 8px;
         }
 
         .game-header span {
@@ -205,6 +207,7 @@
         <div class="game-wrapper">
             <div class="game-header">
                 <div id="score-display">SCORE: <span>0000</span></div>
+                <div id="high-score-display">BEST: <span>0000</span></div>
                 <div id="level-display">LEVEL: <span>1</span></div>
                 <div id="lives-display">LIVES: <span>3</span></div>
             </div>
@@ -214,12 +217,12 @@
             <!-- Screen overlays -->
             <div id="start-overlay" class="overlay">
                 <div class="overlay-title">BREAKOUT</div>
-                <button id="start-button" class="btn primary">Start Game</button>
+                <button id="start-button" class="btn primary">Start Game [Space]</button>
             </div>
 
             <div id="gameover-overlay" class="overlay hidden">
                 <div class="overlay-title gameover">GAME OVER</div>
-                <button id="restart-button" class="btn primary">Restart</button>
+                <button id="restart-button" class="btn primary">Restart [Space]</button>
             </div>
         </div>
 
@@ -231,7 +234,7 @@
         <div class="controls-info">
             Move paddle: <kbd>A</kbd> / <kbd>D</kbd> or <kbd>←</kbd> / <kbd>→</kbd><br>
             Touch & drag or move mouse inside game area to steer paddle.<br>
-            Catch <strong style="color: var(--primary);">M</strong> power-ups to split the ball into Multiballs!
+            Secret power-ups are hidden inside blocks—catch them to trigger Multiball!
         </div>
     </div>
 
@@ -241,8 +244,8 @@
         const LOGICAL_HEIGHT = 400;
         const BRICK_ROWS = 5;
         const BRICK_COLS = 8;
-        const BALL_SPEED_START = 280; // px per second
-        const BALL_SPEED_MAX = 450;
+        const BALL_SPEED_START = 220; // Slower initial speed
+        const BALL_SPEED_MAX = 460;
         const PADDLE_SPEED = 450; // px per second
         const PADDLE_WIDTH = 90;
         const PADDLE_HEIGHT = 12;
@@ -252,6 +255,7 @@
         const canvas = document.getElementById('game-canvas');
         const ctx = canvas.getContext('2d');
         const scoreVal = document.querySelector('#score-display span');
+        const highScoreVal = document.querySelector('#high-score-display span');
         const levelVal = document.querySelector('#level-display span');
         const livesVal = document.querySelector('#lives-display span');
         
@@ -264,6 +268,7 @@
 
         // --- Game State ---
         let score = 0;
+        let highScore = parseInt(localStorage.getItem('breakout_highscore') || '0', 10);
         let level = 1;
         let lives = 3;
         let state = 'start'; // 'start' | 'playing' | 'gameover'
@@ -366,9 +371,13 @@
                 keys[e.key] = true;
                 e.preventDefault();
             }
-            // Launch ball with space if attached to paddle
+            
             if (e.key === ' ' || e.key === 'Spacebar') {
-                launchBall();
+                if (state === 'start' || state === 'gameover') {
+                    resetGame();
+                } else {
+                    launchBall();
+                }
                 e.preventDefault();
             }
         }
@@ -410,6 +419,7 @@
             level = 1;
             lives = 3;
             levelUpTimer = 0;
+            updatePaddleWidth();
             updateStatsUI();
 
             // Clear overlays
@@ -429,6 +439,11 @@
             animationFrameId = requestAnimationFrame(gameLoop);
         }
 
+        function updatePaddleWidth() {
+            // Shrink paddle to make it progressively harder (level 1 = 90, level 2 = 83, level 3 = 76, etc. limit to 45px)
+            paddle.width = Math.max(45, PADDLE_WIDTH - (level - 1) * 7);
+        }
+
         function generateBricks() {
             bricks = [];
             const paddingLeftRight = 20;
@@ -440,7 +455,7 @@
 
             for (let r = 0; r < BRICK_ROWS; r++) {
                 for (let c = 0; c < BRICK_COLS; c++) {
-                    // 6% chance of being a Multiball special block (approx 2 per level)
+                    // 6% chance of being a Multiball special block
                     const isSpecial = Math.random() < 0.06;
                     bricks.push({
                         x: paddingLeftRight + c * (brickWidth + gap),
@@ -482,8 +497,8 @@
                 if (ball.attachedToPaddle) {
                     ball.attachedToPaddle = false;
                     const angle = -Math.PI / 4 - Math.random() * (Math.PI / 2);
-                    // Speed multiplier increases with level
-                    const speed = BALL_SPEED_START * (1 + (level - 1) * 0.08);
+                    // Speed multiplier increases progressively with level (10% increase per level)
+                    const speed = BALL_SPEED_START * (1 + (level - 1) * 0.10);
                     ball.vx = Math.cos(angle) * speed;
                     ball.vy = Math.sin(angle) * speed;
                 }
@@ -522,8 +537,17 @@
 
         function updateStatsUI() {
             scoreVal.textContent = String(score).padStart(4, '0');
+            highScoreVal.textContent = String(highScore).padStart(4, '0');
             levelVal.textContent = String(level);
             livesVal.textContent = String(lives);
+        }
+
+        function saveHighScore() {
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('breakout_highscore', String(highScore));
+                updateStatsUI();
+            }
         }
 
         function gameLoop(currentTime) {
@@ -608,7 +632,7 @@
 
                     powerups.splice(i, 1);
                     score += 50; // Bonus score for catching powerup
-                    updateStatsUI();
+                    saveHighScore();
                     continue;
                 }
 
@@ -661,7 +685,7 @@
                     const maxAngle = Math.PI / 3; 
                     const angle = hitPoint * maxAngle;
 
-                    const speedMultiplier = 1 + (level - 1) * 0.08;
+                    const speedMultiplier = 1 + (level - 1) * 0.10;
                     const currentSpeed = Math.hypot(ball.vx, ball.vy);
                     const speed = Math.min(BALL_SPEED_MAX * speedMultiplier, Math.max(BALL_SPEED_START * speedMultiplier, currentSpeed * 1.02));
 
@@ -682,7 +706,7 @@
                         brick.active = false;
                         bricksLeft--;
                         score += 10;
-                        updateStatsUI();
+                        saveHighScore();
 
                         // Visual particles break effect
                         spawnParticles(brick.x + brick.width / 2, brick.y + brick.height / 2, brick.color);
@@ -724,6 +748,7 @@
             if (bricksLeft === 0) {
                 level++;
                 levelUpTimer = 2.0; // Show level banner for 2 seconds
+                updatePaddleWidth();
                 updateStatsUI();
                 generateBricks();
                 // Respawn ball attached to paddle cleanly
@@ -747,19 +772,6 @@
                     ctx.strokeStyle = colors.bg;
                     ctx.lineWidth = 1;
                     ctx.strokeRect(brick.x, brick.y, brick.width, brick.height);
-
-                    // If special brick, draw a indicator in the center
-                    if (brick.type === 'multiball') {
-                        ctx.fillStyle = '#111';
-                        ctx.beginPath();
-                        ctx.arc(brick.x + brick.width / 2, brick.y + brick.height / 2, 3, 0, Math.PI * 2);
-                        ctx.fill();
-                        
-                        ctx.fillStyle = '#FFF';
-                        ctx.beginPath();
-                        ctx.arc(brick.x + brick.width / 2, brick.y + brick.height / 2, 1.5, 0, Math.PI * 2);
-                        ctx.fill();
-                    }
                 }
             }
 
@@ -827,6 +839,7 @@
         // --- Start up ---
         initListeners();
         handleResize();
+        updateStatsUI();
     </script>
 </body>
 </html>
