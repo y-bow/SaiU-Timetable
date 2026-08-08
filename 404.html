@@ -346,10 +346,18 @@
 
         function handleResize() {
             const dpr = window.devicePixelRatio || 1;
-            const rect = canvas.getBoundingClientRect();
-            canvas.width = rect.width * dpr;
-            canvas.height = rect.height * dpr;
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            const w = canvas.clientWidth;
+            const h = canvas.clientHeight;
+            
+            // Set actual physical buffer size
+            canvas.width = w * dpr;
+            canvas.height = h * dpr;
+            
+            // Map the fixed 600x400 coordinate space to the physical pixel space
+            const scaleX = (w * dpr) / LOGICAL_WIDTH;
+            const scaleY = (h * dpr) / LOGICAL_HEIGHT;
+            ctx.setTransform(scaleX, 0, 0, scaleY, 0, 0);
+            
             draw();
         }
 
