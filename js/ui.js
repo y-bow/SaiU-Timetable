@@ -237,7 +237,9 @@ function startDrawerDragTracking() {
     sidebar.addEventListener('pointerdown', (e) => {
         startX = e.clientX;
         history = [{ x: e.clientX, t: performance.now() }];
-        sidebar.setPointerCapture(e.pointerId);
+        if (sidebar.setPointerCapture) {
+            try { sidebar.setPointerCapture(e.pointerId); } catch { /* unsupported */ }
+        }
     });
 
     sidebar.addEventListener('pointermove', (e) => {

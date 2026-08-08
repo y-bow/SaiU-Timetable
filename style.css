@@ -869,8 +869,9 @@ input { font-family: inherit; }
 
 /* ============================================================
    Reduced motion & accessibility
-   Override springs/slides with short cross-fades. Keep opacity
-   and color changes that aid comprehension.
+   Override springs/slides with instant snaps (no vestibular
+   motion). The drawer/sheet still open and close correctly —
+   just without the slide animation.
    ============================================================ */
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
@@ -879,10 +880,6 @@ input { font-family: inherit; }
         transition-duration: 0.01ms !important;
     }
     html { scroll-behavior: auto; }
-    .toast, .section-modal-sheet, .sidebar, .drawer-overlay {
-        transition: opacity 200ms ease, visibility 0s linear 200ms !important;
-        transform: none !important;
-    }
 }
 
 /* Reduced transparency — frostier, near-solid surfaces */
