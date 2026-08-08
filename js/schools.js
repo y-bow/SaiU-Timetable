@@ -81,9 +81,9 @@ export const SCHOOLS = [
                     'Differential Equations',
                     'Frontiers of Machine Learning',
                     'Discrete Mathematics',
-                    'Human AI Interaction',
                 ],
                 electives: [
+                    { id: 'human-ai-interaction', label: 'Human AI Interaction' },
                     { id: 'intelligent-embedded-systems', label: 'Intelligent Embedded Systems' },
                 ],
             },

@@ -1,5 +1,5 @@
-import { SCHOOLS, buildYearMap, resolveYears, resolveSections, shouldShowProgram, shouldShowSection, schoolHasLevel } from './schools.js?v=2026-08-08-018';
-import { getNavState, setNavState, getStoredElectives, setStoredElectives, getStoredOfferings, setStoredOffering } from './storage.js?v=2026-08-08-018';
+import { SCHOOLS, buildYearMap, resolveYears, resolveSections, shouldShowProgram, shouldShowSection, schoolHasLevel } from './schools.js?v=2026-08-08-021';
+import { getNavState, setNavState, getStoredElectives, setStoredElectives, getStoredOfferings, setStoredOffering } from './storage.js?v=2026-08-08-021';
 
 /**
  * Navigation state management.
@@ -52,6 +52,25 @@ function findYear(school, programId, yearId) {
         ? (school.programs?.find(p => p.id === programId)?.years || [])
         : (school.years || []);
     return years.find(y => y.id === yearId) || null;
+}
+
+// Find a year config at the given level within a school (optionally scoped
+// to a program). Used for the global Year selector, which is shared by all
+// schools even when the current school doesn't offer every level.
+function findYearByLevel(school, program, level) {
+    if (!school) return null;
+    const years = program ? (program.years || []) : (school.years || []);
+    return years.find(y => y.level === level) || null;
+}
+
+// Coerce a Year selector id back to a numeric level. Accepts the level number
+// itself, "year-3"-style ids, and legacy per-year config ids like "scds-3".
+function yearLevelToNumber(yearId) {
+    if (typeof yearId === 'number') return yearId;
+    const m = String(yearId).match(/^year-(\d+)$/);
+    if (m) return parseInt(m[1], 10);
+    const entry = yearMap.get(String(yearId));
+    return entry ? entry.year.level : null;
 }
 
 function resolveYearConfig(school, program, yearId) {
@@ -203,13 +222,27 @@ export function navigateToProgram(programId) {
 /**
  * Navigate to a new year within the current school/program.
  * Restores the saved section for the target year if available.
+ *
+ * The Year selector is shared across schools (always shows Year 2, Year 3,
+ * …). If the active school doesn't offer the chosen level, the app switches
+ * to the first school that does — e.g. clicking Year 3 while in SOAI (which
+ * only has Year 2) jumps to SCDS Year 3.
  */
 export function navigateToYear(yearId) {
-    const school = state.school;
-    const program = state.program;
-    if (!school) return;
+    const level = yearLevelToNumber(yearId);
+    if (level == null) return;
 
-    const yearConfig = resolveYearConfig(school, program, yearId);
+    let school = state.school;
+    let program = state.program;
+    let yearConfig = findYearByLevel(school, program, level);
+
+    if (!yearConfig) {
+        const target = SCHOOLS.find(s => schoolHasLevel(s, level));
+        if (!target) return;
+        school = target;
+        program = target.programs ? target.programs[0] : null;
+        yearConfig = findYearByLevel(school, program, level);
+    }
     if (!yearConfig) return;
 
     let section = null;
@@ -223,7 +256,7 @@ export function navigateToYear(yearId) {
         }
     }
 
-    state = { ...state, year: yearConfig, section, yearConfig, electives: loadElectivesForYear(yearConfig), offeringSelections: loadOfferingsForYear(yearConfig) };
+    state = { ...state, school, program, year: yearConfig, section, yearConfig, electives: loadElectivesForYear(yearConfig), offeringSelections: loadOfferingsForYear(yearConfig) };
     persist();
     emit();
 }
@@ -287,10 +320,26 @@ export function availablePrograms() {
 }
 
 export function availableYears() {
-    if (!state.school) return [];
-    return state.program
-        ? (state.program.years || [])
-        : (state.school.years || []);
+    // Every distinct year level across the whole config, so the Year selector
+    // is always visible (Year 2, Year 3, …) no matter which school is active.
+    const levels = new Map();
+    for (const school of SCHOOLS) {
+        if (school.programs) {
+            for (const program of school.programs) {
+                for (const year of program.years) {
+                    if (year.level != null && !levels.has(year.level)) levels.set(year.level, year);
+                }
+            }
+        }
+        if (school.years) {
+            for (const year of school.years) {
+                if (year.level != null && !levels.has(year.level)) levels.set(year.level, year);
+            }
+        }
+    }
+    return [...levels.keys()]
+        .sort((a, b) => a - b)
+        .map(level => ({ id: level, label: `Year ${level}`, level }));
 }
 
 export function availableSections() {

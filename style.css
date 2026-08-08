@@ -784,6 +784,10 @@ input { font-family: inherit; }
         margin-left: var(--sidebar-w);
     }
 
+    /* The day rows only exist for the mobile grid; on desktop the wrappers
+       are transparent so the original single-row layout is unchanged. */
+    .days-row { display: contents; }
+
     .content-container {
         padding: 32px 40px 56px;
     }
@@ -819,5 +823,35 @@ input { font-family: inherit; }
 
     .content-container {
         padding: calc(var(--topbar-h) + 14px) 14px 48px;
+    }
+
+    /* Fixed day-selector layout: rows never shift when the selected day
+       changes. Monday–Wednesday always on row 1, Thursday–Friday always on
+       row 2, centered as a group. Row 2 is sized to exactly two 1fr columns
+       + gap so its buttons match row 1's cell width (equal everywhere). */
+    .days-filter {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+    }
+    .days-row {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+        width: 100%;
+    }
+    .days-row:last-child {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        width: calc((100% - 16px) * 2 / 3 + 8px);
+    }
+    .day-filter-btn {
+        min-width: 0;
+        padding: 7px 6px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 }

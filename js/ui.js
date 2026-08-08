@@ -1,6 +1,6 @@
-import { CONFIG } from './config.js?v=2026-08-08-018';
-import { toMinutes, minutesToLabel, minutesToClock, todayName, isBeforeToday, WEEKDAYS } from './utils.js?v=2026-08-08-018';
-import { offeringKey } from './parser.js?v=2026-08-08-018';
+import { CONFIG } from './config.js?v=2026-08-08-021';
+import { toMinutes, minutesToLabel, minutesToClock, todayName, isBeforeToday, WEEKDAYS } from './utils.js?v=2026-08-08-021';
+import { offeringKey } from './parser.js?v=2026-08-08-021';
 
 /**
  * DOM rendering — sidebar filters + timeline.
@@ -182,7 +182,11 @@ export function renderDayFilter(selectedDay) {
     const container = $('#days-filter');
     if (!container) return;
     if (!container.children.length) {
-        for (const day of WEEKDAYS) {
+        // Buttons are grouped into two fixed rows (Mon-Wed / Thu-Fri) so the
+        // layout stays stable on mobile regardless of which day is selected.
+        const rows = [document.createElement('div'), document.createElement('div')];
+        rows.forEach((row) => { row.className = 'days-row'; });
+        WEEKDAYS.forEach((day, i) => {
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'day-filter-btn';
@@ -194,10 +198,11 @@ export function renderDayFilter(selectedDay) {
             btn.addEventListener('click', () => {
                 window.dispatchEvent(new CustomEvent('daychange', { detail: { day } }));
             });
-            container.appendChild(btn);
-        }
+            rows[i < 3 ? 0 : 1].appendChild(btn);
+        });
+        rows.forEach((row) => container.appendChild(row));
     }
-    for (const btn of container.children) {
+    for (const btn of container.querySelectorAll('.day-filter-btn')) {
         const active = btn.dataset.day === selectedDay;
         btn.classList.toggle('active', active);
         btn.setAttribute('aria-checked', active ? 'true' : 'false');

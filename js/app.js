@@ -1,10 +1,10 @@
-import { CONFIG } from './config.js?v=2026-08-08-018';
-import { parseCSV, offeringKey } from './parser.js?v=2026-08-08-018';
-import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen, getSelectedDay, setSelectedDay } from './storage.js?v=2026-08-08-018';
-import * as nav from './navigation.js?v=2026-08-08-018';
-import * as ui from './ui.js?v=2026-08-08-018';
-import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-08-08-018';
-import { init as initAnalytics, trackEvent } from './analytics.js?v=2026-08-08-018';
+import { CONFIG } from './config.js?v=2026-08-08-021';
+import { parseCSV, offeringKey } from './parser.js?v=2026-08-08-021';
+import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen, getSelectedDay, setSelectedDay } from './storage.js?v=2026-08-08-021';
+import * as nav from './navigation.js?v=2026-08-08-021';
+import * as ui from './ui.js?v=2026-08-08-021';
+import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-08-08-021';
+import { init as initAnalytics, trackEvent } from './analytics.js?v=2026-08-08-021';
 
 /**
  * App bootstrap, fetch, and interactivity.
@@ -82,7 +82,7 @@ function renderNavigation() {
         programs: nav.availablePrograms(),
         programId: program?.id || null,
         years: nav.availableYears(),
-        yearId: year?.id || null,
+        yearId: year?.level ?? null,
         sections: nav.availableSections(),
         sectionId: selectedSection,
         electives: nav.availableElectives(),
