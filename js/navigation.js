@@ -1,5 +1,5 @@
-import { SCHOOLS, buildYearMap, resolveYears, resolveSections, shouldShowProgram, shouldShowSection, schoolHasLevel } from './schools.js?v=2026-08-08-022';
-import { getNavState, setNavState, getStoredElectives, setStoredElectives, getStoredOfferings, setStoredOffering } from './storage.js?v=2026-08-08-022';
+import { SCHOOLS, buildYearMap, resolveYears, resolveSections, shouldShowProgram, shouldShowSection, schoolHasLevel } from './schools.js?v=2026-08-08-023';
+import { getNavState, setNavState, getStoredElectives, setStoredElectives, getStoredOfferings, setStoredOffering } from './storage.js?v=2026-08-08-023';
 
 /**
  * Navigation state management.
