@@ -440,8 +440,8 @@
 
             for (let r = 0; r < BRICK_ROWS; r++) {
                 for (let c = 0; c < BRICK_COLS; c++) {
-                    // 15% chance of being a Multiball special block
-                    const isSpecial = Math.random() < 0.20;
+                    // 6% chance of being a Multiball special block (approx 2 per level)
+                    const isSpecial = Math.random() < 0.06;
                     bricks.push({
                         x: paddingLeftRight + c * (brickWidth + gap),
                         y: paddingTop + r * (brickHeight + gap),
