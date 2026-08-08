@@ -1,6 +1,7 @@
-import { CONFIG } from './config.js?v=2026-08-08-027';
-import { toMinutes, minutesToLabel, minutesToClock, todayName, isBeforeToday, WEEKDAYS } from './utils.js?v=2026-08-08-027';
-import { offeringKey } from './parser.js?v=2026-08-08-027';
+import { CONFIG } from './config.js?v=2026-08-09-001';
+import { toMinutes, minutesToLabel, minutesToClock, todayName, isBeforeToday, WEEKDAYS } from './utils.js?v=2026-08-09-001';
+import { offeringKey } from './parser.js?v=2026-08-09-001';
+import { rubberband, projectMomentum } from './spring.js?v=2026-08-09-001';
 
 /**
  * DOM rendering — sidebar filters + timeline.
@@ -215,6 +216,70 @@ export function renderDayFilter(selectedDay) {
 
 let drawerFocusTrapCleanup = null;
 
+// ============================================================
+// Mobile drawer — 1:1 drag tracking with momentum handoff
+//
+// The sidebar opens/closes via the `open` class (CSS transition for the
+// resting spring). While the user drags the sidebar, pointermove tracks the
+// finger 1:1 (rubber-banding past the edge). On release the gesture's
+// velocity is projected (§6 momentum projection) to decide open/close, then
+// the inline transform is cleared so the CSS spring carries it home.
+// ============================================================
+
+function startDrawerDragTracking() {
+    const sidebar = $('#sidebar');
+    if (!sidebar) return;
+    if (!window.matchMedia('(max-width: 767px)').matches) return;
+
+    let startX = null;
+    let history = [];
+
+    sidebar.addEventListener('pointerdown', (e) => {
+        startX = e.clientX;
+        history = [{ x: e.clientX, t: performance.now() }];
+        sidebar.setPointerCapture(e.pointerId);
+    });
+
+    sidebar.addEventListener('pointermove', (e) => {
+        if (startX == null) return;
+        const dx = e.clientX - startX;
+        history.push({ x: e.clientX, t: performance.now() });
+        if (history.length > 8) history.shift();
+        // 1:1 tracking with rubber-band resistance past the open position.
+        // Inline transform takes over from the CSS spring mid-gesture.
+        const overshoot = dx - 0; // sidebar fully open sits at x=0
+        const resisted = overshoot > 0
+            ? rubberband(overshoot, sidebar.offsetWidth, 0.55)
+            : overshoot;
+        sidebar.style.transform = `translateX(${resisted}px)`;
+    });
+
+    sidebar.addEventListener('pointerup', (e) => {
+        if (startX == null) return;
+        const dx = e.clientX - startX;
+        let velocity = 0;
+        if (history.length > 1) {
+            const last = history[history.length - 1];
+            const prev = history[Math.max(0, history.length - 3)];
+            const dt = (last.t - prev.t) / 1000;
+            if (dt > 0) velocity = (last.x - prev.x) / dt;
+        }
+        // Momentum projection: a leftward flick projects past the threshold
+        const projected = dx + projectMomentum(velocity);
+        const open = projected > -40;
+        sidebar.style.transform = '';
+        sidebar.classList.toggle('open', open);
+        overlayVisible(open);
+        startX = null;
+        history = [];
+    });
+}
+
+function overlayVisible(show) {
+    const overlay = $('#drawer-overlay');
+    if (overlay) overlay.classList.toggle('visible', show);
+}
+
 export function openDrawer() {
     const sidebar = $('#sidebar');
     const overlay = $('#drawer-overlay');
@@ -242,6 +307,11 @@ export function closeDrawer() {
 export function isDrawerOpen() {
     const sidebar = $('#sidebar');
     return sidebar ? sidebar.classList.contains('open') : false;
+}
+
+/** Bind the gesture-driven drawer drag (mobile only). Call once at startup. */
+export function initInteractions() {
+    startDrawerDragTracking();
 }
 
 function trapFocus(container, onEscape) {

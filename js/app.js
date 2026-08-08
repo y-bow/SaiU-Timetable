@@ -1,10 +1,10 @@
-import { CONFIG } from './config.js?v=2026-08-08-027';
-import { parseCSV, offeringKey } from './parser.js?v=2026-08-08-027';
-import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen, getSelectedDay, setSelectedDay } from './storage.js?v=2026-08-08-027';
-import * as nav from './navigation.js?v=2026-08-08-027';
-import * as ui from './ui.js?v=2026-08-08-027';
-import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-08-08-027';
-import { init as initAnalytics, trackEvent } from './analytics.js?v=2026-08-08-027';
+import { CONFIG } from './config.js?v=2026-08-09-001';
+import { parseCSV, offeringKey } from './parser.js?v=2026-08-09-001';
+import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen, getSelectedDay, setSelectedDay } from './storage.js?v=2026-08-09-001';
+import * as nav from './navigation.js?v=2026-08-09-001';
+import * as ui from './ui.js?v=2026-08-09-001';
+import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-08-09-001';
+import { init as initAnalytics, trackEvent } from './analytics.js?v=2026-08-09-001';
 
 /**
  * App bootstrap, fetch, and interactivity.
@@ -612,6 +612,7 @@ function init() {
     selectedDay = getSelectedDay();
 
     initHamburger();
+    ui.initInteractions?.();
     initPullToRefresh();
     initActions();
     initNavigationListeners();

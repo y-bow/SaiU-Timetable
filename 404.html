@@ -39,7 +39,7 @@
         }
 
         .error-header h1 {
-            font-size: 4rem;
+            font-size: clamp(2.5rem, 8vw, 4rem);
             font-weight: 700;
             line-height: 1;
             margin-bottom: 4px;
@@ -47,6 +47,7 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             letter-spacing: -0.04em;
+            font-optical-sizing: auto;
         }
 
         .error-header p {
@@ -61,12 +62,14 @@
             margin-bottom: 12px;
         }
 
-        /* Game area */
+        /* Game area — translucent material */
         .game-wrapper {
             position: relative;
             width: 100%;
-            background: var(--surface);
-            border: 1px solid var(--border);
+            background: rgba(17, 17, 17, 0.72);
+            backdrop-filter: blur(24px) saturate(160%);
+            -webkit-backdrop-filter: blur(24px) saturate(160%);
+            border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: var(--radius-lg);
             padding: 12px;
             box-shadow: var(--shadow-lg);
@@ -152,10 +155,12 @@
             font-size: 0.85rem;
             font-weight: 600;
             text-decoration: none;
-            transition: background var(--fast), border-color var(--fast), filter var(--fast);
+            transition: background var(--fast), border-color var(--fast), filter var(--fast), transform 100ms ease-out;
             border: 1px solid transparent;
             cursor: pointer;
         }
+
+        .btn:active { transform: scale(0.97); }
 
         .btn-outline {
             background: transparent;
