@@ -29,4 +29,9 @@ export const CONFIG = {
     BREAK_THRESHOLD_MIN: 40,
     LUNCH_START: 12 * 60 + 15,  // 12:15 PM
     LUNCH_END: 15 * 60,         // 3:00 PM
+
+    // Minimum gap (minutes) between "now" and the next class before the
+    // Breakout suggestion is shown. Below this the game hint is hidden so a
+    // class that is about to start never gets interrupted by an invitation.
+    GAME_SUGGEST_MIN: 5,
 };

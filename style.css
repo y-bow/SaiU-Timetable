@@ -374,26 +374,26 @@ input { font-family: inherit; }
     margin: 6px 14px;
 }
 
-/* Sidebar footer */
+/* Sidebar footer — fixed panel visually lifted above the scrolling body.
+   A gradient hairline + soft shadow marks the boundary. */
 .sidebar-footer {
-    padding: 10px 14px;
-    border-top: 1px solid var(--border-bright);
+    position: relative;
+    padding: 12px 14px 10px;
     flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 70%);
+    box-shadow: 0 -12px 28px -18px rgba(0, 0, 0, 0.6);
 }
-.sidebar-refresh-btn {
-    display: flex; align-items: center; gap: 8px;
-    width: 100%; height: 34px;
-    padding: 0 12px;
-    border-radius: var(--radius-sm);
-    font-size: 0.8rem;
-    font-weight: 500;
-    color: var(--text-secondary);
-    border: 1px solid var(--border);
-    transition: background var(--fast), color var(--fast);
+.sidebar-footer::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22) 20%, rgba(255, 255, 255, 0.22) 80%, transparent);
+    pointer-events: none;
 }
-.sidebar-refresh-btn:hover { background: var(--surface-2); color: var(--text); }
-.sidebar-refresh-btn.spinning svg { animation: spin 0.7s linear infinite; }
-
 .sidebar-install-btn {
     display: flex; align-items: center; justify-content: center; gap: 8px;
     width: 100%; height: 36px;
@@ -409,39 +409,70 @@ input { font-family: inherit; }
 .sidebar-install-btn:active { transform: scale(0.97); }
 
 .last-updated {
-    font-size: 0.68rem;
+    font-size: 0.64rem;
     color: var(--text-tertiary);
+    opacity: 0.75;
     text-align: center;
-    margin-top: 9px;
     font-variant-numeric: tabular-nums;
 }
-.sidebar-credit {
-    font-size: 0.62rem;
-    color: var(--text-tertiary);
-    text-align: center;
-    margin-top: 8px;
-    opacity: 0.6;
-}
 
-/* Fixed adaptive footer overlay. Stays pinned to the bottom of the viewport
-   (never scrolls with content) and inverts to whatever background scrolls
-   beneath it via mix-blend-mode: difference — the same effect as the iOS
-   lock-screen clock adapting to the wallpaper. A muted gray base keeps it
-   subtle instead of stark white. */
+/* Floating liquid-glass credit pill, pinned bottom-center of the viewport.
+   Uses the same translucent material + blur as the toast for a unified
+   surface, so it never fights the content beneath it. */
 .main-footer {
     position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    left: 50%;
+    transform: translateX(-50%);
     z-index: 50;
-    pointer-events: none;
-    text-align: center;
-    padding: 8px 16px calc(14px + env(safe-area-inset-bottom, 0px));
-    font-size: 0.68rem;
+    pointer-events: auto;
+    white-space: nowrap;
+    padding: 9px 24px;
+    border-radius: 999px;
+    font-size: 0.66rem;
     font-weight: 400;
-    letter-spacing: 0;
-    color: #8E8E93;
-    mix-blend-mode: difference;
+    letter-spacing: 0.01em;
+    text-align: center;
+    color: #D4D4D8;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.03) 40%, rgba(255, 255, 255, 0.07));
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.12), inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+    overflow: hidden;
+    cursor: default;
+    transition: box-shadow 500ms ease, background 500ms ease, color 300ms ease;
+}
+/* Underwater shimmer — a soft band drifts slowly across the glass. */
+.main-footer::before {
+    content: '';
+    position: absolute;
+    top: -60%; left: -40%;
+    width: 180%; height: 220%;
+    background: linear-gradient(115deg, transparent 40%, rgba(255, 255, 255, 0.14) 50%, transparent 60%);
+    transform: translateX(-70%) rotate(-4deg);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 600ms ease;
+}
+.main-footer:hover::before {
+    opacity: 1;
+    animation: glass-shimmer 3s linear infinite;
+}
+@keyframes glass-shimmer {
+    0%   { transform: translateX(-70%) rotate(-4deg); }
+    100% { transform: translateX(70%) rotate(-4deg); }
+}
+/* Gentle float — the pill bobs like a cork resting on water. */
+.main-footer:hover {
+    color: #FFFFFF;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.05) 40%, rgba(255, 255, 255, 0.09));
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.38), 0 0 30px rgba(255, 255, 255, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+    animation: glass-float 3.2s ease-in-out infinite;
+}
+@keyframes glass-float {
+    0%, 100% { transform: translateX(-50%) translateY(0); }
+    50%      { transform: translateX(-50%) translateY(-3px); }
 }
 
 /* ============================================================
@@ -741,6 +772,45 @@ input { font-family: inherit; }
 .tl-done span { color: var(--text-tertiary); font-size: 0.82rem; }
 
 /* ============================================================
+   Sidebar Breakout CTA — quiet, footer-subtle invitation.
+   The static CTA lives in the sidebar footer, above Install App.
+   ============================================================ */
+.game-cta {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 0;
+    text-align: center;
+}
+.game-cta-text {
+    font-size: 0.66rem;
+    font-weight: 400;
+    color: var(--text-tertiary);
+}
+.game-cta-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 30px;
+    padding: 0 16px;
+    border-radius: var(--radius-pill);
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    text-decoration: none;
+    transition: color var(--fast), border-color var(--fast), background var(--fast), transform 100ms ease-out;
+}
+.game-cta-btn:hover {
+    color: var(--text);
+    border-color: var(--border-strong);
+    background: var(--surface-3);
+}
+.game-cta-btn:active { transform: scale(0.97); }
+
+/* ============================================================
    State card
    ============================================================ */
 .state-card {
@@ -919,9 +989,9 @@ input { font-family: inherit; }
         margin-left: var(--sidebar-w);
     }
 
-    /* Footer overlay sits to the right of the permanent sidebar. */
+    /* Credit pill stays bottom-center over the timetable area. */
     .main-footer {
-        left: var(--sidebar-w);
+        left: calc(50% + var(--sidebar-w) / 2);
     }
 
     /* The day rows only exist for the mobile grid; on desktop the wrappers
@@ -956,6 +1026,11 @@ input { font-family: inherit; }
     }
     .sidebar.open { transform: translateX(0); }
     .sidebar-close-btn { display: grid; }
+
+    /* The floating credit pill must never cover the open drawer. */
+    #sidebar.open ~ .main-content .main-footer {
+        display: none;
+    }
 
     .main-content {
         margin-left: 0;

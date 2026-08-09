@@ -1,0 +1,87 @@
+import { CONFIG } from './config.js?v=2026-08-09-005';
+import { parseCSV } from './parser.js?v=2026-08-09-005';
+import * as nav from './navigation.js?v=2026-08-09-005';
+import { toMinutes, minutesToClock, todayName, WEEKDAYS } from './utils.js?v=2026-08-09-005';
+
+/**
+ * Background timetable sync for the Breakout game page (game.html).
+ *
+ * The game never depends on the timetable. This module only:
+ *   1. Refreshes the shared timetable cache (same localStorage keys the main
+ *      app uses) whenever the network is available, so the game page also
+ *      keeps the schedule fresh while the user plays.
+ *   2. Shows an optional, subtle "next class" hint from whatever timetable
+ *      data is available — pure context, never blocking.
+ *
+ * If the page opens offline, the game runs normally; nothing here throws.
+ * When connectivity returns, the `online` event triggers a re-sync without
+ * reloading the page or interrupting gameplay.
+ */
+
+const CONTEXT_EL = () => document.getElementById('game-context');
+
+function cacheKeyFor(year) {
+    return year && year.id ? `tt-cache-${year.id}` : CONFIG.CACHE_KEY;
+}
+
+async function syncTimetable() {
+    if (!navigator.onLine) return;
+    try {
+        // Resolve the current selection exactly like the main app does.
+        nav.initNavigation();
+        const sheetUrl = nav.getSheetUrl();
+        if (!sheetUrl) return;
+
+        const res = await fetch(sheetUrl);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const text = await res.text();
+        const parsed = parseCSV(text, nav.getParserType(), nav.getMandatoryCourses(), nav.getElectives());
+        if (!parsed.length) throw new Error('No classes parsed');
+
+        try {
+            localStorage.setItem(cacheKeyFor(nav.getYear()), JSON.stringify({ savedAt: Date.now(), classes: parsed }));
+        } catch { /* storage full — ignore */ }
+
+        renderContext(parsed);
+    } catch {
+        // Offline or transient failure — the game is unaffected.
+    }
+}
+
+// Optional contextual hint: the next class on today's schedule, if any.
+function renderContext(classes) {
+    const el = CONTEXT_EL();
+    if (!el) return;
+    try {
+        const day = todayName();
+        if (!WEEKDAYS.includes(day)) { el.classList.add('hidden'); return; }
+        const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+        const next = classes
+            .filter((c) => c.day === day && toMinutes(c.startTime) > nowMin)
+            .sort((a, b) => toMinutes(a.startTime) - toMinutes(b.startTime))[0];
+        if (next) {
+            el.textContent = `Next class: ${next.subject} · ${minutesToClock(toMinutes(next.startTime))}`;
+            el.classList.remove('hidden');
+        } else {
+            el.classList.add('hidden');
+        }
+    } catch {
+        el.classList.add('hidden');
+    }
+}
+
+function boot() {
+    // The game has already started by the time this module runs; a short
+    // delay keeps any network work well out of the game's first frames.
+    setTimeout(() => syncTimetable(), 1000);
+
+    // Connectivity returned while the page is open → refresh the cache only.
+    // No reload, no restart, gameplay is never interrupted.
+    window.addEventListener('online', () => syncTimetable());
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+} else {
+    boot();
+}

@@ -1,7 +1,7 @@
-import { CONFIG } from './config.js?v=2026-08-09-001';
-import { toMinutes, minutesToLabel, minutesToClock, todayName, isBeforeToday, WEEKDAYS } from './utils.js?v=2026-08-09-001';
-import { offeringKey } from './parser.js?v=2026-08-09-001';
-import { rubberband, projectMomentum } from './spring.js?v=2026-08-09-001';
+import { CONFIG } from './config.js?v=2026-08-09-005';
+import { toMinutes, minutesToLabel, minutesToClock, todayName, isBeforeToday, WEEKDAYS } from './utils.js?v=2026-08-09-005';
+import { offeringKey } from './parser.js?v=2026-08-09-005';
+import { rubberband, projectMomentum } from './spring.js?v=2026-08-09-005';
 
 /**
  * DOM rendering — sidebar filters + timeline.
@@ -544,6 +544,39 @@ function renderOfferings(c, status) {
             <span class="tl-offerings-label">${ICONS.users}Offering</span>
             <div class="tl-offerings-list">${chips}</div>
         </div>`;
+}
+
+// ============================================================
+// Breakout game CTA (sidebar footer)
+// ============================================================
+
+// Shows/hides the sidebar Play Breakout CTA. The CTA markup is static in the
+// sidebar footer, so only its visibility changes here. It appears whenever
+// no class is currently in progress in the selected timetable — any selected
+// day, including weekends. The "next class" gap threshold only makes sense
+// for today (on any other day the next class is on a different calendar day,
+// so the student is always free right now).
+export function renderGameSuggestion(ctx, nowMin, day) {
+    const el = $('#game-cta');
+    if (!el) return;
+
+    const hide = () => el.classList.add('hidden');
+
+    // Only invite a game once a timetable is actually on screen.
+    const section = $('#schedule-section');
+    if (!section || section.classList.contains('hidden')) { hide(); return; }
+
+    // The only rule: never encourage a game while a class is in progress.
+    if (ctx.current) { hide(); return; }
+
+    // Today only: don't encourage a game when the next class is imminent.
+    const next = ctx.next;
+    if (next && day === todayName() && toMinutes(next.startTime) - nowMin <= CONFIG.GAME_SUGGEST_MIN) {
+        hide();
+        return;
+    }
+
+    el.classList.remove('hidden');
 }
 
 // ============================================================

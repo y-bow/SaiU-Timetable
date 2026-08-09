@@ -32,7 +32,7 @@ const isDevHost = DEV_HOSTS.includes(self.location.hostname);
 
 // Replaced by build.mjs on every build — the file's bytes change every
 // deployment so the Service Worker update is always detected.
-const BUILD_ID = '2026-08-09-001';
+const BUILD_ID = '2026-08-09-005';
 
 const CACHE_NAME = 'saiu-timetable-v' + BUILD_ID;
 const SHEET_CACHE = 'timetable-sheet-v1';
@@ -43,6 +43,7 @@ const versioned = (url) => `${url}?v=${BUILD_ID}`;
 // the newest files and the old cache is removed on activation.
 const ASSETS = [
   'index.html',
+  'game.html',
   versioned('style.css'),
   versioned('manifest.json'),
   versioned('js/build.js'),
@@ -55,6 +56,7 @@ const ASSETS = [
   versioned('js/ui.js'),
   versioned('js/spring.js'),
   versioned('js/analytics.js'),
+  versioned('js/game-sync.js'),
   versioned('js/app.js'),
   versioned('icons/white/favicon-32.png'),
   versioned('icons/white/favicon-48.png'),

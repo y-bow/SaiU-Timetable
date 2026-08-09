@@ -1,10 +1,10 @@
-import { CONFIG } from './config.js?v=2026-08-09-001';
-import { parseCSV, offeringKey } from './parser.js?v=2026-08-09-001';
-import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen, getSelectedDay, setSelectedDay } from './storage.js?v=2026-08-09-001';
-import * as nav from './navigation.js?v=2026-08-09-001';
-import * as ui from './ui.js?v=2026-08-09-001';
-import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-08-09-001';
-import { init as initAnalytics, trackEvent } from './analytics.js?v=2026-08-09-001';
+import { CONFIG } from './config.js?v=2026-08-09-005';
+import { parseCSV, offeringKey } from './parser.js?v=2026-08-09-005';
+import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen, getSelectedDay, setSelectedDay } from './storage.js?v=2026-08-09-005';
+import * as nav from './navigation.js?v=2026-08-09-005';
+import * as ui from './ui.js?v=2026-08-09-005';
+import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-08-09-005';
+import { init as initAnalytics, trackEvent } from './analytics.js?v=2026-08-09-005';
 
 /**
  * App bootstrap, fetch, and interactivity.
@@ -240,6 +240,7 @@ function render() {
     const sc = sectionClasses();
     const ctx = ui.computeHighlight(sc, now, day);
     ui.renderTimeline(now, day, ctx, '');
+    ui.renderGameSuggestion(ctx, now, day);
 
     lastFeatureKey = (ctx.current || ctx.next)
         ? `${(ctx.current || ctx.next).subject}|${(ctx.current || ctx.next).startTime}|${ctx.current ? 1 : 0}`
@@ -264,6 +265,10 @@ function startCountdown() {
             : 'none';
         if (key !== lastFeatureKey) { lastFeatureKey = key; render(); return; }
         if (day === todayName()) ui.updateLiveClock(now, ctx.current, ctx.next);
+        // The game hint follows live state too: it appears the moment a class
+        // ends, hides when the next class draws close, and never needs a
+        // manual refresh.
+        ui.renderGameSuggestion(ctx, now, day);
     }, 60 * 1000);
 }
 

@@ -104,6 +104,20 @@ function versionRefs(html, patterns) {
 }
 
 // ---------------------------------------------------------------------------
+// game.html / 404.html — version every same-origin static asset reference.
+// These pages are not otherwise processed by the build, but they must still
+// point at the current BUILD_ID so a cache never serves them stale CSS/JS.
+// ---------------------------------------------------------------------------
+for (const file of ['game.html', '404.html']) {
+  if (!existsSync(join(ROOT, file))) continue;
+  write(file, versionRefs(read(file), [
+    'style\\.css',
+    'js/game-sync\\.js',
+    'icons/[A-Za-z0-9._/-]+\\.png',
+  ]));
+}
+
+// ---------------------------------------------------------------------------
 // js/*.js — version every relative module import (`from './x.js'` /
 // `import './x.js'`). Only import/export specifiers are rewritten, so
 // other strings containing `./foo.js?v=...` (e.g. the SW registration
