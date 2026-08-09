@@ -1,10 +1,11 @@
-import { CONFIG } from './config.js?v=2026-08-09-005';
-import { parseCSV, offeringKey } from './parser.js?v=2026-08-09-005';
-import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen, getSelectedDay, setSelectedDay } from './storage.js?v=2026-08-09-005';
-import * as nav from './navigation.js?v=2026-08-09-005';
-import * as ui from './ui.js?v=2026-08-09-005';
-import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-08-09-005';
-import { init as initAnalytics, trackEvent } from './analytics.js?v=2026-08-09-005';
+import { CONFIG } from './config.js?v=2026-08-09-007';
+import { parseCSV, offeringKey } from '../data/parser.js?v=2026-08-09-007';
+import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen, getSelectedDay, setSelectedDay } from '../services/storage.js?v=2026-08-09-007';
+import * as nav from '../ui/navigation.js?v=2026-08-09-007';
+import * as ui from '../ui/ui.js?v=2026-08-09-007';
+import { checkArjunSinghTransition } from '../ui/easter-eggs.js?v=2026-08-09-007';
+import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-08-09-007';
+import { init as initAnalytics, trackEvent } from '../services/analytics.js?v=2026-08-09-007';
 
 /**
  * App bootstrap, fetch, and interactivity.
@@ -17,6 +18,7 @@ let lastUpdated = null;
 let selectedDay = null;
 let countdownTimer = null;
 let lastFeatureKey = null;
+let prevCurrent = null;
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -246,6 +248,12 @@ function render() {
         ? `${(ctx.current || ctx.next).subject}|${(ctx.current || ctx.next).startTime}|${ctx.current ? 1 : 0}`
         : 'none';
 
+    // Initialize prevCurrent on first render to prevent false Easter egg triggers
+    // when the page loads with a class already in progress
+    if (prevCurrent === null) {
+        prevCurrent = ctx.current;
+    }
+
     ui.setLastUpdated(lastUpdated || new Date());
 }
 
@@ -269,6 +277,17 @@ function startCountdown() {
         // ends, hides when the next class draws close, and never needs a
         // manual refresh.
         ui.renderGameSuggestion(ctx, now, day);
+
+        // Check for Arjun Singh Easter egg transition
+        checkArjunSinghTransition({
+            classes: sc,
+            nowMin: now,
+            day,
+            current: ctx.current,
+            next: ctx.next,
+            prevCurrent
+        });
+        prevCurrent = ctx.current;
     }, 60 * 1000);
 }
 

@@ -1,7 +1,7 @@
-import { CONFIG } from './config.js?v=2026-08-09-005';
-import { toMinutes, minutesToLabel, minutesToClock, todayName, isBeforeToday, WEEKDAYS } from './utils.js?v=2026-08-09-005';
-import { offeringKey } from './parser.js?v=2026-08-09-005';
-import { rubberband, projectMomentum } from './spring.js?v=2026-08-09-005';
+import { CONFIG } from '../core/config.js?v=2026-08-09-007';
+import { toMinutes, minutesToLabel, minutesToClock, todayName, isBeforeToday, WEEKDAYS } from '../core/utils.js?v=2026-08-09-007';
+import { offeringKey } from '../data/parser.js?v=2026-08-09-007';
+import { rubberband, projectMomentum } from '../core/spring.js?v=2026-08-09-007';
 
 /**
  * DOM rendering — sidebar filters + timeline.

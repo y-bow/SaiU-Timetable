@@ -6,11 +6,11 @@
     <title>404 - Page Not Found | SaiU Timetable</title>
     <meta name="description" content="The page you are looking for does not exist. Play a classic game of Breakout while you're here.">
     <meta name="theme-color" content="#0D0D0D">
-    <link rel="stylesheet" href="style.css?v=2026-08-09-005">
+    <link rel="stylesheet" href="style.css?v=2026-08-09-007">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="icon" type="image/png" sizes="32x32" href="icons/white/favicon-32.png?v=2026-08-09-005">
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon/favicon-32.png?v=2026-08-09-007">
     
     <style>
         /* Base page layout */
@@ -217,13 +217,30 @@
 
         <div class="game-wrapper">
             <div class="game-header">
-                <div>BREAKOUT</div>
+                <div id="score-display">SCORE: <span>0000</span></div>
+                <div id="high-score-display">BEST: <span>0000</span></div>
+                <div id="level-display">LEVEL: <span>1</span></div>
+                <div id="lives-display">LIVES: <span>3</span></div>
             </div>
-            <p class="game-cta-text">Smash a few bricks while you're free.</p>
+
+            <canvas id="game-canvas"></canvas>
+
+            <!-- Screen overlays -->
+            <div id="start-overlay" class="overlay">
+                <div class="overlay-title">BREAKOUT</div>
+                <button id="start-button" class="btn primary">Start Game [Space]</button>
+            </div>
+
+            <div id="gameover-overlay" class="overlay hidden">
+                <div class="overlay-title gameover">GAME OVER</div>
+                <button id="restart-button" class="btn primary">Restart [Space]</button>
+            </div>
         </div>
 
+        <div id="game-context" class="game-context hidden"></div>
+
         <div class="actions">
-            <a href="game.html" class="btn primary">Play Breakout</a>
+            <button id="reset-game-btn" class="btn btn-outline">Reset Game</button>
             <a href="index.html" class="btn btn-outline">Back to timetable</a>
         </div>
 
@@ -233,5 +250,11 @@
         </div>
     </div>
 
+    <script src="js/game/breakout.js?v=2026-08-09-007"></script>
+
+    <!-- Background timetable sync: never blocks the game. The game above
+         boots immediately; this module only refreshes the shared timetable
+         cache when the network is available. -->
+    <script type="module" src="js/services/timetable-sync.js?v=2026-08-09-007"></script>
 </body>
 </html>

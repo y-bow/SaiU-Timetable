@@ -5,6 +5,6 @@
   "type": "module",
   "description": "Real-time university timetable PWA",
   "scripts": {
-    "build": "node build.mjs"
+    "build": "node scripts/build.mjs"
   }
 }

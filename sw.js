@@ -3,7 +3,7 @@
 // ============================================================
 //
 // Update strategy (production):
-//   - The build id below is injected by build.mjs on every build. That
+//   - The build id below is injected by scripts/build.mjs on every build. That
 //     changes this file's bytes each deployment, so browsers always detect
 //     a new Service Worker and install it.
 //   - A unique cache version is created per build (saiu-timetable-v{ID}).
@@ -30,9 +30,9 @@
 const DEV_HOSTS = ['localhost', '127.0.0.1', '::1', '0.0.0.0'];
 const isDevHost = DEV_HOSTS.includes(self.location.hostname);
 
-// Replaced by build.mjs on every build — the file's bytes change every
+// Replaced by scripts/build.mjs on every build — the file's bytes change every
 // deployment so the Service Worker update is always detected.
-const BUILD_ID = '2026-08-09-005';
+const BUILD_ID = '2026-08-09-007';
 
 const CACHE_NAME = 'saiu-timetable-v' + BUILD_ID;
 const SHEET_CACHE = 'timetable-sheet-v1';
@@ -43,32 +43,34 @@ const versioned = (url) => `${url}?v=${BUILD_ID}`;
 // the newest files and the old cache is removed on activation.
 const ASSETS = [
   'index.html',
-  'game.html',
+  '404.html',
   versioned('style.css'),
   versioned('manifest.json'),
-  versioned('js/build.js'),
-  versioned('js/config.js'),
-  versioned('js/parser.js'),
-  versioned('js/utils.js'),
-  versioned('js/storage.js'),
-  versioned('js/schools.js'),
-  versioned('js/navigation.js'),
-  versioned('js/ui.js'),
-  versioned('js/spring.js'),
-  versioned('js/analytics.js'),
-  versioned('js/game-sync.js'),
-  versioned('js/app.js'),
-  versioned('icons/white/favicon-32.png'),
-  versioned('icons/white/favicon-48.png'),
-  versioned('icons/white/favicon-192.png'),
-  versioned('icons/white/icon-512.png'),
-  versioned('icons/white/icon-maskable-192.png'),
-  versioned('icons/white/icon-maskable-512.png'),
-  versioned('icons/black/apple-touch-icon.png'),
-  versioned('icons/black/favicon-192.png'),
-  versioned('icons/black/icon-512.png'),
-  versioned('icons/black/icon-maskable-192.png'),
-  versioned('icons/black/icon-maskable-512.png'),
+  versioned('js/generated/build.js'),
+  versioned('js/core/config.js'),
+  versioned('js/data/parser.js'),
+  versioned('js/core/utils.js'),
+  versioned('js/services/storage.js'),
+  versioned('js/data/schools.js'),
+  versioned('js/ui/navigation.js'),
+  versioned('js/ui/ui.js'),
+  versioned('js/core/spring.js'),
+  versioned('js/services/analytics.js'),
+  versioned('js/services/timetable-sync.js'),
+  versioned('js/core/app.js'),
+  versioned('js/ui/easter-eggs.js'),
+  versioned('js/game/breakout.js'),
+  versioned('icons/favicon/favicon-32.png'),
+  versioned('icons/favicon/favicon-48.png'),
+  versioned('icons/favicon/favicon-192.png'),
+  versioned('icons/app/white-icon-512.png'),
+  versioned('icons/app/white-icon-maskable-192.png'),
+  versioned('icons/app/white-icon-maskable-512.png'),
+  versioned('icons/app/black-icon-192.png'),
+  versioned('icons/app/black-icon-512.png'),
+  versioned('icons/app/black-icon-maskable-192.png'),
+  versioned('icons/app/black-icon-maskable-512.png'),
+  versioned('icons/app/apple-touch-icon.png'),
   versioned('manifest-light.json'),
 ];
 
