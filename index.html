@@ -152,6 +152,16 @@
                 <span>Release to refresh</span>
             </div>
 
+            <!-- Temporary maintenance notice — manually enabled, auto-expires at the
+                 timestamp in the toggle script near the end of the body. Independent
+                 of timetable sync, the sheet, the service worker, and the network. -->
+            <div id="temp-notice" class="maintenance-notice hidden">
+                <div class="maintenance-notice-card">
+                    <span class="maintenance-notice-title">Timetable update in progress</span>
+                    <span class="maintenance-notice-message">Recent changes are being processed. Check back tomorrow morning for the latest schedule.</span>
+                </div>
+            </div>
+
             <nav id="days-filter" class="days-filter" role="radiogroup" aria-label="Select day"></nav>
 
             <div class="main-header">
@@ -192,5 +202,23 @@
     </div>
 
     <script type="module" src="js/core/app.js?v=2026-08-09-007"></script>
+
+    <!-- Temporary maintenance notice toggle. Manually enabled; fully independent
+         of timetable parsing, sheet sync, PWA, service worker, and network.
+         Starts hidden and is revealed only while "now" is before the explicit
+         IST expiry timestamp — after that it stays hidden with no further change.
+         To disable early, set TEMP_NOTICE_ENABLED = false (or delete this block). -->
+    <script>
+        var TEMP_NOTICE_ENABLED = true;
+        var TEMP_NOTICE_EXPIRES = '2026-08-10T09:00:00+05:30'; // India Standard Time (UTC+5:30)
+        (function () {
+            if (!TEMP_NOTICE_ENABLED) return;
+            var el = document.getElementById('temp-notice');
+            if (!el) return;
+            var expiry = Date.parse(TEMP_NOTICE_EXPIRES);
+            if (isNaN(expiry) || Date.now() >= expiry) return; // expired → stays hidden
+            el.classList.remove('hidden');
+        })();
+    </script>
 </body>
 </html>
