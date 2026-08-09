@@ -330,6 +330,47 @@ input { font-family: inherit; }
 
 .sidebar-item-label { flex: 1; min-width: 0; }
 
+/* Offering dropdown under an elective checkbox (Emerging Tools section
+   selector). Aligned with the checkbox labels and capped at the sidebar
+   width so it never causes horizontal scrolling on mobile drawers. */
+.sidebar-elective-dropdown {
+    display: flex; flex-direction: column; gap: 4px;
+    padding: 2px 12px 8px 33px;
+    min-width: 0;
+    max-width: 100%;
+}
+.sidebar-elective-dropdown-label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    user-select: none;
+}
+.sidebar-elective-select {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+    appearance: none;
+    -webkit-appearance: none;
+    padding: 7px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: border-color var(--fast), background var(--fast), transform 100ms ease-out;
+}
+.sidebar-elective-select:hover { border-color: var(--border-strong); background: var(--surface-3); }
+.sidebar-elective-select:active { transform: scale(0.98); }
+.sidebar-elective-select:focus-visible {
+    outline: none;
+    border-color: #C94C4C;
+}
+
 .sidebar-item-sub {
     font-size: 0.68rem;
     color: var(--text-tertiary);
@@ -369,10 +410,13 @@ input { font-family: inherit; }
     box-shadow: 0 2px 8px rgba(201, 76, 76, 0.35);
 }
 
-/* Temporary maintenance notice — subtle info banner above the day filter.
-   Manually enabled from index.html and auto-hidden by its expiry timestamp.
-   Non-blocking, static in flow (never overlays cards, selectors, or sidebar),
-   and width-constrained so it never creates horizontal scrolling on mobile. */
+/* TEMPORARY: TIMETABLE UPDATE STATUS
+   Maintenance/update banner above the day filter — one shared, responsive
+   component for desktop, tablet, mobile browser, and installed PWA. Toggled
+   solely by the clearly marked script block in index.html via the single
+   flag TIMETABLE_UPDATE_IN_PROGRESS. Keep this feature in the codebase; flip
+   that flag to false to hide it. Breakpoints change only proportion (padding
+   / type) — never the card structure or the yellow accent treatment. */
 .maintenance-notice {
     margin-bottom: 18px;
     border: 1px solid var(--border);
@@ -382,6 +426,7 @@ input { font-family: inherit; }
     box-shadow: var(--shadow-sm);
     overflow: hidden;
     max-width: 100%;
+    min-width: 0;
 }
 .maintenance-notice-card {
     display: flex;
@@ -399,6 +444,28 @@ input { font-family: inherit; }
     font-size: var(--font-caption);
     line-height: 1.5;
     color: var(--text-secondary);
+}
+
+/* Narrow screens (mobile browser + installed PWA): scale padding and type
+   down proportionally so the banner stays a compact card and never
+   dominates the timetable list or causes horizontal overflow.
+   The surrounding day-filter spacing is left untouched. */
+@media (max-width: 767px) {
+    .maintenance-notice {
+        margin-bottom: 14px;
+        border-left-width: 3px;
+    }
+    .maintenance-notice-card {
+        padding: 10px 12px;
+        gap: 2px;
+    }
+    .maintenance-notice-title {
+        font-size: 0.82rem;
+    }
+    .maintenance-notice-message {
+        font-size: 0.76rem;
+        line-height: 1.45;
+    }
 }
 
 .sidebar-divider {

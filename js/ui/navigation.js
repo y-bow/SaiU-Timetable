@@ -1,5 +1,5 @@
-import { SCHOOLS, buildYearMap, resolveYears, resolveSections, shouldShowProgram, shouldShowSection, schoolHasLevel } from '../data/schools.js?v=2026-08-09-007';
-import { getNavState, setNavState, getStoredElectives, setStoredElectives, getStoredOfferings, setStoredOffering } from '../services/storage.js?v=2026-08-09-007';
+import { SCHOOLS, buildYearMap, resolveYears, resolveSections, shouldShowProgram, shouldShowSection, schoolHasLevel } from '../data/schools.js?v=2026-08-09-008';
+import { getNavState, setNavState, getStoredElectives, setStoredElectives, getStoredOfferings, setStoredOffering, getStoredEmergingToolsSection, setStoredEmergingToolsSection } from '../services/storage.js?v=2026-08-09-008';
 
 /**
  * Navigation state management.
@@ -19,6 +19,7 @@ let state = {
     yearConfig: null,
     electives: [],
     offeringSelections: {},
+    emergingToolsSection: null,
 };
 
 const yearMap = buildYearMap();
@@ -34,6 +35,18 @@ export function getState() { return { ...state }; }
 export function getSelectedElectives() { return state.electives; }
 export function getSelectedOffering(electiveId) {
     return (state.offeringSelections && state.offeringSelections[electiveId]) || null;
+}
+
+// The elective that carries an independent offering selector (a dropdown in
+// the sidebar). Currently the Emerging Tools elective. `null` means the
+// active year has no such elective.
+export function getEmergingToolsConfig() {
+    const electives = (state.year && state.year.electives) || [];
+    return electives.find(e => e.sections && e.sections.length) || null;
+}
+
+export function getEmergingToolsSection() {
+    return state.emergingToolsSection || null;
 }
 
 // --- Helpers ---
@@ -94,6 +107,23 @@ function loadOfferingsForYear(yearConfig) {
     return yearConfig ? getStoredOfferings(yearConfig.id) : {};
 }
 
+// Restore the saved Emerging Tools offering for a year. Values that no longer
+// exist in the elective's section config are dropped.
+function loadEmergingToolsForYear(yearConfig) {
+    if (!yearConfig) return null;
+    const sections = (getEmergingToolsConfigRaw(yearConfig) || {}).sections || [];
+    if (!sections.length) return null;
+    const saved = getStoredEmergingToolsSection(yearConfig.id);
+    return sections.some(s => s.id === saved) ? saved : null;
+}
+
+// Find the elective with an offering selector within a given year config,
+// independent of the currently active year state.
+function getEmergingToolsConfigRaw(yearConfig) {
+    const electives = (yearConfig && yearConfig.electives) || [];
+    return electives.find(e => e.sections && e.sections.length) || null;
+}
+
 // --- Navigation ---
 
 function emit() {
@@ -151,7 +181,7 @@ export function initNavigation() {
         }
     }
 
-    state = { school, program, year: yearConfig, section, yearConfig, electives: loadElectivesForYear(yearConfig), offeringSelections: loadOfferingsForYear(yearConfig) };
+    state = { school, program, year: yearConfig, section, yearConfig, electives: loadElectivesForYear(yearConfig), offeringSelections: loadOfferingsForYear(yearConfig), emergingToolsSection: loadEmergingToolsForYear(yearConfig) };
     persist();
     emit();
     return state;
@@ -184,7 +214,7 @@ export function navigateToSchool(schoolId) {
         }
     }
 
-    state = { school, program, year: yearConfig, section, yearConfig, electives: loadElectivesForYear(yearConfig), offeringSelections: loadOfferingsForYear(yearConfig) };
+    state = { school, program, year: yearConfig, section, yearConfig, electives: loadElectivesForYear(yearConfig), offeringSelections: loadOfferingsForYear(yearConfig), emergingToolsSection: loadEmergingToolsForYear(yearConfig) };
     persist();
     emit();
 }
@@ -214,7 +244,7 @@ export function navigateToProgram(programId) {
         }
     }
 
-    state = { ...state, program, year: yearConfig, section, yearConfig, electives: loadElectivesForYear(yearConfig), offeringSelections: loadOfferingsForYear(yearConfig) };
+    state = { ...state, program, year: yearConfig, section, yearConfig, electives: loadElectivesForYear(yearConfig), offeringSelections: loadOfferingsForYear(yearConfig), emergingToolsSection: loadEmergingToolsForYear(yearConfig) };
     persist();
     emit();
 }
@@ -256,7 +286,7 @@ export function navigateToYear(yearId) {
         }
     }
 
-    state = { ...state, school, program, year: yearConfig, section, yearConfig, electives: loadElectivesForYear(yearConfig), offeringSelections: loadOfferingsForYear(yearConfig) };
+    state = { ...state, school, program, year: yearConfig, section, yearConfig, electives: loadElectivesForYear(yearConfig), offeringSelections: loadOfferingsForYear(yearConfig), emergingToolsSection: loadEmergingToolsForYear(yearConfig) };
     persist();
     emit();
 }
@@ -295,6 +325,21 @@ export function setSelectedOffering(electiveId, offeringKey) {
     else next[electiveId] = offeringKey;
     state = { ...state, offeringSelections: next };
     if (state.year) setStoredOffering(state.year.id, electiveId, offeringKey);
+}
+
+/**
+ * Set which instructor-led offering of the Emerging Tools elective the student
+ * attends. Completely independent from the SCDS section selection. Only ids
+ * that exist in the elective's section config are kept; anything else clears
+ * the choice (which hides that elective's classes from the timetable).
+ */
+export function setEmergingToolsSection(value) {
+    const cfg = getEmergingToolsConfig();
+    const valid = cfg ? cfg.sections.some(s => s.id === value) : false;
+    const next = valid ? value : null;
+    state = { ...state, emergingToolsSection: next };
+    if (state.year) setStoredEmergingToolsSection(state.year.id, next || null);
+    emit();
 }
 
 function persist() {
@@ -368,6 +413,12 @@ export function getSheetUrl() {
 
 export function getMandatoryCourses() {
     return state.year?.mandatoryCourses || null;
+}
+
+// The list of classroom columns the grid parser should scan for this year
+// (Year 2 SCDS). `null` means "scan the sheet as before" (other schools).
+export function getRooms() {
+    return state.year?.rooms || null;
 }
 
 export function getElectives() {

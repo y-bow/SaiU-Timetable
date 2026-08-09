@@ -36,10 +36,39 @@ export const SCHOOLS = [
                 sheetId: '1Jk3KCLqHHzi-jxigIcPpcXZestcxb8Y0BeQLjhiezb8',
                 gid: '0',
                 parser: 'grid',
+                // Year 2 SCDS classrooms. These are SEARCH LOCATIONS: any SCDS
+                // section may currently be taught in any of them, and classes may
+                // move between rooms (or columns) without changing identity. The
+                // parser scans only these rooms, never the whole sheet. Names are
+                // normalized (spacing/casing) before comparing with the sheet.
+                rooms: [
+                    'AB2-101',
+                    'AB2-202',
+                    'AB2-203',
+                    'AB2-205',
+                    'AB2-207',
+                    'AB1-104',
+                    'AB1-101',
+                    'AB1-MOOT COURT HALL',
+                ],
                 mandatoryCourses: null,
                 electives: [
                     { id: 'intelligent-embedded-systems', label: 'Intelligent Embedded Systems' },
-                    { id: 'emerging-tools-and-applications', label: 'Emerging Tools and Applications' },
+                    {
+                        id: 'emerging-tools-and-applications',
+                        label: 'Emerging Tools and Applications',
+                        // Independent offerings of the Emerging Tools elective.
+                        // These are NOT SCDS sections — each is a separate
+                        // instructor-led offering of the elective, identified by
+                        // its teaching staff. `id` is the persisted choice and
+                        // `faculty` matches the parsed timetable data.
+                        sectionsLabel: 'Emerging Tools Section',
+                        sections: [
+                            { id: 'arjun', label: 'Section 1', name: 'Arjun Singh', faculty: 'Arjun' },
+                            { id: 'sonar', label: 'Section 2', name: 'Sonar', faculty: 'Sonar' },
+                            { id: 'aravind', label: 'Section 3', name: 'Aravind', faculty: 'Aravind' },
+                        ],
+                    },
                 ],
             },
             {

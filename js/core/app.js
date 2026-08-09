@@ -1,11 +1,13 @@
-import { CONFIG } from './config.js?v=2026-08-09-007';
-import { parseCSV, offeringKey } from '../data/parser.js?v=2026-08-09-007';
-import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen, getSelectedDay, setSelectedDay } from '../services/storage.js?v=2026-08-09-007';
-import * as nav from '../ui/navigation.js?v=2026-08-09-007';
-import * as ui from '../ui/ui.js?v=2026-08-09-007';
-import { checkArjunSinghTransition } from '../ui/easter-eggs.js?v=2026-08-09-007';
-import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-08-09-007';
-import { init as initAnalytics, trackEvent } from '../services/analytics.js?v=2026-08-09-007';
+import { CONFIG } from './config.js?v=2026-08-09-008';
+import { parseCSV, offeringKey } from '../data/parser.js?v=2026-08-09-008';
+import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen, getSelectedDay, setSelectedDay } from '../services/storage.js?v=2026-08-09-008';
+import * as nav from '../ui/navigation.js?v=2026-08-09-008';
+import * as ui from '../ui/ui.js?v=2026-08-09-008';
+import { checkArjunSinghTransition } from '../ui/easter-eggs.js?v=2026-08-09-008';
+import * as labSection from '../ui/lab-section.js?v=2026-08-09-008';
+import { loadMergedYear2Timetable } from '../services/lab-fetch.js?v=2026-08-09-008';
+import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-08-09-008';
+import { init as initAnalytics, trackEvent } from '../services/analytics.js?v=2026-08-09-008';
 
 /**
  * App bootstrap, fetch, and interactivity.
@@ -16,9 +18,22 @@ let sections = [];
 let selectedSection = null;
 let lastUpdated = null;
 let selectedDay = null;
-let countdownTimer = null;
+let clockTimer = null;
 let lastFeatureKey = null;
+
+// Live-clock state (see liveClockTick below).
+//
+//   prevCurrent   the class that was in progress on the previous tick, used
+//                 by the Arjun frog to detect a genuine upcoming → in-progress
+//                 transition rather than a load/refresh/navigation artifact.
+//   hasRendered   true once render() has run at least once, so the frog is
+//                 only ever considered after the baseline is seeded.
+//   loadedFor     the year id whose data currently fills `classes`. The clock
+//                 loop is paused while a different year is loading, so it can
+//                 never re-render a stale timetable over a fresh one.
 let prevCurrent = null;
+let hasRendered = false;
+let loadedFor = null;
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -39,8 +54,12 @@ function sectionClasses() {
         // resolving the student's chosen offering into a single normal class.
         if (c.elective) {
             if (!selectedElectives.has(c.elective)) return [];
-            return [resolveOffering(c)];
+            const resolved = resolveOffering(c);
+            return resolved ? [resolved] : [];
         }
+        // Mandatory labs (DAA/FDE) depend on the chosen LAB section, which is
+        // independent of the classroom section — filter them separately.
+        if (c.lab) return c.section === labSection.getLabSection() ? [c] : [];
         // Mandatory sectioned classes depend on the selected section.
         if (hasSections) return selectedSection != null && c.section === selectedSection ? [c] : [];
         // Single-section / mandatory-course years show everything else.
@@ -54,6 +73,11 @@ function sectionClasses() {
 // chosen offering's faculty/room/section, so every downstream consumer
 // (timeline, countdown, search, room-change) sees one normal class.
 function resolveOffering(c) {
+    const offeringCfg = nav.getEmergingToolsConfig();
+    if (c.elective && offeringCfg && c.elective === offeringCfg.id) {
+        return resolveDropdownOffering(c, offeringCfg);
+    }
+
     if (!c.offerings || c.offerings.length <= 1) return c;
     const stored = nav.getSelectedOffering(c.elective);
     const idx = stored ? c.offerings.findIndex(o => offeringKey(o) === stored) : -1;
@@ -67,6 +91,40 @@ function resolveOffering(c) {
     };
     applyRoomChange(resolved);
     return resolved;
+}
+
+// Resolve an offering of the Emerging Tools elective to the instructor group
+// chosen in the sidebar dropdown. Completely independent of the SCDS section.
+// Returns null when no offering is chosen yet or the event has no class from
+// the chosen instructor — in both cases no class of this event is scheduled.
+function resolveDropdownOffering(c, cfg) {
+    const option = cfg.sections.find(s => s.id === nav.getEmergingToolsSection());
+    if (!option) return null;
+
+    const match = (faculty) => {
+        const f = String(faculty || '').toLowerCase().replace(/\s+/g, ' ').trim();
+        const tok = String(option.faculty || '').toLowerCase().replace(/\s+/g, ' ').trim();
+        return !!tok && (f === tok || f.includes(tok) || tok.includes(f));
+    };
+
+    if (c.offerings && c.offerings.length > 1) {
+        const idx = c.offerings.findIndex(o => match(o.faculty));
+        if (idx < 0) return null;
+        const chosen = c.offerings[idx];
+        const resolved = {
+            ...c,
+            dropdownScoped: true,
+            selectedOffering: idx,
+            faculty: chosen.faculty,
+            room: chosen.room,
+            section: chosen.section,
+        };
+        applyRoomChange(resolved);
+        return resolved;
+    }
+
+    if (!match(c.faculty)) return null;
+    return { ...c, dropdownScoped: true };
 }
 
 // ============================================================
@@ -89,7 +147,10 @@ function renderNavigation() {
         sectionId: selectedSection,
         electives: nav.availableElectives(),
         selectedElectives: nav.getSelectedElectives(),
+        emergingToolsSection: nav.getEmergingToolsSection(),
     });
+
+    labSection.renderLabSections(year);
 
     ui.renderDayFilter(selectedDay || contextDay());
 }
@@ -144,6 +205,7 @@ async function load({ silent = false, background = false } = {}) {
     const cached = readCache(cacheKey);
     if (cached && cached.classes) {
         classes = cached.classes;
+        loadedFor = nav.getYear()?.id ?? null;
         if (cached.savedAt) lastUpdated = new Date(cached.savedAt);
         syncSections();
         render();
@@ -158,9 +220,17 @@ async function load({ silent = false, background = false } = {}) {
         const res = await fetch(sheetUrl);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const text = await res.text();
-        const parsed = parseCSV(text, nav.getParserType(), nav.getMandatoryCourses(), nav.getElectives());
+        const parsed = parseCSV(text, nav.getParserType(), nav.getMandatoryCourses(), nav.getElectives(), nav.getRooms());
         if (!parsed.length) throw new Error('No classes parsed');
-        classes = parsed;
+
+        // SCDS Year 2: merge the separate lab timetables (DAA/FDE/Emg Lab)
+        // under the main sheet classes so labs appear on the same timeline.
+        const year = nav.getYear();
+        classes = year && year.id === 'scds-2'
+            ? (await loadMergedYear2Timetable(parsed)).classes
+            : parsed;
+
+        loadedFor = year?.id ?? null;
         lastUpdated = new Date();
         writeCache(cacheKey, classes);
         updateRoomMapWithKey(classes);
@@ -244,55 +314,111 @@ function render() {
     ui.renderTimeline(now, day, ctx, '');
     ui.renderGameSuggestion(ctx, now, day);
 
-    lastFeatureKey = (ctx.current || ctx.next)
-        ? `${(ctx.current || ctx.next).subject}|${(ctx.current || ctx.next).startTime}|${ctx.current ? 1 : 0}`
-        : 'none';
+    lastFeatureKey = featureKey(ctx);
 
-    // Initialize prevCurrent on first render to prevent false Easter egg triggers
-    // when the page loads with a class already in progress
-    if (prevCurrent === null) {
-        prevCurrent = ctx.current;
-    }
+    // Seed/re-baseline the live clock's "previous current class". Every
+    // structural re-render — first load, day/section/elective/offering change,
+    // data refresh — seals the current state as "already seen", so the Arjun
+    // frog only fires on an *observed* upcoming → in-progress transition while
+    // the user watches the page, never because the app loaded, refreshed, or
+    // re-rendered with his class already running.
+    prevCurrent = ctx.current;
+    hasRendered = true;
 
     ui.setLastUpdated(lastUpdated || new Date());
 }
 
 // ============================================================
-// Countdown
+// Real-time clock — device-clock-driven live state updates
 // ============================================================
+//
+// Two independent systems keep the timetable fresh:
+//
+//   A. TIMETABLE DATA SYNC   — `load()` / `initAutoRefresh()` fetch the
+//      Google Sheet on demand and render when the schedule changes.
+//   B. REAL-TIME CLOCK       — this loop reads the device clock every second
+//      and updates only the time-dependent UI (countdown, progress bar, class
+//      state transitions, frog). It never fetches anything.
+//
+// A sheet fetch is never required for a class to move from
+// "Starts in 1 min" to "In progress" — the device clock alone drives that.
+// The loop only re-renders structurally when the highlighted class
+// (current/next) actually changes; between those moments it touches only the
+// live bits of the DOM. State boundaries are therefore second-accurate
+// (2:00:00 → in progress, 2:55:00 → completed) even though the timetable only
+// displays minutes.
 
-function startCountdown() {
-    stopCountdown();
-    countdownTimer = setInterval(() => {
-        const now = nowMinutes();
-        const day = selectedDay || contextDay();
-        const sc = sectionClasses();
-        const ctx = ui.computeHighlight(sc, now, day);
-        const key = ctx.current || ctx.next
-            ? `${(ctx.current || ctx.next).subject}|${(ctx.current || ctx.next).startTime}|${ctx.current ? 1 : 0}`
-            : 'none';
-        if (key !== lastFeatureKey) { lastFeatureKey = key; render(); return; }
-        if (day === todayName()) ui.updateLiveClock(now, ctx.current, ctx.next);
-        // The game hint follows live state too: it appears the moment a class
-        // ends, hides when the next class draws close, and never needs a
-        // manual refresh.
-        ui.renderGameSuggestion(ctx, now, day);
+function featureKey(ctx) {
+    const f = ctx.current || ctx.next;
+    return f
+        ? `${f.subject}|${f.startTime}|${ctx.current ? 1 : 0}`
+        : 'none';
+}
 
-        // Check for Arjun Singh Easter egg transition
+/**
+ * One-second device-clock tick. `now` is the local device/browser time.
+ *
+ * {@suppressFrog} is set when catching up right after the tab becomes visible
+ * again, so a class that began while the tab was hidden never pops the frog.
+ */
+function liveClockTick(now, { suppressFrog = false } = {}) {
+    // Only run once the timetable for the current selection is rendered.
+    if (!hasRendered || loadedFor !== (nav.getYear()?.id ?? null)) return;
+
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const day = selectedDay || contextDay();
+    const sc = sectionClasses();
+    const ctx = ui.computeHighlight(sc, nowMin, day);
+    const key = featureKey(ctx);
+
+    // The Arjun frog fires only on an observed upcoming → in-progress
+    // transition. prevCurrent is seeded by render(), so (re)loading the app,
+    // refreshing, or switching day/section during his class can never trigger it.
+    if (!suppressFrog) {
         checkArjunSinghTransition({
             classes: sc,
-            nowMin: now,
+            nowMin,
             day,
             current: ctx.current,
             next: ctx.next,
-            prevCurrent
+            prevCurrent,
         });
-        prevCurrent = ctx.current;
-    }, 60 * 1000);
+    }
+
+    if (key !== lastFeatureKey) {
+        // The spotlight moved (a class started or ended) — refresh the whole
+        // timeline so statuses, countdown and highlight stay consistent.
+        lastFeatureKey = key;
+        render();
+        return; // render() re-seeds prevCurrent for the new highlighted class
+    }
+
+    // No structural change — update only the live, time-dependent bits.
+    if (day === todayName()) ui.updateLiveClock(now, ctx.current, ctx.next);
+    // The game hint follows live state too: it appears the moment a class
+    // ends, hides when the next class draws close, never needs a refresh.
+    ui.renderGameSuggestion(ctx, nowMin, day);
+
+    prevCurrent = ctx.current;
 }
 
-function stopCountdown() {
-    if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+function onVisibilityChanged() {
+    if (document.hidden) return;
+    // Mobile browsers throttle background timers. Recompute immediately on
+    // return using the device clock (suppressing the frog — the user may not
+    // have seen a class begin) and resume normal second-by-second ticks.
+    liveClockTick(new Date(), { suppressFrog: true });
+}
+
+function startLiveClock() {
+    stopLiveClock();
+    clockTimer = setInterval(() => liveClockTick(new Date()), 1000);
+    document.addEventListener('visibilitychange', onVisibilityChanged);
+}
+
+function stopLiveClock() {
+    if (clockTimer) { clearInterval(clockTimer); clockTimer = null; }
+    document.removeEventListener('visibilitychange', onVisibilityChanged);
 }
 
 // ============================================================
@@ -417,6 +543,16 @@ function initNavigationListeners() {
     window.addEventListener('offeringchange', (e) => {
         nav.setSelectedOffering(e.detail.electiveId, e.detail.offeringKey);
         trackEvent('offering_changed', { elective: e.detail.electiveId });
+        render();
+    });
+    window.addEventListener('emergingtoolschange', (e) => {
+        nav.setEmergingToolsSection(e.detail.section);
+        trackEvent('emerging_tools_section_changed', { section: e.detail.section });
+        render();
+    });
+    window.addEventListener('labchange', (e) => {
+        labSection.setLabSection(e.detail.section);
+        trackEvent('lab_section_changed', { section: e.detail.section });
         render();
     });
     window.addEventListener('daychange', (e) => {
@@ -643,7 +779,7 @@ function init() {
     initAutoRefresh();
 
     load();
-    startCountdown();
+    startLiveClock();
 }
 
 document.addEventListener('DOMContentLoaded', init);

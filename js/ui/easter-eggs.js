@@ -5,6 +5,10 @@
 
 const STORAGE_KEY = 'tt-easter-arjun-singh';
 
+// In-memory guard so the frog can never fire twice for the same occurrence in
+// one session, even if localStorage is unavailable or cleared mid-session.
+const triggeredThisSession = new Set();
+
 /**
  * Check if the user prefers reduced motion.
  */
@@ -14,17 +18,22 @@ function prefersReducedMotion() {
 
 /**
  * Generate a unique key for a class occurrence.
- * Uses course + professor + date + start time to uniquely identify.
+ * Uses course + professor + local date + start time to uniquely identify.
+ * The local calendar date (not UTC) keeps the key on the right day in every
+ * timezone, so a class near midnight never falls on yesterday's key.
  */
-function getClassOccurrenceKey(cls, today) {
-    const dateStr = today.toISOString().split('T')[0];
-    return `${cls.subject}|${cls.faculty}|${dateStr}|${cls.startTime}`;
+function getClassOccurrenceKey(cls, date = new Date()) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${cls.subject}|${cls.faculty}|${y}-${m}-${d}|${cls.startTime}`;
 }
 
 /**
  * Check if this class occurrence has already triggered the Easter egg.
  */
 function hasTriggered(key) {
+    if (triggeredThisSession.has(key)) return true;
     try {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (!raw) return false;
@@ -39,6 +48,8 @@ function hasTriggered(key) {
  * Mark this class occurrence as having triggered the Easter egg.
  */
 function markTriggered(key) {
+    // The session guard always applies; persistence is best-effort.
+    triggeredThisSession.add(key);
     try {
         const raw = localStorage.getItem(STORAGE_KEY);
         const data = raw ? JSON.parse(raw) : { triggered: [] };
@@ -47,7 +58,7 @@ function markTriggered(key) {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
         }
     } catch {
-        // storage full or unavailable — ignore
+        // storage full or unavailable — the session guard still holds
     }
 }
 
@@ -152,23 +163,28 @@ export function checkArjunSinghTransition({ classes, nowMin, day, current, next,
 
     if (!arjunClasses.length) return null;
 
-    // Check each Arjun Singh class for the transition
+    // Check each Arjun Singh class for the transition.
     for (const cls of arjunClasses) {
         const startMin = toMinutes(cls.startTime);
         const endMin = toMinutes(cls.endTime);
+
+        // Only a class inside its live window can transition to in-progress.
+        const isNowCurrent = nowMin >= startMin && nowMin < endMin;
+        if (!isNowCurrent) continue;
+
         const key = getClassOccurrenceKey(cls, today);
 
-        // Already triggered for this occurrence?
+        // Already triggered for this occurrence — never fire again (the next
+        // tick, any timer tick, and any later refresh are all ignored).
         if (hasTriggered(key)) continue;
 
-        // Check if this class just transitioned from upcoming to current
-        // The transition happens when: nowMin >= startMin AND nowMin < endMin
-        // AND it wasn't current in the previous tick
-        const isNowCurrent = nowMin >= startMin && nowMin < endMin;
+        // wasCurrent == the previous in-progress class was already this one,
+        // which happens when the page loaded/refreshed/re-rendered while the
+        // class was already running — that is not an observed transition.
         const wasCurrent = prevCurrent && prevCurrent.subject === cls.subject && prevCurrent.startTime === cls.startTime;
 
-        if (isNowCurrent && !wasCurrent) {
-            // This is the exact transition moment!
+        if (!wasCurrent) {
+            // This is the exact observed transition: not in-progress → in-progress.
             markTriggered(key);
             showFrogOverlay();
             return cls;

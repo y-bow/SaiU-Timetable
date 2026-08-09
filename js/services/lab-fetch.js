@@ -3,12 +3,12 @@ import {
     labSheetUrl,
     labCacheKey,
     isMissingSheetId,
-} from '../data/lab-config.js?v=2026-08-09-007';
+} from '../data/lab-config.js?v=2026-08-09-008';
 import {
-    parseLabSheet,
+    parseLabCSV,
     recordsToAppClasses,
     mergeTimelines,
-} from '../data/lab-parser.js?v=2026-08-09-007';
+} from '../data/lab-parser.js?v=2026-08-09-008';
 
 /**
  * Year 2 lab timetable fetching + merging.
@@ -60,7 +60,7 @@ export async function fetchLabSource(source, { useCache = true } = {}) {
         const res = await fetch(url);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const text = await res.text();
-        const records = parseLabSheet(text, source);
+        const records = parseLabCSV(text, source);
         // Latest successful sheet replaces the whole source cache. An empty
         // parse is valid: every class may have been removed.
         writeCache(cacheKey, records);

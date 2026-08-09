@@ -26,7 +26,7 @@
  * deliberately self-contained so this module never needs to edit parser.js.
  */
 
-import { parseTimeRange, normalizeFacultyName } from './parser.js?v=2026-08-09-007';
+import { parseTimeRange, normalizeFacultyName } from './parser.js?v=2026-08-09-008';
 
 const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
 
@@ -122,6 +122,10 @@ function cleanCellText(cell) {
     return t.replace(/\s+/g, ' ').trim();
 }
 
+function capsNames(s) {
+    return String(s ?? '').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 function splitSubjectFaculty(text) {
     let subject = text;
     let faculty = '';
@@ -134,7 +138,7 @@ function splitSubjectFaculty(text) {
         subject = parts[0] || '';
         faculty = parts.slice(1).join(' ');
     }
-    return { subject, faculty: normalizeFacultyName(faculty) };
+    return { subject, faculty: capsNames(normalizeFacultyName(faculty)) };
 }
 
 // Canonical course name when the cell subject matches the source (or an alias),
@@ -150,6 +154,75 @@ function expandSubject(rawSubject, config) {
 }
 
 // --- Sheet scanning --------------------------------------------------------
+
+// Section-cell entries look like "daa sec2 david", "daa sec 8 roopam",
+// "ET sec1 arjun". This matches the optional subject prefix, the section
+// marker, and the faculty tail.
+const LIST_ENTRY_RE = /^(.*?)\s+sec\s*\.?\s*(\d+)\s*(?:[-|]\s*)?(.*)$/i;
+
+/**
+ * Parse ONE lab tab's CSV into raw lab records. The lab tabs use a simple
+ * LIST layout — Day | Time | Section — unlike the main grid sheet. The day
+ * column only repeats on the first row of each day (blanks inherit the
+ * previous day), and interruption rows say "LUNCH BREAK".
+ *
+ * @param {string} csv raw CSV fetched from the lab tab
+ * @param {object} config one of YEAR_2_LAB_SOURCES
+ * @returns {Array<object>} raw records
+ *   { day, subject, course, faculty, room, section, offering,
+ *     startTime, endTime, year, school, source }
+ */
+export function parseLabList(csv, config) {
+    const rows = String(csv ?? '').split(/\r?\n/).map(splitCsvLine);
+    const records = [];
+    let currentDay = null;
+
+    for (const row of rows) {
+        if (row.length < 3) continue;
+        const dayCell = String(row[0] ?? '').trim();
+        const timeCell = String(row[1] ?? '').trim();
+        const sectionCell = String(row[2] ?? '').trim();
+
+        const dayUpper = dayCell.toUpperCase();
+        if (DAYS.includes(dayUpper)) currentDay = dayUpper.charAt(0) + dayUpper.slice(1).toLowerCase();
+        if (!currentDay) continue;
+        if (!timeCell || !sectionCell) continue;
+        if (/LUNCH|OPEN BLOCK/i.test(sectionCell)) continue;
+
+        const times = parseTimeRange(timeCell);
+        if (!times) continue; // annotation / reference rows, not class rows
+
+        const m = LIST_ENTRY_RE.exec(sectionCell);
+        const rawSubject = m ? m[1] : sectionCell;
+        const section = m ? parseInt(m[2], 10) : null;
+        const rawFaculty = m ? m[3] : '';
+
+        const canonical = expandSubject(rawSubject, config);
+        if (!canonical) continue;
+
+        records.push({
+            day: currentDay,
+            subject: canonical,
+            course: config.course,
+            faculty: capsNames(normalizeFacultyName(rawFaculty)),
+            room: '',
+            section: Number.isFinite(section) && section > 0 ? section : null,
+            offering: null,
+            startTime: times.start,
+            endTime: times.end,
+            year: config.year,
+            school: config.school,
+            source: config.source,
+        });
+    }
+    return records;
+}
+
+// Dispatch to the right parser for a source: list-format lab tabs (they have
+// a `sheet` tab name) vs the grid-format lab sheet fallback.
+export function parseLabCSV(csv, config) {
+    return config && config.sheet ? parseLabList(csv, config) : parseLabSheet(csv, config);
+}
 
 /**
  * Parse one lab sheet's CSV into raw lab records. One record per class cell.
@@ -237,9 +310,6 @@ export function parseLabSheet(csv, config) {
 
 // --- App-shaped conversion -------------------------------------------------
 
-const offeringKey = (offering) =>
-    [String(offering.section ?? ''), norm(offering.faculty), norm(offering.room)].join('|');
-
 function toMinutes(t) {
     const [h, m] = String(t ?? '0:00').split(':').map(Number);
     return (h || 0) * 60 + (m || 0);
@@ -279,91 +349,64 @@ function mergeConsecutiveLab(classes) {
 /**
  * Convert raw lab records into the app's timetable class shape.
  *
- * Mandatory labs (DAA, FDE) become flat class objects. Sections found in the
- * sheet are preserved; a lab cell WITHOUT any section uses ctx.section when
- * provided (so it shows under whatever section the student has selected), else
- * 1. Consecutive sessions are merged into one event like the main parser does.
+ * Mandatory labs (DAA, FDE) become flat class objects carrying `lab: true` and
+ * the lab-section number found in the sheet. A lab cell WITHOUT any section is
+ * dropped (each lab tab always keys a section, so there is nothing to show for
+ * a sectionless cell). Consecutive sessions are merged into one event like the
+ * main parser does.
  *
- * The Emerging Tools Lab is an elective: offerings that share a slot are kept
- * side-by-side in ONE event under `offerings`, each retaining its own
- * faculty/room/section/offering identifier, matching the app's existing
- * elective offering-chooser. A single standalone offering stays a flat class.
- * Every record carries `elective` so the app only shows it once the student
- * selects the Emerging Tools elective.
+ * The Emerging Tools Lab is an elective tied to the Emerging Tools course
+ * offering: each row becomes a flat class carrying `elective` + its own
+ * faculty, so the app's existing offering logic only shows it once the student
+ * selects the Emerging Tools elective AND the matching instructor offering.
  *
- * @param {Array<object>} records raw records from parseLabSheet
+ * @param {Array<object>} records raw records from parseLabList / parseLabSheet
  * @param {object} config the lab source config
- * @param {{section?: number}} [ctx] merge-time context (current selection)
  * @returns {Array<object>} app-shaped classes (subject/faculty/day/startTime/
- *   endTime/room/section[/offerings]/[elective]/source/year/school/course)
+ *   endTime/room/section[/offerings]/[elective]/lab/source/year/school/course)
  */
 export function recordsToAppClasses(records, config, ctx = {}) {
-    if (config.isElective) return groupElectiveOfferings(records, config);
+    if (config.isElective) return toFlatElectiveClasses(records, config);
 
+    const classes = records
+        .filter((r) => r.section != null)
+        .map((r) => ({
+            lab: true,
+            day: r.day,
+            subject: r.subject,
+            faculty: r.faculty || '',
+            room: r.room || '',
+            section: r.section,
+            startTime: r.startTime,
+            endTime: r.endTime,
+            course: r.course,
+            year: r.year,
+            school: r.school,
+            source: r.source,
+        }));
+    return mergeConsecutiveLab(classes);
+}
+
+// Flat elective classes for the Emerging Tools Lab. Each record keeps its own
+// faculty/section; consecutive sessions of the same offering merge into one
+// event. The app resolves the effective offering via the sidebar dropdown.
+function toFlatElectiveClasses(records, config) {
     const classes = records.map((r) => ({
+        lab: true,
         day: r.day,
         subject: r.subject,
         faculty: r.faculty || '',
         room: r.room || '',
-        section: r.section ?? (ctx.section ?? 1),
+        section: r.section ?? 1,
         startTime: r.startTime,
         endTime: r.endTime,
+        elective: config.electiveId,
         course: r.course,
         year: r.year,
         school: r.school,
         source: r.source,
     }));
     return mergeConsecutiveLab(classes);
-}
-
-function groupElectiveOfferings(records, config) {
-    if (!records.length) return [];
-    const groups = new Map(); // day|start|end → records
-    for (const r of records) {
-        const key = `${r.day}|${r.startTime}|${r.endTime}`;
-        if (!groups.has(key)) groups.set(key, []);
-        groups.get(key).push(r);
-    }
-
-    const out = [];
-    for (const group of groups.values()) {
-        const base = group[0];
-        const offerings = [];
-        const seen = new Set();
-        for (const r of group) {
-            const off = {
-                faculty: r.faculty || '',
-                room: r.room || '',
-                // Preserve the source's own identifier; numeric Sec markers are
-                // kept numeric. Never fabricate "Section 1/2/3" labels.
-                section: r.offering || r.section || 1,
-            };
-            const k = offeringKey(off);
-            if (seen.has(k)) continue;
-            seen.add(k);
-            offerings.push(off);
-        }
-
-        const common = {
-            day: base.day,
-            subject: base.subject,
-            startTime: base.startTime,
-            endTime: base.endTime,
-            elective: config.electiveId,
-            course: base.course,
-            year: base.year,
-            school: base.school,
-            source: base.source,
-        };
-
-        if (offerings.length > 1) {
-            out.push({ ...common, offerings });
-        } else {
-            const off = offerings[0];
-            out.push({ ...common, faculty: off.faculty, room: off.room, section: off.section });
-        }
-    }
-    return out;
 }
 
 // --- Merge ----------------------------------------------------------------

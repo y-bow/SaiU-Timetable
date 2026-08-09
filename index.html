@@ -13,9 +13,9 @@
         .splash.splash-hidden { opacity: 0; visibility: hidden; }
         .splash-logo { width: 88px; height: 88px; }
     </style>
-    <script src="js/generated/build.js?v=2026-08-09-007" defer></script>
-    <link rel="stylesheet" href="style.css?v=2026-08-09-007">
-    <link rel="manifest" href="manifest.json?v=2026-08-09-007">
+    <script src="js/generated/build.js?v=2026-08-09-008" defer></script>
+    <link rel="stylesheet" href="style.css?v=2026-08-09-008">
+    <link rel="manifest" href="manifest.json?v=2026-08-09-008">
     <script>
         // Theme-adaptive PWA icon (applies at install time): phones always
         // use manifest-light.json (black glyph on white); light-color-scheme
@@ -41,15 +41,15 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
     <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
-    <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon/favicon-32.png?v=2026-08-09-007">
-    <link rel="icon" type="image/png" sizes="48x48" href="icons/favicon/favicon-48.png?v=2026-08-09-007">
-    <link rel="icon" type="image/png" sizes="192x192" href="icons/favicon/favicon-192.png?v=2026-08-09-007">
-    <link rel="icon" type="image/png" sizes="512x512" href="icons/app/white-icon-512.png?v=2026-08-09-007">
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon/favicon-32.png?v=2026-08-09-008">
+    <link rel="icon" type="image/png" sizes="48x48" href="icons/favicon/favicon-48.png?v=2026-08-09-008">
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/favicon/favicon-192.png?v=2026-08-09-008">
+    <link rel="icon" type="image/png" sizes="512x512" href="icons/app/white-icon-512.png?v=2026-08-09-008">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="SaiU Timetable">
-    <link rel="apple-touch-icon" href="icons/app/apple-touch-icon.png?v=2026-08-09-007">
+    <link rel="apple-touch-icon" href="icons/app/apple-touch-icon.png?v=2026-08-09-008">
     <script>
         (function () {
             var id = 'G-GYB0SEBGZM';
@@ -86,7 +86,7 @@
         <button id="hamburger-btn" class="icon-btn" aria-label="Open navigation" title="Menu">
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
         </button>
-        <h1 class="mobile-title"><img class="brand-logo" src="icons/favicon/favicon-48.png?v=2026-08-09-007" alt="" aria-hidden="true"><span>Timetable</span></h1>
+        <h1 class="mobile-title"><img class="brand-logo" src="icons/favicon/favicon-48.png?v=2026-08-09-008" alt="" aria-hidden="true"><span>Timetable</span></h1>
         <button id="refresh-btn-mobile" class="icon-btn" aria-label="Refresh timetable" title="Refresh">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
         </button>
@@ -101,7 +101,7 @@
     <!-- Sidebar: desktop permanent + mobile drawer -->
     <aside id="sidebar" class="sidebar" role="navigation" aria-label="Filters">
         <div class="sidebar-header">
-            <h2 class="sidebar-brand"><img class="brand-logo" src="icons/favicon/favicon-48.png?v=2026-08-09-007" alt="" aria-hidden="true"><span>Timetable</span></h2>
+            <h2 class="sidebar-brand"><img class="brand-logo" src="icons/favicon/favicon-48.png?v=2026-08-09-008" alt="" aria-hidden="true"><span>Timetable</span></h2>
             <button id="sidebar-close-btn" class="icon-btn sidebar-close-btn" aria-label="Close navigation">
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
             </button>
@@ -126,6 +126,11 @@
             <div id="sidebar-section-wrapper" class="sidebar-section hidden">
                 <h3 class="sidebar-section-title">Section</h3>
                 <div id="sidebar-sections" class="sidebar-list" role="radiogroup" aria-label="Select section"></div>
+            </div>
+
+            <div id="sidebar-lab-section-wrapper" class="sidebar-section hidden">
+                <h3 class="sidebar-section-title">Lab Section</h3>
+                <div id="sidebar-lab-sections" class="sidebar-list" role="radiogroup" aria-label="Select lab section"></div>
             </div>
 
             <div id="sidebar-elective-section" class="sidebar-section hidden">
@@ -154,7 +159,11 @@
 
             <!-- Temporary maintenance notice — manually enabled, auto-expires at the
                  timestamp in the toggle script near the end of the body. Independent
-                 of timetable sync, the sheet, the service worker, and the network. -->
+                 of timetable sync, the sheet, the service worker, and the network.
+                 TEMPORARY: TIMETABLE UPDATE STATUS. Single responsive component
+                 (see the .maintenance-notice rules in the stylesheet). To hide it,
+                 flip the TIMETABLE_UPDATE_IN_PROGRESS flag in the toggle script
+                 below to false. Keep this markup and the CSS — do not delete it. -->
             <div id="temp-notice" class="maintenance-notice hidden">
                 <div class="maintenance-notice-card">
                     <span class="maintenance-notice-title">Timetable update in progress</span>
@@ -201,18 +210,27 @@
         </div>
     </div>
 
-    <script type="module" src="js/core/app.js?v=2026-08-09-007"></script>
+    <script type="module" src="js/core/app.js?v=2026-08-09-008"></script>
 
-    <!-- Temporary maintenance notice toggle. Manually enabled; fully independent
-         of timetable parsing, sheet sync, PWA, service worker, and network.
-         Starts hidden and is revealed only while "now" is before the explicit
-         IST expiry timestamp — after that it stays hidden with no further change.
-         To disable early, set TEMP_NOTICE_ENABLED = false (or delete this block). -->
+    <!-- === TEMPORARY: TIMETABLE UPDATE STATUS =============================
+         Shows the "Timetable update in progress" banner above the schedule.
+         Independent of timetable parsing, sheet sync, PWA, service worker,
+         and network. The banner markup + responsive CSS live in index.html
+         and the stylesheet (.maintenance-notice).
+
+         To hide the banner once processing is complete, set the single flag
+         TIMETABLE_UPDATE_IN_PROGRESS = false below — that line is the only
+         switch you need to toggle. TEMP_NOTICE_EXPIRES is merely a failsafe
+         auto-hide, not the normal off switch. Keep the whole feature so it
+         can be re-enabled later; do not delete it. ====================== -->
     <script>
-        var TEMP_NOTICE_ENABLED = true;
-        var TEMP_NOTICE_EXPIRES = '2026-08-10T09:00:00+05:30'; // India Standard Time (UTC+5:30)
+        // TEMPORARY: TIMETABLE UPDATE STATUS
+        // Set to false when timetable processing is complete.
+        // Temporarily disabled — uncomment to re-enable the update banner.
+        // var TIMETABLE_UPDATE_IN_PROGRESS = true;
+        var TEMP_NOTICE_EXPIRES = '2026-08-10T09:00:00+05:30'; // Failsafe auto-hide (India Standard Time, UTC+5:30)
         (function () {
-            if (!TEMP_NOTICE_ENABLED) return;
+            if (!TIMETABLE_UPDATE_IN_PROGRESS) return;
             var el = document.getElementById('temp-notice');
             if (!el) return;
             var expiry = Date.parse(TEMP_NOTICE_EXPIRES);

@@ -1,7 +1,7 @@
-import { CONFIG } from '../core/config.js?v=2026-08-09-007';
-import { toMinutes, minutesToLabel, minutesToClock, todayName, isBeforeToday, WEEKDAYS } from '../core/utils.js?v=2026-08-09-007';
-import { offeringKey } from '../data/parser.js?v=2026-08-09-007';
-import { rubberband, projectMomentum } from '../core/spring.js?v=2026-08-09-007';
+import { CONFIG } from '../core/config.js?v=2026-08-09-008';
+import { toMinutes, minutesToLabel, minutesToClock, todayName, isBeforeToday, WEEKDAYS } from '../core/utils.js?v=2026-08-09-008';
+import { offeringKey } from '../data/parser.js?v=2026-08-09-008';
+import { rubberband, projectMomentum } from '../core/spring.js?v=2026-08-09-008';
 
 /**
  * DOM rendering — sidebar filters + timeline.
@@ -69,7 +69,7 @@ export function renderSidebar(state) {
         const show = state.electives && state.electives.length > 0;
         electiveSection.classList.toggle('hidden', !show);
         if (show) {
-            renderSidebarElectives('sidebar-electives', state.electives, state.selectedElectives);
+            renderSidebarElectives('sidebar-electives', state.electives, state.selectedElectives, state.emergingToolsSection);
         }
     }
 }
@@ -144,31 +144,45 @@ function renderSidebarSectionList(containerId, sections, selectedId) {
 /**
  * Multi-select elective list. Unlike the radio-style selectors, each item is
  * an independent checkbox: a student may pick zero, one, or many electives.
+ * An elective configured with `sections` additionally expands into an
+ * offering dropdown (sidebar offering selector) directly under its checkbox.
  */
-function renderSidebarElectives(containerId, electives, selectedIds) {
+function renderSidebarElectives(containerId, electives, selectedIds, emergingToolsSection) {
     const container = $(`#${containerId}`);
     if (!container) return;
 
-    const sig = electives.map(e => e.id).join(',');
+    const sig = electives.map(e => `${e.id}:${(e.sections || []).length}`).join(',');
     if (container.dataset.sig === sig) {
-        for (const btn of container.children) {
-            const active = !!(selectedIds && selectedIds.includes(btn.dataset.electiveId));
-            btn.classList.toggle('active', active);
-            btn.setAttribute('aria-checked', active ? 'true' : 'false');
+        const selected = new Set(selectedIds || []);
+        for (const el of container.children) {
+            if (el.dataset.electiveId) {
+                const active = selected.has(el.dataset.electiveId);
+                el.classList.toggle('active', active);
+                el.setAttribute('aria-checked', active ? 'true' : 'false');
+            }
+            if (el.dataset.electiveDropdown) {
+                const checked = selected.has(el.dataset.electiveDropdown);
+                el.classList.toggle('hidden', !checked);
+                if (checked) {
+                    const sel = el.querySelector('select');
+                    if (sel && sel.value !== (emergingToolsSection || '')) sel.value = emergingToolsSection || '';
+                }
+            }
         }
         return;
     }
 
     container.innerHTML = '';
     container.dataset.sig = sig;
+    const selected = new Set(selectedIds || []);
     for (const e of electives) {
-        const selected = selectedIds && selectedIds.includes(e.id);
+        const isSelected = selected.has(e.id);
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'sidebar-item sidebar-item-check' + (selected ? ' active' : '');
+        btn.className = 'sidebar-item sidebar-item-check' + (isSelected ? ' active' : '');
         btn.dataset.electiveId = e.id;
         btn.setAttribute('role', 'checkbox');
-        btn.setAttribute('aria-checked', selected ? 'true' : 'false');
+        btn.setAttribute('aria-checked', isSelected ? 'true' : 'false');
         btn.setAttribute('aria-label', e.label);
         btn.innerHTML = `<span class="sidebar-item-checkbox"></span><span class="sidebar-item-label">${escapeHtml(e.label)}</span>`;
         btn.addEventListener('click', () => {
@@ -176,7 +190,53 @@ function renderSidebarElectives(containerId, electives, selectedIds) {
             window.dispatchEvent(new CustomEvent('electivetoggle', { detail: { electiveId: e.id, checked } }));
         });
         container.appendChild(btn);
+
+        if (e.sections && e.sections.length) {
+            container.appendChild(buildEmergingToolsDropdown(e, isSelected, emergingToolsSection));
+        }
     }
+}
+
+// Offering dropdown for an elective that keeps its offerings in the sidebar
+// (Emerging Tools and Applications). The chosen offering filters the main
+// timetable to that instructor's class only.
+function buildEmergingToolsDropdown(elective, selected, currentValue) {
+    const wrap = document.createElement('div');
+    wrap.className = 'sidebar-elective-dropdown' + (selected ? '' : ' hidden');
+    wrap.dataset.electiveDropdown = elective.id;
+
+    const label = document.createElement('span');
+    label.className = 'sidebar-elective-dropdown-label';
+    label.textContent = elective.sectionsLabel || 'Section';
+
+    const sel = document.createElement('select');
+    sel.className = 'sidebar-elective-select';
+    sel.setAttribute('aria-label', (elective.sectionsLabel || 'Section'));
+
+    // Default "nothing chosen yet" state: its text shows when no section is
+    // selected, but it never appears in the opened dropdown list.
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = 'Select Section';
+    placeholder.hidden = true;
+    sel.appendChild(placeholder);
+
+    for (const s of elective.sections) {
+        const opt = document.createElement('option');
+        opt.value = s.id;
+        opt.textContent = `${s.label} — ${s.name}`;
+        sel.appendChild(opt);
+    }
+    sel.value = currentValue || '';
+    sel.addEventListener('change', () => {
+        window.dispatchEvent(new CustomEvent('emergingtoolschange', {
+            detail: { electiveId: elective.id, section: sel.value || null },
+        }));
+    });
+
+    wrap.appendChild(label);
+    wrap.appendChild(sel);
+    return wrap;
 }
 
 export function renderDayFilter(selectedDay) {
@@ -349,7 +409,17 @@ export function computeHighlight(classes, nowMin, day) {
     return { dayClasses, current: null, next };
 }
 
-export function updateLiveClock(nowMin, current, next) {
+/**
+ * Update the live bits of the highlighted timeline item — countdown text and
+ * progress fill — from a single device-clock `now`. Called by the 1-second
+ * live clock every tick, but only touches the DOM when the rendered values
+ * actually change (the countdown text is minute-granular; the progress bar
+ * moves second-by-second while a class is in progress). Never rebuilds the
+ * timeline.
+ */
+export function updateLiveClock(now, current, next) {
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const nowSec = nowMin * 60 + now.getSeconds();
     const featured = current || next;
     if (!featured) {
         $('#timeline .tl-item.highlight .tl-countdown')?.remove();
@@ -362,12 +432,21 @@ export function updateLiveClock(nowMin, current, next) {
         const text = current
             ? `${naturalDur(end - nowMin)} remaining`
             : start > nowMin ? `Starts in ${naturalDur(start - nowMin)}` : '';
-        countdown.innerHTML = text ? `${ICONS.clock}<span>${text}</span>` : '';
+        const html = text ? `${ICONS.clock}<span>${text}</span>` : '';
+        if (countdown._lastHtml !== html) {
+            countdown._lastHtml = html;
+            countdown.innerHTML = html;
+        }
     }
     const fill = $('#timeline .tl-item.highlight .progress-fill');
     if (fill) {
-        const pct = Math.min(100, Math.max(0, ((nowMin - start) / (end - start)) * 100));
-        fill.style.width = pct + '%';
+        const span = (end - start) * 60;
+        const pct = span > 0 ? Math.min(100, Math.max(0, ((nowSec - start * 60) / span) * 100)) : 0;
+        const width = pct + '%';
+        if (fill._lastWidth !== width) {
+            fill._lastWidth = width;
+            fill.style.width = width;
+        }
     }
 }
 
@@ -529,6 +608,9 @@ function buildTimeline(timeline, items, nowMin, skipBreaks, dayStatus = 'today',
 // Faculty is omitted on completed classes so a finished course never reads
 // as "completed by <faculty>" — only that it is done.
 function renderOfferings(c, status) {
+    // The sidebar offering dropdown is the sole selector for this elective;
+    // the in-card chips would fight it, so they are not rendered.
+    if (c.dropdownScoped) return '';
     if (!c.offerings || c.offerings.length <= 1) return '';
     const chips = c.offerings.map((o, i) => {
         const sel = i === c.selectedOffering;

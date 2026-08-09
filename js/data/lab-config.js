@@ -2,33 +2,20 @@
  * Year 2 SCDS lab timetable sources.
  *
  * The main SCDS timetable is one Google Sheet. Year 2 also has separate lab
- * sheets (DAA Lab, FDE Lab, Emerging Tools Lab). Each lab lives in its own
- * sheet and is fetched/parsed independently, then merged with the main
- * timetable in JavaScript (see js/services/lab-fetch.js and the
+ * schedules (DAA Lab, FDE Lab, Emerging Tools Lab), each as its own TAB inside
+ * the same spreadsheet. Each tab is fetched/parsed independently, then merged
+ * with the main timetable in JavaScript (see js/services/lab-fetch.js and the
  * mergeTimelines helper in js/data/lab-parser.js).
  *
- * This module is the single place that knows *which* lab sheets exist. The
+ * This module is the single place that knows *which* lab tabs exist. The
  * parser and fetcher are data-driven off this config, so adding another lab
  * later = adding one entry here.
  *
- * ============================================================================
- * CONFIGURATION REQUIRED
- * ============================================================================
- * All three lab sheet ids below are PLACEHOLDERS. They must be replaced with
- * the real, publicly-viewable Google Sheet ids (the long id in the sheet's
- * share URL, same format as the main SCDS sheet id in js/data/schools.js).
- *
- *   DAA_LAB.sheetId            → Design and Analysis of Algorithms Lab sheet
- *   FDE_LAB.sheetId            → Foundations of Data Engineering Lab sheet
- *   EMERGING_TOOLS_LAB.sheetId → Emerging Tools Lab sheet (3 elective offerings)
- *
- * Until a real id is set the fetcher deliberately does NOT request that sheet
- * and reports the source as `unconfigured`, so no 404s or console spam happen
- * before the ids exist.
- *
- * gid default of '0' means the first tab. If a lab sheet's timetable is not on
- * the first tab, set gid to that tab's id.
- * ============================================================================
+ * The tabs use a simple LIST layout (Day | Time | Section) — unlike the main
+ * grid sheet — so `parseLabList` in js/data/lab-parser.js reads them.
+ * DAA / FDE labs are mandatory and keyed to a lab-section number (1-8); the
+ * Emerging Tools Lab is tied to the Emerging Tools course offerings instead
+ * (see electiveId in js/data/schools.js).
  */
 
 // The lecture/elective that the Emerging Tools Lab belongs to. Selecting the
@@ -39,14 +26,17 @@
 // one AND add it to the scds-2 year config's `electives` list in schools.js.
 const EMERGING_TOOLS_ELECTIVE_ID = 'emerging-tools-and-applications';
 
+// The shared spreadsheet that holds the main SCDS timetable AND the lab tabs.
+const SPREADSHEET_ID = '1Jk3KCLqHHzi-jxigIcPpcXZestcxb8Y0BeQLjhiezb8';
+
 export const YEAR_2_LAB_SOURCES = {
     DAA_LAB: {
         source: 'daa-lab',
         yearId: 'scds-2',
         year: 2,
         school: 'scds',
-        sheetId: 'PLACEHOLDER_DAA_LAB_SHEET_ID',
-        gid: '0',
+        sheetId: SPREADSHEET_ID,
+        sheet: 'DAA Lab',
         course: 'Design and Analysis of Algorithms Lab',
         // Cell subjects are matched against these before being kept. The
         // canonical `course` name is emitted when any alias matches.
@@ -56,9 +46,6 @@ export const YEAR_2_LAB_SOURCES = {
         ],
         isElective: false,
         electiveId: null,
-        // Optional list of room names (search locations) to scan, normalized the
-        // same way the main Year 2 parser normalizes rooms. null = auto-detect:
-        // scan every non-empty timetable cell and rely on subject matching.
         rooms: null,
     },
 
@@ -67,8 +54,8 @@ export const YEAR_2_LAB_SOURCES = {
         yearId: 'scds-2',
         year: 2,
         school: 'scds',
-        sheetId: 'PLACEHOLDER_FDE_LAB_SHEET_ID',
-        gid: '0',
+        sheetId: SPREADSHEET_ID,
+        sheet: 'FDE Lab',
         course: 'Foundations of Data Engineering Lab',
         subjectAliases: [
             /^fde(?:\s+lab)?\b/i,
@@ -84,17 +71,18 @@ export const YEAR_2_LAB_SOURCES = {
         yearId: 'scds-2',
         year: 2,
         school: 'scds',
-        sheetId: 'PLACEHOLDER_EMERGING_TOOLS_LAB_SHEET_ID',
-        gid: '0',
+        sheetId: SPREADSHEET_ID,
+        sheet: 'Emg Lab',
         course: 'Emerging Tools Lab',
         subjectAliases: [
-            /^etl\b/i,
-            /^et\s*lab\b/i,
+            /^etl?\s*lab\b/i,
+            /^et\s+lab\b/i,
             /^emerging tools\b/i,
+            /^et\b/i,
         ],
-        // Three separate elective offerings (rooms/times/instructors can all
-        // differ). The parser preserves every offering — the app's existing
-        // elective offering-chooser lets the student pick which one they attend.
+        // The Emerging Tools Lab is shown only to the section whose course
+        // offering the student chose (Emerging Tools elective + instructor).
+        // The tab's internal sec labels (1-3) don't gate it.
         isElective: true,
         electiveId: EMERGING_TOOLS_ELECTIVE_ID,
         rooms: null,
@@ -109,12 +97,16 @@ export function getYear2LabSources() {
 }
 
 /**
- * Build the public Google Sheets CSV export URL for a lab source — the exact
- * same mechanism the main app uses for the main timetable sheet.
+ * Build the fetch URL for a lab source. Labs are tabs inside the shared
+ * spreadsheet, so this uses the anonymous Google Visualization data endpoint
+ * with the tab name (public sheets allow it without a gid). Falls back to the
+ * classic CSV export (gid) for any source that has no `sheet` tab name.
  */
 export function labSheetUrl(source) {
     if (!source || !source.sheetId) return null;
-    return `https://docs.google.com/spreadsheets/d/${source.sheetId}/export?format=csv&gid=${source.gid || '0'}`;
+    const base = `https://docs.google.com/spreadsheets/d/${source.sheetId}`;
+    if (source.sheet) return `${base}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(source.sheet)}`;
+    return `${base}/export?format=csv&gid=${source.gid || '0'}`;
 }
 
 /**

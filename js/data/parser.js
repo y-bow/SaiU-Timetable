@@ -57,11 +57,15 @@ export function normalizeFacultyName(faculty) {
  * @param {string} [parserType='grid'] - 'grid' or 'list'
  * @param {string[]} [mandatoryCourses] - optional mandatory course names
  * @param {Array<{id: string, label: string}>} [electives] - optional elective configs
+ * @param {string[]} [rooms] - optional classroom names to scan (Year 2 SCDS).
+ *   When provided the grid parser inspects ONLY the cells under these room
+ *   headers instead of every non-empty cell. Classes are located by their own
+ *   data (section/course/faculty) wherever they currently sit.
  */
-export function parseCSV(text, parserType = 'grid', mandatoryCourses = null, electives = null) {
+export function parseCSV(text, parserType = 'grid', mandatoryCourses = null, electives = null, rooms = null) {
     const raw = parserType === 'list'
         ? parseListCSV(text, electives)
-        : parseGridCSV(text, mandatoryCourses, electives);
+        : parseGridCSV(text, mandatoryCourses, electives, rooms);
     return normalizeEvents(filterCourses(raw, mandatoryCourses));
 }
 
@@ -139,15 +143,22 @@ function mergeConsecutive(classes) {
         const da = dayOrder[norm(a.day)] ?? 0;
         const db = dayOrder[norm(b.day)] ?? 0;
         if (da !== db) return da - db;
-        return toMinutesOfDay(a.startTime) - toMinutesOfDay(b.startTime);
+        const t = toMinutesOfDay(a.startTime) - toMinutesOfDay(b.startTime);
+        if (t !== 0) return t;
+        return (a.section ?? 0) - (b.section ?? 0);
     });
 
+    // A sheet may hold several sections interleaved (e.g. SCDS), so adjacency
+    // in sorted order says nothing about two slots belonging to one class.
+    // Track the last event emitted per day+section and only merge a slot with
+    // the one that immediately precedes it for the SAME section/day.
     const out = [];
+    const lastByKey = new Map(); // "day|section" -> last emitted event object
     for (const c of sorted) {
-        const last = out[out.length - 1];
-        const gap = toMinutesOfDay(c.startTime) - toMinutesOfDay(last && last.endTime);
+        const key = `${norm(c.day)}|${c.section ?? ''}`;
+        const last = lastByKey.get(key);
+        const gap = last ? toMinutesOfDay(c.startTime) - toMinutesOfDay(last.endTime) : NaN;
         const mergeable = last &&
-            norm(last.day) === norm(c.day) &&
             last.section === c.section &&
             (last.elective || null) === (c.elective || null) &&
             norm(last.subject) === norm(c.subject) &&
@@ -158,6 +169,7 @@ function mergeConsecutive(classes) {
             last.endTime = c.endTime;
         } else {
             out.push({ ...c });
+            lastByKey.set(key, out[out.length - 1]);
         }
     }
     return out;
@@ -231,7 +243,11 @@ function normalizeEvents(classes) {
 // Grid parser (SCDS format)
 // ============================================================
 
-function parseGridCSV(text, mandatoryCourses = null, electives = null) {
+function parseGridCSV(text, mandatoryCourses = null, electives = null, rooms = null) {
+    // Year 2 SCDS uses a room-scoped scan: only the configured classroom
+    // columns are inspected, and the latest sheet is the source of truth.
+    if (rooms && rooms.length) return parseGridCSVRooms(text, electives, rooms);
+
     const lines = text.split(/\r?\n/);
     const data = [];
     let currentDay = null;
@@ -305,7 +321,8 @@ function parseGridCSV(text, mandatoryCourses = null, electives = null) {
                 // or a configured elective. Everything else belongs to another
                 // year/program and is skipped.
                 const { subject, faculty } = splitSubjectFaculty(cell);
-                const subjLower = subject.trim().toLowerCase();
+                const name = expandSubjectAlias(subject);
+                const subjLower = name.trim().toLowerCase();
                 if (!subjLower) continue;
 
                 const isMandatory = !!mandatoryList &&
@@ -316,7 +333,7 @@ function parseGridCSV(text, mandatoryCourses = null, electives = null) {
                 const room = findRoom(lines, i, j);
                 data.push({
                     day: currentDay,
-                    subject,
+                    subject: name,
                     faculty,
                     room,
                     section: 1,
@@ -324,6 +341,163 @@ function parseGridCSV(text, mandatoryCourses = null, electives = null) {
                     endTime: times.end,
                     ...(elective ? { elective: elective.id } : {}),
                 });
+            }
+        }
+    }
+    return data;
+}
+
+// ============================================================
+// Room-scoped grid parser (Year 2 SCDS Smart Timetable).
+//
+// Scans ONLY the configured SCDS classroom columns (see `rooms` on the
+// scds-2 year config). The first cell directly below a class row names the
+// current room of each column for that slot — a room is a SEARCH LOCATION,
+// never a class identity. A class may change room and column freely between
+// refreshes. Each parsed class therefore carries the room of the column it
+// was found in, and section/subject/faculty read from its own cell text.
+// ============================================================
+
+const SUBJECT_ALIASES = [
+    { match: /^ET$/i, name: 'Emerging Tools and Applications' },
+    { match: /^CN$/i, name: 'Computer Networks' },
+    { match: /^(?:INT|INTT)\s*EMB$/i, name: 'Intelligent Embedded Systems' },
+    { match: /^DL$/i, name: 'Deep Learning' },
+    { match: /^TOC$/i, name: 'Theory of Computation' },
+    { match: /^QML$/i, name: 'Quantum Machine Learning' },
+    { match: /^CYBER$/i, name: 'Cybersecurity: Fundamental Concepts and Management' },
+    { match: /^COA$/i, name: 'Computer Organization and Architecture' },
+];
+
+// Normalize room names for comparison: uppercase, "AB2 - 101" -> "AB2-101".
+function normalizeRoom(name) {
+    return String(name ?? '')
+        .toUpperCase()
+        .replace(/\s*-\s*/g, '-')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+// Find the section inside a class cell: "ET - Sec 5 - Salim" / "(Sec 5)".
+function extractSection(text) {
+    const m = String(text ?? '').match(/Sec\s*\.?\s*(\d+)/i);
+    if (!m) return null;
+    const n = parseInt(m[1], 10);
+    return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+// Remove " - Sec 5 - " / "(Sec 5)" markers so the remainder is subject+faculty.
+function stripSectionMarkers(text) {
+    return String(text ?? '')
+        .replace(/\s*\(Sec\s*\.?\s*\d+\)\s*/gi, ' ')
+        .replace(/\s*-\s*[Ss]ec\s*\.?\s*\d+\s*-?\s*/g, ' - ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+// Expand short subject abbreviations ("ET", "CN", "INT EMB") to full names.
+function expandSubjectAlias(subject) {
+    const s = String(subject ?? '').trim();
+    if (!s) return s;
+    for (const alias of SUBJECT_ALIASES) {
+        if (alias.match.test(s)) return alias.name;
+    }
+    return s;
+}
+
+// Split a class cell into { subject, faculty, section }.
+function splitClassCell(cell) {
+    const section = extractSection(cell);
+    const text = stripSectionMarkers(cell);
+    let subject = text;
+    let faculty = '';
+    const dash = text.indexOf(' - ');
+    if (dash >= 0) {
+        subject = text.slice(0, dash).trim();
+        faculty = text.slice(dash + 3).trim();
+    } else {
+        const parts = text.split(/\s{2,}/).map(p => p.trim()).filter(Boolean);
+        subject = parts[0] || '';
+        faculty = parts.slice(1).join(' ');
+    }
+    return { subject, faculty: normalizeFacultyName(faculty), section };
+}
+
+function parseGridCSVRooms(text, electives = null, rooms = null) {
+    const lines = text.split(/\r?\n/);
+    const data = [];
+    let currentDay = null;
+
+    const electiveList = electives && electives.length ? electives : null;
+    const matchElective = (subject) => {
+        if (!electiveList) return null;
+        for (const e of electiveList) {
+            const name = e.label.trim().toLowerCase();
+            if (subject === name || subject.startsWith(name)) return e;
+        }
+        return null;
+    };
+
+    const targetRooms = new Set((rooms || []).map(normalizeRoom));
+
+    for (let i = 0; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
+
+        const row = splitCSVLine(lines[i]);
+        if (row.length < 3) continue;
+
+        const col0 = row[0].toUpperCase();
+        if (DAYS.includes(col0)) currentDay = col0.charAt(0) + col0.slice(1).toLowerCase();
+        if (!currentDay) continue;
+
+        const timeText = row[1];
+        if (!timeText || /LUNCH|OPEN BLOCK/i.test(timeText)) continue;
+        const times = parseTimeRange(timeText);
+        if (!times) continue;
+
+        // The next non-empty line under a class row declares which room each
+        // column currently holds for this slot.
+        let roomRow = null;
+        for (let k = i + 1; k < lines.length; k++) {
+            if (!lines[k].trim()) continue;
+            roomRow = splitCSVLine(lines[k]);
+            break;
+        }
+        if (!roomRow) continue;
+
+        // Columns that currently hold one of the target rooms for this slot.
+        const roomSlots = new Map(); // roomKey -> [{ col, label }]
+        for (let j = 0; j < roomRow.length; j++) {
+            const key = normalizeRoom(roomRow[j]);
+            if (!targetRooms.has(key)) continue;
+            if (!roomSlots.has(key)) roomSlots.set(key, []);
+            roomSlots.get(key).push({ col: j, label: String(roomRow[j]).replace(/\s+/g, ' ') });
+        }
+
+        for (const [roomKey, slots] of roomSlots) {
+            for (const slot of slots) {
+                const cell = row[slot.col];
+                if (!cell) continue;
+
+                const { subject, faculty, section } = splitClassCell(cell);
+                const name = expandSubjectAlias(subject);
+                // Classes from other years/theory etc. carry no section, but a
+                // configured elective may still be taught section-less.
+                const elective = matchElective(name.toLowerCase());
+                if (section == null && !elective) continue;
+                if (!name) continue;
+
+                data.push({
+                    day: currentDay,
+                    subject: name,
+                    faculty: faculty || '',
+                    room: slot.label,
+                    section: section ?? 1,
+                    startTime: times.start,
+                    endTime: times.end,
+                    ...(elective ? { elective: elective.id } : {}),
+                });
+                break; // one class per room per slot
             }
         }
     }
@@ -366,12 +540,13 @@ function to24Hour(h, min, meridiem) {
 }
 
 export function splitSubjectFaculty(cell) {
-    const parts = cell.split(/\s{2,}/).map(p => p.trim()).filter(Boolean)
+    const text = stripSemMarkers(cell);
+    const parts = text.split(/\s{2,}/).map(p => p.trim()).filter(Boolean)
         .filter(p => !/^\(Sec\s*\d+\)$/i.test(p));
     let subject = (parts[0] || '').replace(/\s*\(Sec\s*\d+\)/i, '').trim();
     let faculty = parts.slice(1).join(' ');
-    if ((!faculty || faculty.trim().startsWith('-')) && /-\s*\S/.test(cell)) {
-        const m = cell.match(/-\s*(.+)$/);
+    if ((!faculty || faculty.trim().startsWith('-')) && /-\s*\S/.test(text)) {
+        const m = text.match(/-\s*(.+)$/);
         if (m) faculty = m[1].trim();
         subject = subject.replace(/\s*-\s*.+$/, '').trim();
     }
@@ -379,6 +554,18 @@ export function splitSubjectFaculty(cell) {
     const unwrapped = faculty.match(/^\((.+)\)$/);
     if (unwrapped) faculty = unwrapped[1].trim();
     return { subject, faculty: normalizeFacultyName(faculty) };
+}
+
+/**
+ * Strip semester markers used by multi-year courses, e.g. "DL - Sem 5 - Dr. KK"
+ * or "MATH - Sem1 - Dr. Beaulah", leaving subject + faculty for the parser. A
+ * course is tagged with the semester its class belongs to, never a section.
+ */
+function stripSemMarkers(text) {
+    return String(text ?? '')
+        .replace(/\s*-\s*Sem(?:ester)?\s*\.?\s*\d+\s*-?\s*/gi, ' - ')
+        .replace(/\s+/g, ' ')
+        .trim();
 }
 
 // ============================================================

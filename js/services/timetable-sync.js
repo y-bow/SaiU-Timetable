@@ -1,7 +1,7 @@
-import { CONFIG } from '../core/config.js?v=2026-08-09-007';
-import { parseCSV } from '../data/parser.js?v=2026-08-09-007';
-import * as nav from '../ui/navigation.js?v=2026-08-09-007';
-import { toMinutes, minutesToClock, todayName, WEEKDAYS } from '../core/utils.js?v=2026-08-09-007';
+import { CONFIG } from '../core/config.js?v=2026-08-09-008';
+import { parseCSV } from '../data/parser.js?v=2026-08-09-008';
+import * as nav from '../ui/navigation.js?v=2026-08-09-008';
+import { toMinutes, minutesToClock, todayName, WEEKDAYS } from '../core/utils.js?v=2026-08-09-008';
 
 /**
  * Background timetable sync for the Breakout game page (game.html).
@@ -35,7 +35,7 @@ async function syncTimetable() {
         const res = await fetch(sheetUrl);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const text = await res.text();
-        const parsed = parseCSV(text, nav.getParserType(), nav.getMandatoryCourses(), nav.getElectives());
+        const parsed = parseCSV(text, nav.getParserType(), nav.getMandatoryCourses(), nav.getElectives(), nav.getRooms());
         if (!parsed.length) throw new Error('No classes parsed');
 
         try {

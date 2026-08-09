@@ -1,4 +1,4 @@
-import { CONFIG } from '../core/config.js?v=2026-08-09-007';
+import { CONFIG } from '../core/config.js?v=2026-08-09-008';
 
 /**
  * localStorage persistence: timetable cache, room-change map,
@@ -163,6 +163,39 @@ export function setStoredOffering(yearId, electiveId, offeringKey) {
     else map[electiveId] = offeringKey;
     if (!Object.keys(map).length) localStorage.removeItem(key);
     else localStorage.setItem(key, JSON.stringify(map));
+}
+
+// --- Emerging Tools offering selection (persisted per year) ---
+//
+// Choice of which instructor-led offering of the Emerging Tools elective the
+// student attends ("arjun" | "sonar" | "aravind"). Independent from the SCDS
+// section and stored per year like the other elective choices.
+
+export function getStoredEmergingToolsSection(yearId) {
+    if (!yearId) return null;
+    return localStorage.getItem(`tt-nav-emerging-tools-${yearId}`);
+}
+
+export function setStoredEmergingToolsSection(yearId, value) {
+    if (!yearId) return;
+    const key = `tt-nav-emerging-tools-${yearId}`;
+    if (!value) localStorage.removeItem(key);
+    else localStorage.setItem(key, value);
+}
+
+// --- Selected lab section (SCDS Year 2 labs 1-8) ---
+
+export function getStoredLabSection() {
+    const s = Number(localStorage.getItem('tt-nav-lab-section'));
+    return Number.isInteger(s) && s >= 1 && s <= 8 ? s : null;
+}
+
+export function setStoredLabSection(section) {
+    if (section != null && Number.isInteger(section) && section >= 1 && section <= 8) {
+        localStorage.setItem('tt-nav-lab-section', String(section));
+    } else {
+        localStorage.removeItem('tt-nav-lab-section');
+    }
 }
 
 // --- Selected weekday (persisted across sessions/updates) ---

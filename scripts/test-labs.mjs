@@ -1,13 +1,14 @@
 /**
  * Year 2 lab parser test harness (Node).
  *
- * Covers, per requirement:
- *   DAA / FDE  → class found, class moved (different column), class removed,
- *                room changed.
- *   Emerging Tools Lab → all 3 offerings found, offerings stay separate,
- *                different rooms preserved, different times preserved, one
- *                offering changing does not overwrite the others, offering
- *                removed.
+ * Covers, per the current list-format tab design (Day | Time | Section):
+ *   DAA / FDE  → mandatory lab row parsed with its lab section + faculty,
+ *                day inheritance across repeated rows, LUNCH BREAK skipped,
+ *                removal from the sheet produces no record.
+ *   Emerging Tools Lab → elective lab rows become FLAT classes carrying the
+ *                electine id (the app resolves the chosen course offering via
+ *                the sidebar dropdown); different sections/faculties stay
+ *                separate; consecutive sessions of one offering merge.
  *   Merge      → main SCDS timetable + labs → merged Year 2 timetable with no
  *                duplicate records and each record's source preserved.
  *
@@ -16,11 +17,6 @@
  * The modules use browser-style `?v=BUILD_ID` import suffixes (added by
  * scripts/build.mjs). Node can't resolve those specifiers, so the harness
  * copies the modules to a temp dir with the query strings stripped first.
- *
- * Fixture sheets mirror the main SCDS grid layout: class rows carry
- * "DAY,Time,<cells…>" and the next non-empty row declares the current room of
- * each column for that slot ("<empty>,<empty>,<room,…>"). Room rows therefore
- * keep the Day/Time columns blank so room[j] lines up with class column j.
  */
 
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
@@ -49,10 +45,10 @@ try {
         writeFileSync(dest, src);
     }
 
-    const { YEAR_2_LAB_SOURCES, isMissingSheetId, labCacheKey, isYear2SCDS } =
+    const { YEAR_2_LAB_SOURCES, isMissingSheetId, labCacheKey, isYear2SCDS, labSheetUrl } =
         await import(pathToFileURL(join(dir, 'js/data/lab-config.js')).href);
     const { parseCSV } = await import(pathToFileURL(join(dir, 'js/data/parser.js')).href);
-    const { parseLabSheet, recordsToAppClasses, mergeTimelines, stableIdentity } =
+    const { parseLabCSV, recordsToAppClasses, mergeTimelines, stableIdentity } =
         await import(pathToFileURL(join(dir, 'js/data/lab-parser.js')).href);
     const labFetch = await import(pathToFileURL(join(dir, 'js/services/lab-fetch.js')).href);
     const { fetchLabSource, syncYear2Labs } = labFetch;
@@ -78,17 +74,19 @@ try {
         catch (err) { failed++; console.error(`FAIL  ${name}\n      ${err.message}`); }
     };
 
-    const parse = (csv, config, ctx) => recordsToAppClasses(parseLabSheet(csv, config), config, ctx);
+    // Raw records → app-shaped classes, mirroring the app's fetch pipeline.
+    const parse = (csv, config, ctx) => recordsToAppClasses(parseLabCSV(csv, config), config, ctx);
 
     console.log('--- config ---');
     await check('config exposes all three Year 2 lab sources', () => {
         assert.equal(Object.keys(YEAR_2_LAB_SOURCES).length, 3);
         assert.ok(YEAR_2_LAB_SOURCES.DAA_LAB && YEAR_2_LAB_SOURCES.FDE_LAB && YEAR_2_LAB_SOURCES.EMERGING_TOOLS_LAB);
     });
-    await check('sheet ids are clearly-marked placeholders (not fabricated)', () => {
-        for (const s of Object.values(YEAR_2_LAB_SOURCES)) {
-            assert.ok(isMissingSheetId(s), `expected placeholder for ${s.source}`);
-        }
+    await check('all sources share the real spreadsheet id (not placeholders)', () => {
+        assert.equal(DAA.sheetId, FDE.sheetId);
+        assert.equal(FDE.sheetId, ET.sheetId);
+        assert.equal(isMissingSheetId(DAA), false);
+        assert.ok(labSheetUrl(DAA).includes('sheet='), 'uses the gviz tab endpoint');
     });
     await check('lab cache keys are per-source', () => {
         const keys = Object.values(YEAR_2_LAB_SOURCES).map(labCacheKey);
@@ -101,173 +99,96 @@ try {
         assert.ok(!isYear2SCDS(null));
     });
 
-    console.log('--- DAA Lab ---');
+    console.log('--- DAA Lab (limit list tab) ---');
     const daaV1 = [
-        'Day,Time,Slot A,Slot B,Slot C',
-        'MONDAY,10:15 AM - 11:05 AM,DAA Lab - Sec 1 - Arain,,',
-        ',,AB2-203,AB2-205,AB1-101',
-        'MONDAY,2:00 PM - 3:00 PM,,DAA Lab - Sec 2 - Burke,',
-        ',,AB2-203,AB2-205,AB1-101',
+        'Day,Time,Section',
+        'Monday,10:15 AM - 11:05 AM,daa sec1 arain',
+        'Monday,11:15 AM - 12:10 PM,daa sec2 burke',
     ].join('\n');
-
-    const daaMoved = [
-        'Day,Time,Slot A,Slot B,Slot C',
-        'MONDAY,10:15 AM - 11:05 AM,,,DAA Lab - Sec 1 - Arain',
-        ',,AB2-203,AB2-205,AB2-111',
-    ].join('\n');
-
-    const daaRoomChanged = [
-        'Day,Time,Slot A',
-        'MONDAY,10:15 AM - 11:05 AM,DAA Lab - Sec 1 - Arain',
-        ',,AB2-205',
-    ].join('\n');
-
     const daaRemoved = [
-        'Day,Time,Slot A,Slot B',
-        'MONDAY,10:15 AM - 11:05 AM,,',
-        ',,AB2-203,AB2-205',
+        'Day,Time,Section',
+        'Monday,10:15 AM - 11:05 AM,',
     ].join('\n');
-    await check('DAA class found with room/section/source', () => {
-        const c = parse(daaV1, DAA, { section: 1 });
+    await check('DAA class found with lab section / faculty / source', () => {
+        const c = parse(daaV1, DAA, {});
         assert.equal(c.length, 2);
         assert.ok(c.every((x) => x.subject === 'Design and Analysis of Algorithms Lab'));
+        assert.ok(c.every((x) => x.lab === true));
         assert.ok(c.every((x) => x.source === 'daa-lab'));
-        const sec1 = c.find((x) => x.section === 1);
-        const sec2 = c.find((x) => x.section === 2);
-        assert.equal(sec1.room, 'AB2-203');
-        assert.equal(sec2.room, 'AB2-205');
-    });
-    await check('DAA class moved to a different column is still found (new room)', () => {
-        const c = parse(daaMoved, DAA, { section: 1 });
-        assert.equal(c.length, 1);
         assert.equal(c[0].section, 1);
-        assert.equal(c[0].room, 'AB2-111');
-        assert.ok(c[0].room !== 'AB2-203', 'stale pre-move room must not survive');
+        assert.equal(c[0].faculty, 'Prof. Arain');
+        assert.equal(c[0].startTime, '10:15');
+        assert.equal(c[1].section, 2);
     });
-    await check('DAA room change is honoured by the latest fetch', () => {
-        const c = parse(daaRoomChanged, DAA, { section: 1 });
-        assert.equal(c.length, 1);
-        assert.equal(c[0].room, 'AB2-205');
-    });
-    await check('DAA class removed from sheet produces no record', () => {
-        const c = parse(daaRemoved, DAA, { section: 1 });
-        assert.deepEqual(c, []);
+    await check('DAA row removed from sheet produces no record', () => {
+        assert.deepEqual(parse(daaRemoved, DAA, {}), []);
     });
 
     console.log('--- FDE Lab ---');
     const fdeV1 = [
-        'Day,Time,Slot A,Slot B',
-        'TUESDAY,9:00 AM - 9:50 AM,FDE Lab - Sec 3 - Collard,,',
-        ',,AB2-102,AB1-104',
+        'Day,Time,Section',
+        'Tuesday,9:00 AM - 9:50 AM,fde sec3 collard',
     ].join('\n');
-
-    const fdeMoved = [
-        'Day,Time,Slot A,Slot B',
-        'TUESDAY,9:00 AM - 9:50 AM,,FDE Lab - Sec 3 - Collard',
-        ',,AB1-104,AB2-207',
-    ].join('\n');
-
-    const fdeRoomChanged = [
-        'Day,Time,Slot A',
-        'TUESDAY,9:00 AM - 9:50 AM,FDE Lab - Sec 3 - Collard',
-        ',,AB1-104',
-    ].join('\n');
-
-    const fdeRemoved = [
-        'Day,Time,Slot A',
-        'TUESDAY,9:00 AM - 9:50 AM,',
-        ',,AB1-104',
-    ].join('\n');
-    await check('FDE class found with room/section/source', () => {
-        const c = parse(fdeV1, FDE, { section: 1 });
+    await check('FDE class found with lab section / faculty / source', () => {
+        const c = parse(fdeV1, FDE, {});
         assert.equal(c.length, 1);
         assert.equal(c[0].subject, 'Foundations of Data Engineering Lab');
-        assert.equal(c[0].room, 'AB2-102');
         assert.equal(c[0].section, 3);
+        assert.equal(c[0].faculty, 'Prof. Collard');
         assert.equal(c[0].source, 'fde-lab');
-    });
-    await check('FDE class moved to another column is still found', () => {
-        const c = parse(fdeMoved, FDE, { section: 1 });
-        assert.equal(c.length, 1);
-        assert.equal(c[0].room, 'AB2-207');
-    });
-    await check('FDE room change honoured', () => {
-        const c = parse(fdeRoomChanged, FDE, { section: 1 });
-        assert.equal(c[0].room, 'AB1-104');
-    });
-    await check('FDE class removed produces no record', () => {
-        assert.deepEqual(parse(fdeRemoved, FDE, { section: 1 }), []);
+        assert.equal(c[0].day, 'Tuesday');
     });
 
-    console.log('--- Emerging Tools Lab (elective, 3 offerings) ---');
-    const etV1 = [
-        'Day,Time,Off A,Off B,Off C',
-        'MONDAY,2:00 PM - 2:55 PM,Emerging Tools Lab - Offering A - Vance,Emerging Tools Lab - Offering B - Yates,Emerging Tools Lab - Offering C - Zulu',
-        ',,AB1-101,AB2-203,AB2-202',
+    console.log('--- Day inheritance + interruptions ---');
+    const inheritedDay = [
+        'Day,Time,Section',
+        'Wednesday,10:15 AM - 11:05 AM,daa sec4 arora',
+        ',11:15 AM - 12:10 PM,daa sec5 bose',
+        ',LUNCH BREAK,',
+        ',2:00 PM - 3:00 PM,daa sec6 chatterjee',
     ].join('\n');
-    await check('all 3 offerings found and kept separate', () => {
+    await check('blank day inherits + LUNCH BREAK rows are skipped', () => {
+        const c = parse(inheritedDay, DAA, {});
+        assert.equal(c.length, 3);
+        assert.ok(c.every((x) => x.day === 'Wednesday'));
+        assert.deepEqual(c.map((x) => x.section), [4, 5, 6]);
+    });
+
+    console.log('--- Emerging Tools Lab (elective, flat classes) ---');
+    const etV1 = [
+        'Day,Time,Section',
+        'Monday,3:00 PM - 3:55 PM,et sec1 arjun',
+        'Thursday,12:00 PM - 12:55 PM,et sec2 david',
+        'Friday,3:00 PM - 3:55 PM,et sec3 sonar',
+    ].join('\n');
+    await check('elective lab rows become flat classes with the elective id', () => {
         const c = parse(etV1, ET, {});
-        assert.equal(c.length, 1);
-        const e = c[0];
-        assert.equal(e.elective, 'emerging-tools-and-applications');
-        assert.equal(e.subject, 'Emerging Tools Lab');
-        assert.ok(e.offerings && e.offerings.length === 3, `expected 3 offerings, got ${e.offerings?.length}`);
-        const rooms = e.offerings.map((o) => o.room);
-        assert.ok(rooms.includes('AB1-101') && rooms.includes('AB2-203') && rooms.includes('AB2-202'));
-        const ids = e.offerings.map((o) => o.section);
-        assert.deepEqual(ids.sort(), ['A', 'B', 'C']);
-        assert.equal(e.source, 'emerging-tools-lab');
+        assert.equal(c.length, 3);
+        for (const e of c) {
+            assert.equal(e.subject, 'Emerging Tools Lab');
+            assert.equal(e.elective, 'emerging-tools-and-applications');
+            assert.equal(e.lab, true);
+            assert.equal(e.source, 'emerging-tools-lab');
+        }
+        assert.deepEqual(c.map((x) => x.section), [1, 2, 3]);
+        assert.deepEqual(c.map((x) => x.faculty), ['Prof. Arjun', 'Prof. David', 'Prof. Sonar']);
     });
-    await check('offerings preserve distinct rooms and instructors', () => {
-        const e = parse(etV1, ET, {})[0];
-        const byRoom = Object.fromEntries(e.offerings.map((o) => [o.room, o.faculty]));
-        assert.equal(byRoom['AB1-101'], 'Prof. Vance');
-        assert.equal(byRoom['AB2-203'], 'Prof. Yates');
-        assert.equal(byRoom['AB2-202'], 'Prof. Zulu');
+    await check('different faculty/sections stay separate events', () => {
+        const c = parse(etV1, ET, {});
+        assert.equal(new Set(c.map((x) => x.faculty)).size, 3);
+        assert.equal(new Set(c.map((x) => x.day)).size, 3);
     });
-    await check('different times produce separate events', () => {
-        const csv = etV1 + '\n' + [
-            'MONDAY,4:00 PM - 4:55 PM,Emerging Tools Lab - Offering A - Vance,,',
-            ',,AB1-101,,',
+    await check('consecutive sessions of one offering merge into one class', () => {
+        const csv = [
+            'Day,Time,Section',
+            'Monday,3:00 PM - 3:55 PM,et sec3 sonar',
+            ',4:00 PM - 4:55 PM,et sec3 sonar',
         ].join('\n');
         const c = parse(csv, ET, {});
-        assert.equal(c.length, 2);
-        const pm4 = c.find((x) => x.startTime === '16:00');
-        assert.ok(pm4, 'second time slot must be its own record');
-        assert.equal(pm4.faculty, 'Prof. Vance');
-        assert.equal(pm4.room, 'AB1-101');
-    });
-    await check('one offering changing does not overwrite the others', () => {
-        const csv = [
-            'Day,Time,Off A,Off B,Off C',
-            'MONDAY,2:00 PM - 2:55 PM,Emerging Tools Lab - Offering A - Vance,Emerging Tools Lab - Offering B - Yates,Emerging Tools Lab - Offering C - Zulu',
-            ',,AB1-101,AB2-999,AB2-202',
-        ].join('\n');
-        const e = parse(csv, ET, {})[0];
-        const byRoom = Object.fromEntries(e.offerings.map((o) => [o.room, o.section]));
-        assert.equal(byRoom['AB2-999'], 'B', 'offering B room must update');
-        assert.equal(byRoom['AB1-101'], 'A', 'offering A must be untouched');
-        assert.equal(byRoom['AB2-202'], 'C', 'offering C must be untouched');
-    });
-    await check('an offering removed from the sheet disappears', () => {
-        const csv = [
-            'Day,Time,Off A,Off B',
-            'MONDAY,2:00 PM - 2:55 PM,Emerging Tools Lab - Offering A - Vance,Emerging Tools Lab - Offering B - Yates',
-            ',,AB1-101,AB2-999',
-        ].join('\n');
-        const e = parse(csv, ET, {})[0];
-        assert.equal(e.offerings.length, 2);
-        assert.ok(!e.offerings.some((o) => o.section === 'C'));
-    });
-    await check('numeric Sec labels from the sheet are preserved as offerings (no fabrication)', () => {
-        const csv = [
-            'Day,Time,Off A,Off B,Off C',
-            'MONDAY,2:00 PM - 2:55 PM,Emerging Tools Lab - Sec 1 - Vance,Emerging Tools Lab - Sec 2 - Yates,Emerging Tools Lab - Sec 3 - Zulu',
-            ',,AB1-101,AB2-203,AB2-202',
-        ].join('\n');
-        const e = parse(csv, ET, {})[0];
-        assert.equal(e.offerings.length, 3);
-        assert.deepEqual(e.offerings.map((o) => o.section), [1, 2, 3]);
+        assert.equal(c.length, 1, 'two consecutive sessions merge');
+        assert.equal(c[0].startTime, '15:00');
+        assert.equal(c[0].endTime, '16:55');
+        assert.equal(c[0].faculty, 'Prof. Sonar');
     });
 
     console.log('--- Merge (main SCDS + labs) ---');
@@ -282,9 +203,9 @@ try {
         const main = parseCSV(mainCsv, 'grid');
         assert.equal(main.length, 3, 'main fixture should parse 3 sectioned classes');
 
-        const daa = parse(daaV1, DAA, { section: 1 });
-        const fde = parse(fdeV1, FDE, { section: 1 });
-        const et = parse(etV1, ET, { section: 1 });
+        const daa = parse(daaV1, DAA, {});
+        const fde = parse(fdeV1, FDE, {});
+        const et = parse(etV1, ET, {});
         const lab = [...daa, ...fde, ...et];
 
         const merged = mergeTimelines(main, lab);
@@ -316,17 +237,17 @@ try {
 
     console.log('--- Fetch layer (independent sources, failure isolation) ---');
     const configured = { ...DAA, sheetId: 'FAKE_SHEET_ID_1', gid: '0' };
+    const placeholder = { ...DAA, sheetId: 'PLACEHOLDER_UNSET_SHEET_ID' };
     const daaSheetOneRow = [
-        'Day,Time,Slot A',
-        'WEDNESDAY,10:15 AM - 11:05 AM,DAA Lab - Sec 1 - Arain',
-        ',,AB2-203',
+        'Day,Time,Section',
+        'WEDNESDAY,10:15 AM - 11:05 AM,daa sec1 arain',
     ].join('\n');
     await check('placeholder sheet id → unconfigured, no network request', async () => {
         let called = false;
         const prev = globalThis.fetch;
         globalThis.fetch = async () => { called = true; throw new Error('should not be fetched'); };
         try {
-            const r = await fetchLabSource(DAA);
+            const r = await fetchLabSource(placeholder);
             assert.equal(r.status, 'unconfigured');
             assert.deepEqual(r.records, []);
             assert.ok(!called, 'placeholder source must not hit the network');
@@ -337,7 +258,8 @@ try {
         const r = await fetchLabSource(configured);
         assert.equal(r.status, 'ok');
         assert.equal(r.records.length, 1);
-        assert.equal(r.records[0].room, 'AB2-203');
+        assert.equal(r.records[0].section, 1);
+        assert.equal(r.records[0].faculty, 'Prof. Arain');
     });
     await check('failed fetch falls back to the cached copy for that source', async () => {
         globalThis.fetch = async () => { throw new Error('offline'); };
