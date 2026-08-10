@@ -44,6 +44,15 @@ const cls = (o) => ({
     startTime: '09:00', endTime: '09:55', ...o,
 });
 
+// A flat Emerging Tools Lab class. The lab SECTION is the stable identity;
+// the teacher/room/time/day are mutable properties.
+const lab = (o = {}) => ({
+    day: 'Monday', subject: 'Emerging Tools Lab', faculty: 'Prof. Sonar',
+    room: 'AB1 - Computer Lab', section: 3, startTime: '15:00', endTime: '17:00',
+    elective: 'emerging-tools-and-applications', lab: true, source: 'emerging-tools-lab',
+    ...o,
+});
+
 console.log('--- identity ---');
 await check('identity is stable across a room/time/day move', () => {
     const a = cls({ day: 'Monday', room: 'AB2-101', startTime: '09:00' });
@@ -147,6 +156,52 @@ await check('TBA → real room is a room change', () => {
     );
     assert.equal(changes.length, 1);
     assert.equal(changes[0].type, 'room-changed');
+});
+
+console.log('--- Emerging Tools Lab (section identity, mutable teacher) ---');
+await check('lab identity is stable across a teacher change', () => {
+    assert.equal(classIdentity(lab({ faculty: 'Prof. Sonar' })),
+                 classIdentity(lab({ faculty: 'Prof. Aravind' })));
+});
+await check('lab identity distinguishes the lab section (a real offering change)', () => {
+    assert.notEqual(classIdentity(lab({ section: 3 })), classIdentity(lab({ section: 2 })));
+});
+await check('lab identity stays stable across day/time/room moves', () => {
+    assert.equal(classIdentity(lab({ day: 'Monday', room: 'AB2-101', startTime: '15:00' })),
+                 classIdentity(lab({ day: 'Wednesday', room: 'AB1-205', startTime: '14:00' })));
+});
+await check('a lab teacher change is modified, never removed + added', () => {
+    const { changes } = compareTimetables(
+        [lab({ faculty: 'Prof. Sonar' })],
+        [lab({ faculty: 'Prof. Aravind' })]
+    );
+    assert.equal(changes.length, 1);
+    assert.equal(changes[0].type, 'modified');
+    assert.deepEqual(changes[0].changedProps, ['faculty']);
+});
+await check('a lab section change is a genuine offering change (removed + added)', () => {
+    const { changes } = compareTimetables(
+        [lab({ section: 3 })],
+        [lab({ section: 2 })]
+    );
+    assert.equal(changes.length, 2);
+    const types = changes.map((c) => c.type).sort();
+    assert.deepEqual(types, ['added', 'removed']);
+});
+await check('lab room/time changes stay the same offering', () => {
+    const room = compareTimetables([lab({ room: 'AB2-101' })], [lab({ room: 'AB2-205' })]);
+    assert.equal(room.changes.length, 1);
+    assert.equal(room.changes[0].type, 'room-changed');
+    assert.equal(room.changes[0].newRoom, 'AB2-205');
+
+    const moved = compareTimetables([lab({ startTime: '15:00' })], [lab({ startTime: '16:00' })]);
+    assert.equal(moved.changes.length, 1);
+    assert.equal(moved.changes[0].type, 'moved');
+    assert.equal(moved.changes[0].moved.newStartTime, '16:00');
+});
+await check('identical lab records produce no changes', () => {
+    const { changes } = compareTimetables([lab()], [lab()]);
+    assert.deepEqual(changes, []);
 });
 
 console.log('--- roomMap ---');

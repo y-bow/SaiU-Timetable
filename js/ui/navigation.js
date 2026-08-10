@@ -328,10 +328,13 @@ export function setSelectedOffering(electiveId, offeringKey) {
 }
 
 /**
- * Set which instructor-led offering of the Emerging Tools elective the student
- * attends. Completely independent from the SCDS section selection. Only ids
- * that exist in the elective's section config are kept; anything else clears
- * the choice (which hides that elective's classes from the timetable).
+ * Set which offering section of the Emerging Tools elective the student
+ * attends. Completely independent from the SCDS section selection. The value is
+ * matched to the timetable by the section NUMBER on the config entry — both the
+ * main-course offering and the Emerging Tools Lab records are selected by that
+ * section. Only ids that exist in the elective's section config are kept;
+ * anything else clears the choice (which hides that elective's classes). The
+ * lab teacher is never part of this choice.
  */
 export function setEmergingToolsSection(value) {
     const cfg = getEmergingToolsConfig();

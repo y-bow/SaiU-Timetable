@@ -58,16 +58,20 @@ export const SCHOOLS = [
                     {
                         id: 'emerging-tools-and-applications',
                         label: 'Emerging Tools and Applications',
-                        // Independent offerings of the Emerging Tools elective.
-                        // These are NOT SCDS sections — each is a separate
-                        // instructor-led offering of the elective, identified by
-                        // its teaching staff. `id` is the persisted choice and
-                        // `faculty` matches the parsed timetable data.
+                        // Emerging Tools offering sections (Section 1/2/3). The
+                        // numeric `section` is the STABLE identity: selecting a
+                        // section drives BOTH the main-course offering match and
+                        // the Emerging Tools Lab match, which compares
+                        // `lab.section === section`. `id` is the persisted UI
+                        // choice; `label`/`name`/`faculty` are the main-course
+                        // offering display strings only — they must NEVER gate the
+                        // lab, because lab teachers are independent of the main
+                        // course and can change without the section changing.
                         sectionsLabel: 'Emerging Tools Section',
                         sections: [
-                            { id: 'arjun', label: 'Section 1', name: 'Arjun Singh', faculty: 'Arjun' },
-                            { id: 'sonar', label: 'Section 2', name: 'Sonar', faculty: 'Sonar' },
-                            { id: 'aravind', label: 'Section 3', name: 'Aravind', faculty: 'Aravind' },
+                            { id: 'arjun', label: 'Section 1', name: 'Arjun Singh', faculty: 'Arjun', section: 1 },
+                            { id: 'sonar', label: 'Section 2', name: 'Sonar', faculty: 'Sonar', section: 2 },
+                            { id: 'aravind', label: 'Section 3', name: 'Aravind', faculty: 'Aravind', section: 3 },
                         ],
                     },
                 ],

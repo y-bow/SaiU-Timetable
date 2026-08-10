@@ -29,6 +29,15 @@
 
 const norm = (s) => String(s ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
 
+// True for flat Emerging Tools Lab records. Their identity is keyed by
+// subject/elective/section/source ONLY — the lab teacher is a mutable property,
+// so the university can swap instructors (or move the class in time/room)
+// without the offering changing. The lab section is the stable identifier.
+// All other classes keep faculty in their identity, as before.
+function isEmergingToolsLab(c) {
+    return norm(c.source) === 'emerging-tools-lab';
+}
+
 /**
  * Room comparison key. Hyphens and spaces are treated the same, so
  * "AB1 Computer Lab" and "AB1-COMPUTER LAB" compare equal, while "TBA" and
@@ -54,15 +63,17 @@ const DAY_ORDER = Object.fromEntries(
  * deliberately excluded so a moved class keeps its identity. Multi-offering
  * events are flattened by the caller: each offering carries its own
  * section/faculty and therefore its own identity.
+ *
+ * Emerging Tools Lab records are the one exception: their faculty is excluded
+ * too, because the lab teacher is an interchangeable property of the section
+ * (see isEmergingToolsLab). A teacher swap must never fragment the section's
+ * history into removed + added — it is the same class, reported as modified.
  */
 export function classIdentity(c) {
-    return [
-        c.subject,
-        c.elective ?? '',
-        c.section ?? '',
-        c.faculty,
-        c.source ?? '',
-    ].map(norm).join('|');
+    const parts = [c.subject, c.elective ?? '', c.section ?? ''];
+    if (!isEmergingToolsLab(c)) parts.push(c.faculty);
+    parts.push(c.source ?? '');
+    return parts.map(norm).join('|');
 }
 
 /**
@@ -214,6 +225,13 @@ function classify(oldC, newC) {
         norm(oldC.startTime) !== norm(newC.startTime) ||
         norm(oldC.endTime) !== norm(newC.endTime);
     if (dayChanged || timeChanged) changedProps.push('day', 'time');
+
+    // Emerging Tools Lab: the teacher is a mutable property — swapping the lab
+    // instructor is a modified class, never a removed + added pair. Day, time
+    // and room are already handled as mutable above.
+    if (isEmergingToolsLab(oldC) || isEmergingToolsLab(newC)) {
+        if (norm(oldC.faculty) !== norm(newC.faculty)) changedProps.push('faculty');
+    }
 
     if (changedProps.length === 0) return { type: 'no-change', changedProps };
     if (roomChanged && changedProps.length === 1) {

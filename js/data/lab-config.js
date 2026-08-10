@@ -87,9 +87,10 @@ export const YEAR_2_LAB_SOURCES = {
             /^emerging tools\b/i,
             /^et\b/i,
         ],
-        // The Emerging Tools Lab is shown only to the section whose course
-        // offering the student chose (Emerging Tools elective + instructor).
-        // The tab's internal sec labels (1-3) don't gate it.
+        // The Emerging Tools Lab is shown only for the offering section the
+        // student chose (Emerging Tools elective section, 1-3). The lab's
+        // explicit section is the identity of the offering; the lab teacher is
+        // an independent property that never selects the offering.
         isElective: true,
         electiveId: EMERGING_TOOLS_ELECTIVE_ID,
         rooms: null,

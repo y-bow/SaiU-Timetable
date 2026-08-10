@@ -48,7 +48,7 @@ try {
     const { YEAR_2_LAB_SOURCES, isMissingSheetId, labCacheKey, isYear2SCDS, labSheetUrl } =
         await import(pathToFileURL(join(dir, 'js/data/lab-config.js')).href);
     const { parseCSV } = await import(pathToFileURL(join(dir, 'js/data/parser.js')).href);
-    const { parseLabCSV, recordsToAppClasses, mergeTimelines, stableIdentity } =
+    const { parseLabCSV, recordsToAppClasses, mergeTimelines, stableIdentity, matchesEmergingToolsSection } =
         await import(pathToFileURL(join(dir, 'js/data/lab-parser.js')).href);
     const labFetch = await import(pathToFileURL(join(dir, 'js/services/lab-fetch.js')).href);
     const { fetchLabSource, syncYear2Labs } = labFetch;
@@ -197,6 +197,38 @@ try {
         assert.equal(c[0].startTime, '15:00');
         assert.equal(c[0].endTime, '16:55');
         assert.equal(c[0].faculty, 'Prof. Sonar');
+    });
+
+    console.log('--- Emerging Tools Lab selection (section identity) ---');
+    const etMulti = [
+        'Day,Time,Section',
+        'Monday,3:00 PM - 5:00 PM,et sec3 sonar',
+        'Thursday,3:00 PM - 5:00 PM,et sec2 david',
+    ].join('\n');
+    await check('lab offering is identified by its explicit section, never its teacher', () => {
+        const c = parse(etMulti, ET, {});
+        const sec3 = c.find((x) => x.section === 3);
+        const sec2 = c.find((x) => x.section === 2);
+        assert.ok(sec3 && sec2, 'both lab sections are parsed as separate records');
+        assert.equal(matchesEmergingToolsSection(sec3, 3), true, 'Section 3 (Sonar) matches Section 3');
+        assert.equal(matchesEmergingToolsSection(sec2, 3), false, 'Section 2 (David) must NOT match Section 3');
+        assert.equal(matchesEmergingToolsSection(sec2, 2), true, 'Section 2 (David) matches Section 2');
+    });
+    await check('lab teacher has no influence on the section match', () => {
+        const sec3 = parse(etMulti, ET, {}).find((x) => x.section === 3);
+        // Main-course offering is "Section 3 — Aravind"; the lab teacher (Sonar)
+        // differs in the fixture. The section alone must decide — never faculty.
+        assert.equal(matchesEmergingToolsSection({ ...sec3, faculty: 'Prof. Aravind' }, 3),
+            true, 'matches even when the lab teacher differs from the main-course offering');
+        assert.equal(matchesEmergingToolsSection({ ...sec3, faculty: 'Prof. Aravind' }, 1),
+            false, 'still rejects other sections');
+        assert.equal(matchesEmergingToolsSection(sec3, 2), false, 'Section 3 class never matches Section 2');
+    });
+    await check('non-lab classes and empty selections never match', () => {
+        const c = parse(etV1, ET, {});
+        assert.equal(matchesEmergingToolsSection({ ...c[0], lab: false }, 1), false, 'non-lab classes are not lab selections');
+        assert.equal(matchesEmergingToolsSection(c[0], null), false);
+        assert.equal(matchesEmergingToolsSection(c[0], undefined), false);
     });
 
     console.log('--- Room-scoped scan (Year 2 SCDS) ---');

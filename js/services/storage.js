@@ -165,11 +165,14 @@ export function setStoredOffering(yearId, electiveId, offeringKey) {
     else localStorage.setItem(key, JSON.stringify(map));
 }
 
-// --- Emerging Tools offering selection (persisted per year) ---
+// --- Emerging Tools offer selection (persisted per year) ---
 //
-// Choice of which instructor-led offering of the Emerging Tools elective the
-// student attends ("arjun" | "sonar" | "aravind"). Independent from the SCDS
-// section and stored per year like the other elective choices.
+// Choice of which offering section of the Emerging Tools elective the student
+// attends (config section `id`: "arjun" | "sonar" | "aravind"). The choice is
+// matched to the timetable by the section NUMBER on the config entry — lab
+// classes compare their own `section` against it and never against the
+// instructor. Independent from the SCDS section, stored per year like the
+// other elective choices.
 
 export function getStoredEmergingToolsSection(yearId) {
     if (!yearId) return null;

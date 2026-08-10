@@ -324,7 +324,9 @@ export function parseLabSheet(csv, config) {
  * The Emerging Tools Lab is an elective tied to the Emerging Tools course
  * offering: each row becomes a flat class carrying `elective` + its own
  * faculty, so the app's existing offering logic only shows it once the student
- * selects the Emerging Tools elective AND the matching instructor offering.
+ * selects the Emerging Tools elective AND the matching offering section. The
+ * match is made by lab SECTION (`matchesEmergingToolsSection`) — the teacher
+ * shown on the record is just the class property displayed afterwards.
  *
  * @param {Array<object>} records raw records from parseLabList / parseLabSheet
  * @param {object} config the lab source config
@@ -353,8 +355,9 @@ export function recordsToAppClasses(records, config, ctx = {}) {
 }
 
 // Flat elective classes for the Emerging Tools Lab. Each record keeps its own
-// faculty/section. The app resolves the effective offering via the sidebar
-// dropdown; the display layer merges consecutive slots of the same offering.
+// section + faculty. The app selects the effective offering via the sidebar
+// dropdown by SECTION (the teacher is never the selector); the display layer
+// merges consecutive slots of the same offering.
 function toFlatElectiveClasses(records, config) {
     return records.map((r) => ({
         lab: true,
@@ -374,6 +377,25 @@ function toFlatElectiveClasses(records, config) {
 }
 
 // --- Merge ----------------------------------------------------------------
+
+/**
+ * True when a flat Emerging Tools Lab class belongs to the chosen Emerging
+ * Tools section. The lab SECTION is the identity of the lab offering: the
+ * class is matched by `section` alone, never by its teacher. The teacher is an
+ * independent property that comes from the lab sheet — the main course can be
+ * taught by different staff and the lab instructor can be swapped without the
+ * offering changing.
+ *
+ * @param {object} c a flat app-shaped lab class (lab: true)
+ * @param {number|string} selectedSection the chosen Emerging Tools section
+ * @returns {boolean}
+ */
+export function matchesEmergingToolsSection(c, selectedSection) {
+    if (!c || c.lab !== true) return false;
+    if (selectedSection == null) return false;
+    const sec = Number(c.section);
+    return Number.isFinite(sec) && sec === Number(selectedSection);
+}
 
 /**
  * Stable identity for one parsed class. Includes the source so the same course

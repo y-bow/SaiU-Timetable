@@ -7,6 +7,7 @@ import * as ui from '../ui/ui.js?v=2026-08-10-006';
 import { checkArjunSinghTransition } from '../ui/easter-eggs.js?v=2026-08-10-006';
 import * as labSection from '../ui/lab-section.js?v=2026-08-10-006';
 import { loadMergedYear2Timetable } from '../services/lab-fetch.js?v=2026-08-10-006';
+import { matchesEmergingToolsSection } from '../data/lab-parser.js?v=2026-08-10-006';
 import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-08-10-006';
 import { init as initAnalytics, trackEvent } from '../services/analytics.js?v=2026-08-10-006';
 
@@ -96,22 +97,45 @@ function resolveOffering(c) {
     return resolved;
 }
 
-// Resolve an offering of the Emerging Tools elective to the instructor group
+// Resolve an offering of the Emerging Tools elective to the offering section
 // chosen in the sidebar dropdown. Completely independent of the SCDS section.
-// Returns null when no offering is chosen yet or the event has no class from
-// the chosen instructor — in both cases no class of this event is scheduled.
+//
+// Two record shapes flow through here that MUST stay independent:
+//
+//   - MAIN-COURSE offering events (multi-offering or flat) from the main sheet.
+//     Matched primarily by the explicit section on the sheet cell, falling back
+//     to the configured offering faculty when the cell has no section marker.
+//   - EMERGING TOOLS LAB flat classes from the lab tab. The lab section IS the
+//     identity of the lab offering: the class is shown iff its section equals
+//     the chosen section (`lab.section === selectedSection`). The lab teacher
+//     is never used to select the offering — it is read off the matched lab
+//     record and can change independently of the section.
+//
+// Returns null when no section is chosen yet or the event has no class from
+// the chosen offering — in both cases no class of this event is scheduled.
 function resolveDropdownOffering(c, cfg) {
-    const option = cfg.sections.find(s => s.id === nav.getEmergingToolsSection());
+    const option = cfg.sections.find((s) => s.id === nav.getEmergingToolsSection());
     if (!option) return null;
+    // The numeric section the chosen offering represents ("Section 3" → 3).
+    const section = option.section != null ? Number(option.section) : null;
 
-    const match = (faculty) => {
+    // Emerging Tools Lab: identity by section only.
+    if (c.lab) {
+        if (section == null || !matchesEmergingToolsSection(c, section)) return null;
+        return { ...c, dropdownScoped: true };
+    }
+
+    // Main Emerging Tools course offering. Faculty equivalence is a strict
+    // deterministic fallback only — it never identifies a lab.
+    const matchFaculty = (faculty) => {
         const f = String(faculty || '').toLowerCase().replace(/\s+/g, ' ').trim();
         const tok = String(option.faculty || '').toLowerCase().replace(/\s+/g, ' ').trim();
         return !!tok && (f === tok || f.includes(tok) || tok.includes(f));
     };
 
     if (c.offerings && c.offerings.length > 1) {
-        const idx = c.offerings.findIndex(o => match(o.faculty));
+        let idx = section != null ? c.offerings.findIndex((o) => Number(o.section) === section) : -1;
+        if (idx < 0) idx = c.offerings.findIndex((o) => matchFaculty(o.faculty));
         if (idx < 0) return null;
         const chosen = c.offerings[idx];
         const resolved = {
@@ -126,7 +150,8 @@ function resolveDropdownOffering(c, cfg) {
         return resolved;
     }
 
-    if (!match(c.faculty)) return null;
+    const sectionMatches = section != null && c.section != null && Number(c.section) === section;
+    if (!sectionMatches && !matchFaculty(c.faculty)) return null;
     return { ...c, dropdownScoped: true };
 }
 
