@@ -26,7 +26,7 @@
  * deliberately self-contained so this module never needs to edit parser.js.
  */
 
-import { parseTimeRange, normalizeFacultyName } from './parser.js?v=2026-08-10-002';
+import { parseTimeRange, normalizeFacultyName } from './parser.js?v=2026-08-10-003';
 
 const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
 
@@ -375,7 +375,7 @@ export function recordsToAppClasses(records, config, ctx = {}) {
             day: r.day,
             subject: r.subject,
             faculty: r.faculty || '',
-            room: r.room || '',
+            room: config.fixedRoom || r.room || '',
             section: r.section,
             startTime: r.startTime,
             endTime: r.endTime,
@@ -396,7 +396,7 @@ function toFlatElectiveClasses(records, config) {
         day: r.day,
         subject: r.subject,
         faculty: r.faculty || '',
-        room: r.room || '',
+        room: config.fixedRoom || r.room || '',
         section: r.section ?? 1,
         startTime: r.startTime,
         endTime: r.endTime,

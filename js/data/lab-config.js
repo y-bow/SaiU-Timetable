@@ -24,6 +24,11 @@
 // js/data/lab-parser.js notes on elective handling. If the lab should become
 // its own independently toggleable elective instead, replace this id with a new
 // one AND add it to the scds-2 year config's `electives` list in schools.js.
+// All Year 2 labs run in this one fixed room. The lab sheets do not declare a
+// room per slot, so every lab class is stamped with this value instead of
+// showing "Room TBA".
+const LAB_FIXED_ROOM = 'AB1 - Computer Lab';
+
 const EMERGING_TOOLS_ELECTIVE_ID = 'emerging-tools-and-applications';
 
 // The shared spreadsheet that holds the main SCDS timetable AND the lab tabs.
@@ -47,6 +52,7 @@ export const YEAR_2_LAB_SOURCES = {
         isElective: false,
         electiveId: null,
         rooms: null,
+        fixedRoom: LAB_FIXED_ROOM,
     },
 
     FDE_LAB: {
@@ -64,6 +70,7 @@ export const YEAR_2_LAB_SOURCES = {
         isElective: false,
         electiveId: null,
         rooms: null,
+        fixedRoom: LAB_FIXED_ROOM,
     },
 
     EMERGING_TOOLS_LAB: {
@@ -86,6 +93,7 @@ export const YEAR_2_LAB_SOURCES = {
         isElective: true,
         electiveId: EMERGING_TOOLS_ELECTIVE_ID,
         rooms: null,
+        fixedRoom: LAB_FIXED_ROOM,
     },
 };
 

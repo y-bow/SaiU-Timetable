@@ -1,14 +1,14 @@
-import { CONFIG } from './config.js?v=2026-08-10-002';
-import { parseCSV, offeringKey } from '../data/parser.js?v=2026-08-10-002';
-import { compareTimetables, classIdentity } from '../data/change-detector.js?v=2026-08-10-002';
-import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen, getSelectedDay, setSelectedDay } from '../services/storage.js?v=2026-08-10-002';
-import * as nav from '../ui/navigation.js?v=2026-08-10-002';
-import * as ui from '../ui/ui.js?v=2026-08-10-002';
-import { checkArjunSinghTransition } from '../ui/easter-eggs.js?v=2026-08-10-002';
-import * as labSection from '../ui/lab-section.js?v=2026-08-10-002';
-import { loadMergedYear2Timetable } from '../services/lab-fetch.js?v=2026-08-10-002';
-import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-08-10-002';
-import { init as initAnalytics, trackEvent } from '../services/analytics.js?v=2026-08-10-002';
+import { CONFIG } from './config.js?v=2026-08-10-003';
+import { parseCSV, offeringKey } from '../data/parser.js?v=2026-08-10-003';
+import { compareTimetables, classIdentity } from '../data/change-detector.js?v=2026-08-10-003';
+import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen, getSelectedDay, setSelectedDay } from '../services/storage.js?v=2026-08-10-003';
+import * as nav from '../ui/navigation.js?v=2026-08-10-003';
+import * as ui from '../ui/ui.js?v=2026-08-10-003';
+import { checkArjunSinghTransition } from '../ui/easter-eggs.js?v=2026-08-10-003';
+import * as labSection from '../ui/lab-section.js?v=2026-08-10-003';
+import { loadMergedYear2Timetable } from '../services/lab-fetch.js?v=2026-08-10-003';
+import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-08-10-003';
+import { init as initAnalytics, trackEvent } from '../services/analytics.js?v=2026-08-10-003';
 
 /**
  * App bootstrap, fetch, and interactivity.

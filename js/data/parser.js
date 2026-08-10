@@ -377,6 +377,7 @@ function parseGridCSV(text, mandatoryCourses = null, electives = null, rooms = n
 
 const SUBJECT_ALIASES = [
     { match: /^ET$/i, name: 'Emerging Tools and Applications' },
+    { match: /^Emerging Tools\b/i, name: 'Emerging Tools and Applications' },
     { match: /^CN$/i, name: 'Computer Networks' },
     { match: /^(?:INT|INTT)\s*EMB$/i, name: 'Intelligent Embedded Systems' },
     { match: /^DL$/i, name: 'Deep Learning' },

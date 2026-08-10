@@ -173,6 +173,14 @@ try {
         assert.deepEqual(c.map((x) => x.section), [1, 2, 3]);
         assert.deepEqual(c.map((x) => x.faculty), ['Prof. Arjun', 'Prof. David', 'Prof. Sonar']);
     });
+    await check('lab classes carry the fixed room instead of TBA', () => {
+        const daa = parse(daaV1, DAA, {});
+        const fde = parse(fdeV1, FDE, {});
+        const et = parse(etV1, ET, {});
+        for (const c of [...daa, ...fde, ...et]) {
+            assert.equal(c.room, 'AB1 - Computer Lab');
+        }
+    });
     await check('different faculty/sections stay separate events', () => {
         const c = parse(etV1, ET, {});
         assert.equal(new Set(c.map((x) => x.faculty)).size, 3);
@@ -210,6 +218,26 @@ try {
         const c = parseCSV(roomCsv, 'grid', null, null, ['AB1 Computer Lab']);
         assert.equal(c.length, 2, 'both Monday and Tuesday rows resolve to the lab room');
         assert.ok(c.some((x) => x.subject.includes('Embedded Systems')), 'the AB1-COMPUTER LAB spelling is recognised');
+    });
+
+    console.log('--- Emerging Tools elective tagging (main sheet) ---');
+    const etMain = [
+        'Day,Time,Column2,Column3',
+        'MONDAY,09:15 AM - 10:10 AM,ET - Sec 1 - Arjun,Emerging Tools - Sec 2 - Sonar',
+        ',,AB2-101,AB2-202',
+    ].join('\n');
+    const etElectives = [{ id: 'emerging-tools-and-applications', label: 'Emerging Tools and Applications', sections: [] }];
+    await check('both "ET" and full-word "Emerging Tools" cells are tagged as the elective', () => {
+        const c = parseCSV(etMain, 'grid', null, etElectives, ['AB2-101', 'AB2-202']);
+        assert.equal(c.length, 1, 'both cells share a slot and group into one elective event');
+        assert.equal(c[0].elective, 'emerging-tools-and-applications');
+        assert.equal(c[0].offerings.length, 2);
+        assert.deepEqual(c[0].offerings.map((o) => o.faculty), ['Prof. Arjun', 'Prof. Sonar']);
+    });
+    await check('full-word "Emerging Tools" classes are never kept as sectioned (mandatory) classes', () => {
+        const c = parseCSV(etMain, 'grid', null, etElectives, ['AB2-101', 'AB2-202']);
+        assert.ok(c.every((x) => x.elective === 'emerging-tools-and-applications'),
+            'no de-tagged emerging tools event leaks into the mandatory list');
     });
 
     console.log('--- Merge (main SCDS + labs) ---');
