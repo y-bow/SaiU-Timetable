@@ -1,4 +1,4 @@
-import { CONFIG } from '../core/config.js?v=2026-08-10-003';
+import { CONFIG } from '../core/config.js?v=2026-08-10-006';
 
 /**
  * localStorage persistence: timetable cache, room-change map,
@@ -183,7 +183,11 @@ export function setStoredEmergingToolsSection(yearId, value) {
     else localStorage.setItem(key, value);
 }
 
-// --- Selected lab section (SCDS Year 2 labs 1-8) ---
+// --- Selected lab section (LEGACY — SCDS Year 2 numeric labs 1-8) ---
+//
+// Kept only to read/migrate the pre-group numeric preference (see
+// lab-section.js migrateStoredLabGroup). New selections persist as a lab GROUP
+// ("same" | "section8") under `tt-nav-lab-group` instead.
 
 export function getStoredLabSection() {
     const s = Number(localStorage.getItem('tt-nav-lab-section'));
@@ -195,6 +199,32 @@ export function setStoredLabSection(section) {
         localStorage.setItem('tt-nav-lab-section', String(section));
     } else {
         localStorage.removeItem('tt-nav-lab-section');
+    }
+}
+
+// --- Selected lab group (SCDS Year 2) ---
+//
+// The lab GROUP is a high-level choice with exactly two values:
+//
+//   "same"     → the student's lab section follows their normal SCDS section
+//                (Section 3 + Same → lab section 3). Stored as-is — never
+//                expanded into a numeric section — so it keeps tracking the
+//                normal section across changes.
+//   "section8" → the special "Section 8 — Combined Lab" grouping of students
+//                from across the normal sections (lab section 8).
+
+const LAB_GROUP_VALUES = new Set(['same', 'section8']);
+
+export function getStoredLabGroup() {
+    const value = localStorage.getItem('tt-nav-lab-group');
+    return LAB_GROUP_VALUES.has(value) ? value : null;
+}
+
+export function setStoredLabGroup(group) {
+    if (LAB_GROUP_VALUES.has(group)) {
+        localStorage.setItem('tt-nav-lab-group', group);
+    } else {
+        localStorage.removeItem('tt-nav-lab-group');
     }
 }
 

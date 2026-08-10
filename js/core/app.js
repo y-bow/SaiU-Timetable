@@ -1,14 +1,14 @@
-import { CONFIG } from './config.js?v=2026-08-10-003';
-import { parseCSV, offeringKey } from '../data/parser.js?v=2026-08-10-003';
-import { compareTimetables, classIdentity } from '../data/change-detector.js?v=2026-08-10-003';
-import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen, getSelectedDay, setSelectedDay } from '../services/storage.js?v=2026-08-10-003';
-import * as nav from '../ui/navigation.js?v=2026-08-10-003';
-import * as ui from '../ui/ui.js?v=2026-08-10-003';
-import { checkArjunSinghTransition } from '../ui/easter-eggs.js?v=2026-08-10-003';
-import * as labSection from '../ui/lab-section.js?v=2026-08-10-003';
-import { loadMergedYear2Timetable } from '../services/lab-fetch.js?v=2026-08-10-003';
-import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-08-10-003';
-import { init as initAnalytics, trackEvent } from '../services/analytics.js?v=2026-08-10-003';
+import { CONFIG } from './config.js?v=2026-08-10-006';
+import { parseCSV, offeringKey } from '../data/parser.js?v=2026-08-10-006';
+import { compareTimetables, classIdentity } from '../data/change-detector.js?v=2026-08-10-006';
+import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen, getSelectedDay, setSelectedDay } from '../services/storage.js?v=2026-08-10-006';
+import * as nav from '../ui/navigation.js?v=2026-08-10-006';
+import * as ui from '../ui/ui.js?v=2026-08-10-006';
+import { checkArjunSinghTransition } from '../ui/easter-eggs.js?v=2026-08-10-006';
+import * as labSection from '../ui/lab-section.js?v=2026-08-10-006';
+import { loadMergedYear2Timetable } from '../services/lab-fetch.js?v=2026-08-10-006';
+import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-08-10-006';
+import { init as initAnalytics, trackEvent } from '../services/analytics.js?v=2026-08-10-006';
 
 /**
  * App bootstrap, fetch, and interactivity.
@@ -58,9 +58,11 @@ function sectionClasses() {
             const resolved = resolveOffering(c);
             return resolved ? [resolved] : [];
         }
-        // Mandatory labs (DAA/FDE) depend on the chosen LAB section, which is
-        // independent of the classroom section — filter them separately.
-        if (c.lab) return c.section === labSection.getLabSection() ? [c] : [];
+        // Mandatory labs (DAA/FDE) depend on the resolved LAB section. The lab
+        // group ("Same section as above" → normal section, "Section 8 — Combined
+        // Lab" → 8) is a separate idea from the classroom section, resolved
+        // against it only for the "same" choice.
+        if (c.lab) return c.section === labSection.getResolvedLabSection(selectedSection) ? [c] : [];
         // Mandatory sectioned classes depend on the selected section.
         if (hasSections) return selectedSection != null && c.section === selectedSection ? [c] : [];
         // Single-section / mandatory-course years show everything else.
@@ -151,7 +153,7 @@ function renderNavigation() {
         emergingToolsSection: nav.getEmergingToolsSection(),
     });
 
-    labSection.renderLabSections(year);
+    labSection.renderLabGroups(year);
 
     ui.renderDayFilter(selectedDay || contextDay());
 }
@@ -568,9 +570,9 @@ function initNavigationListeners() {
         trackEvent('emerging_tools_section_changed', { section: e.detail.section });
         render();
     });
-    window.addEventListener('labchange', (e) => {
-        labSection.setLabSection(e.detail.section);
-        trackEvent('lab_section_changed', { section: e.detail.section });
+    window.addEventListener('labgroupchange', (e) => {
+        labSection.setLabGroup(e.detail.group);
+        trackEvent('lab_group_changed', { group: e.detail.group });
         render();
     });
     window.addEventListener('daychange', (e) => {
@@ -787,6 +789,9 @@ function init() {
     nav.initNavigation();
     migrateLegacySection();
     selectedSection = nav.getState().section;
+    // Migrate any legacy numeric lab-section preference (1-8) to the new
+    // two-value lab group before the first render touches the selector.
+    labSection.migrateStoredLabGroup();
     selectedDay = getSelectedDay();
 
     initHamburger();

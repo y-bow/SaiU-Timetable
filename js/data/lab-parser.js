@@ -24,17 +24,18 @@
  * Reused from the main parser where practical: parseTimeRange (time column
  * parsing) and normalizeFacultyName (display names). Everything else here is
  * deliberately self-contained so this module never needs to edit parser.js.
+ *
+ * RAW RECORDS ARE THE SOURCE OF TRUTH: one lab class per slot, never merged
+ * at parse time. Consecutive sessions of one continuous lab are glued only by
+ * the display layer (js/ui/display.js), and the smart change detector and the
+ * cache always operate on the raw per-slot records.
  */
 
-import { parseTimeRange, normalizeFacultyName } from './parser.js?v=2026-08-10-003';
+import { parseTimeRange, normalizeFacultyName } from './parser.js?v=2026-08-10-006';
 
 const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
 
 const norm = (s) => String(s ?? '').trim().toLowerCase();
-
-// Smallest allowed gap between consecutive sessions of one continuous class
-// (same rule as the main parser's MERGE_GAP_MIN).
-const MERGE_GAP_MIN = 10;
 
 // Room-ish text that is really just a place-holder, not a named room.
 const PLACEHOLDER_ROOM = /^(tba|tbd|to be announced|to be decided|room tba|n\/?a)$/i;
@@ -310,50 +311,15 @@ export function parseLabSheet(csv, config) {
 
 // --- App-shaped conversion -------------------------------------------------
 
-function toMinutes(t) {
-    const [h, m] = String(t ?? '0:00').split(':').map(Number);
-    return (h || 0) * 60 + (m || 0);
-}
-
-/**
- * Merge consecutive sessions of one continuous (mandatory) lab — two slot
- * halves with the same course/section/faculty/room between 0 and
- * MERGE_GAP_MIN apart become a single class, mirroring the main parser.
- */
-function mergeConsecutiveLab(classes) {
-    if (classes.length < 2) return classes;
-    const dayOrder = Object.fromEntries(DAYS.map((d, i) => [norm(d), i]));
-    const sorted = [...classes].sort((a, b) => {
-        const da = dayOrder[norm(a.day)] ?? 0;
-        const db = dayOrder[norm(b.day)] ?? 0;
-        if (da !== db) return da - db;
-        return toMinutes(a.startTime) - toMinutes(b.startTime);
-    });
-    const out = [];
-    for (const c of sorted) {
-        const last = out[out.length - 1];
-        const gap = toMinutes(c.startTime) - toMinutes(last && last.endTime);
-        const mergeable = last &&
-            norm(last.day) === norm(c.day) &&
-            norm(last.subject) === norm(c.subject) &&
-            (last.section ?? null) === (c.section ?? null) &&
-            norm(last.faculty) === norm(c.faculty) &&
-            norm(last.room) === norm(c.room) &&
-            gap >= 0 && gap <= MERGE_GAP_MIN;
-        if (mergeable) last.endTime = c.endTime;
-        else out.push({ ...c });
-    }
-    return out;
-}
-
 /**
  * Convert raw lab records into the app's timetable class shape.
  *
+ * RAW RECORDS ARE THE SOURCE OF TRUTH — one lab class per slot, never merged.
  * Mandatory labs (DAA, FDE) become flat class objects carrying `lab: true` and
  * the lab-section number found in the sheet. A lab cell WITHOUT any section is
  * dropped (each lab tab always keys a section, so there is nothing to show for
- * a sectionless cell). Consecutive sessions are merged into one event like the
- * main parser does.
+ * a sectionless cell). Back-to-back sessions of one continuous lab stay
+ * separate records here; the display layer merges them only for rendering.
  *
  * The Emerging Tools Lab is an elective tied to the Emerging Tools course
  * offering: each row becomes a flat class carrying `elective` + its own
@@ -368,7 +334,7 @@ function mergeConsecutiveLab(classes) {
 export function recordsToAppClasses(records, config, ctx = {}) {
     if (config.isElective) return toFlatElectiveClasses(records, config);
 
-    const classes = records
+    return records
         .filter((r) => r.section != null)
         .map((r) => ({
             lab: true,
@@ -384,14 +350,13 @@ export function recordsToAppClasses(records, config, ctx = {}) {
             school: r.school,
             source: r.source,
         }));
-    return mergeConsecutiveLab(classes);
 }
 
 // Flat elective classes for the Emerging Tools Lab. Each record keeps its own
-// faculty/section; consecutive sessions of the same offering merge into one
-// event. The app resolves the effective offering via the sidebar dropdown.
+// faculty/section. The app resolves the effective offering via the sidebar
+// dropdown; the display layer merges consecutive slots of the same offering.
 function toFlatElectiveClasses(records, config) {
-    const classes = records.map((r) => ({
+    return records.map((r) => ({
         lab: true,
         day: r.day,
         subject: r.subject,
@@ -406,7 +371,6 @@ function toFlatElectiveClasses(records, config) {
         school: r.school,
         source: r.source,
     }));
-    return mergeConsecutiveLab(classes);
 }
 
 // --- Merge ----------------------------------------------------------------

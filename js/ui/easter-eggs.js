@@ -62,6 +62,22 @@ function markTriggered(key) {
     }
 }
 
+// Deterministic Professor Arjun Singh match. The parser stamps "Prof. " on
+// every faculty name, so the raw sheet forms ("Arjun", "Arjun Singh",
+// "Prof. Arjun", "Prof. Arjun Singh") all reduce to the same normalized
+// token string. Leading titles are stripped, then the name is compared
+// exactly — never a substring or fuzzy match — so similarly-spelled
+// professors ("Arjun Kumar", "Singh") can never trigger the frog.
+function isArjunSingh(faculty) {
+    const name = String(faculty ?? '')
+        .toLowerCase()
+        .replace(/^(?:prof\.?\s*|dr\.?\s*|mr\.?\s*|mrs\.?\s*|ms\.?\s*|miss\.?\s*)+/, '')
+        .replace(/[^a-z\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    return name === 'arjun' || name === 'arjun singh';
+}
+
 /**
  * Create and show the frog overlay.
  * Returns a promise that resolves when the animation completes.
@@ -155,11 +171,7 @@ export function checkArjunSinghTransition({ classes, nowMin, day, current, next,
     if (day !== todayStr) return null;
 
     // Find Arjun Singh classes happening today
-    const arjunClasses = classes.filter(c => 
-        c.day === day && 
-        c.faculty && 
-        c.faculty.includes('Arjun Singh')
-    );
+    const arjunClasses = classes.filter(c => c.day === day && isArjunSingh(c.faculty));
 
     if (!arjunClasses.length) return null;
 

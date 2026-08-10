@@ -7,14 +7,20 @@
  *
  * The parser is selected dynamically per school/year from the config.
  *
- * Parsed output is normalized before it reaches the app:
- *   - consecutive sessions of one continuous class are merged into a single
- *     event (same course, faculty, room and slot continuity; a small gap
- *     between back-to-back slots is allowed),
- *   - parallel offerings of the same elective that share a slot are grouped
- *     into ONE event carrying an `offerings` array (faculty/room/section).
- *   This is fully data-driven — any elective with multiple offerings in the
- *   sheet is supported with no per-course configuration.
+ * RAW RECORDS ARE THE SOURCE OF TRUTH. Each class the sheet contains is
+ * emitted as its OWN record with the slot's real start/end times. Consecutive
+ * sessions of one continuous class (3:00-3:55 + 4:00-4:55) are NEVER merged
+ * here — they stay two independent records so the cache, the smart change
+ * detector and the live clock always see the sheet exactly as parsed. The
+ * visual glue that presents them as one block happens only in the
+ * display layer (js/ui/display.js), never in the parser.
+ *
+ * The one exception — parallel offerings of the same elective that share a
+ * slot are grouped into ONE event carrying an `offerings` array
+ * (faculty/room/section). This is NOT a time merge: the slot times are
+ * unchanged and every offering keeps its own data, so the elective selector
+ * can offer the student a choice. Fully data-driven — any elective with
+ * multiple offerings in the sheet is supported with no per-course config.
  */
 
 const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
@@ -66,7 +72,7 @@ export function parseCSV(text, parserType = 'grid', mandatoryCourses = null, ele
     const raw = parserType === 'list'
         ? parseListCSV(text, electives)
         : parseGridCSV(text, mandatoryCourses, electives, rooms);
-    return normalizeEvents(filterCourses(raw, mandatoryCourses));
+    return groupElectiveOfferings(filterCourses(raw, mandatoryCourses));
 }
 
 /**
@@ -92,21 +98,18 @@ function filterCourses(raw, mandatoryCourses) {
 }
 
 // ============================================================
-// Normalization: merge consecutive sessions + group parallel
-// elective offerings into a single course event.
+// Normalization: group parallel elective offerings into a single
+// course event.
 //
 //   Course → Offerings → Faculty → Room → Section → Selection
 //
-// Both steps run at parse time, so the rest of the app only ever
-// sees merged, de-duplicated timetable entries.
+// Time-adjacent classes are deliberately NOT merged here — that is a display
+// concern (js/ui/display.js). This step only groups same-slot offerings, so
+// the rest of the app sees one event per elective slot with its choices kept
+// side-by-side.
 // ============================================================
 
 const norm = (s) => String(s ?? '').trim().toLowerCase();
-
-function toMinutesOfDay(t) {
-    const [h, m] = String(t ?? '0:00').split(':').map(Number);
-    return (h || 0) * 60 + (m || 0);
-}
 
 /**
  * Stable identity of a single offering. Persisted as the student's choice,
@@ -115,64 +118,6 @@ function toMinutesOfDay(t) {
  */
 export function offeringKey(offering) {
     return [offering.section ?? '', norm(offering.faculty), norm(offering.room)].join('|');
-}
-
-/**
- * Merge sessions that are one continuous class into a single entry.
- *
- * Merge ONLY when all of the following hold:
- *   - same day
- *   - same section
- *   - same subject (never different courses)
- *   - same elective (or both non-elective)
- *   - same faculty (or both unknown)
- *   - same room (or both unknown)
- *   - time slots are consecutive or near-consecutive: the gap between
- *     last.endTime and c.startTime is a small break (<= MERGE_GAP_MIN),
- *     covering back-to-back slots like 3:00-3:55 + 4:00-4:55 that are one
- *     continuous class. The identical course/faculty/room requirement keeps
- *     unrelated 5-minute-apart classes from being merged.
- */
-const MERGE_GAP_MIN = 10;
-
-function mergeConsecutive(classes) {
-    if (classes.length < 2) return classes;
-
-    const dayOrder = Object.fromEntries(DAYS.map((d, i) => [norm(d), i]));
-    const sorted = [...classes].sort((a, b) => {
-        const da = dayOrder[norm(a.day)] ?? 0;
-        const db = dayOrder[norm(b.day)] ?? 0;
-        if (da !== db) return da - db;
-        const t = toMinutesOfDay(a.startTime) - toMinutesOfDay(b.startTime);
-        if (t !== 0) return t;
-        return (a.section ?? 0) - (b.section ?? 0);
-    });
-
-    // A sheet may hold several sections interleaved (e.g. SCDS), so adjacency
-    // in sorted order says nothing about two slots belonging to one class.
-    // Track the last event emitted per day+section and only merge a slot with
-    // the one that immediately precedes it for the SAME section/day.
-    const out = [];
-    const lastByKey = new Map(); // "day|section" -> last emitted event object
-    for (const c of sorted) {
-        const key = `${norm(c.day)}|${c.section ?? ''}`;
-        const last = lastByKey.get(key);
-        const gap = last ? toMinutesOfDay(c.startTime) - toMinutesOfDay(last.endTime) : NaN;
-        const mergeable = last &&
-            last.section === c.section &&
-            (last.elective || null) === (c.elective || null) &&
-            norm(last.subject) === norm(c.subject) &&
-            norm(last.faculty) === norm(c.faculty) &&
-            norm(last.room) === norm(c.room) &&
-            gap >= 0 && gap <= MERGE_GAP_MIN;
-        if (mergeable) {
-            last.endTime = c.endTime;
-        } else {
-            out.push({ ...c });
-            lastByKey.set(key, out[out.length - 1]);
-        }
-    }
-    return out;
 }
 
 /**
@@ -232,11 +177,6 @@ function groupElectiveOfferings(classes) {
         }
     }
     return out;
-}
-
-function normalizeEvents(classes) {
-    if (!classes.length) return classes;
-    return groupElectiveOfferings(mergeConsecutive(classes));
 }
 
 // ============================================================

@@ -45,6 +45,7 @@ const MODULES = [
     'js/core/spring.js',
     'js/data/parser.js',
     'js/ui/ui.js',
+    'js/ui/display.js',
     'js/ui/easter-eggs.js',
 ];
 
@@ -213,6 +214,33 @@ try {
     });
     await check('no Arjun classes → no frog', () => {
         const r = eggSession1.checkArjunSinghTransition({ classes: others, nowMin: 120, day: MONDAY, current: null, next: null, prevCurrent: null });
+        assert.equal(r, null);
+    });
+
+    console.log('--- Arjun frog: faculty-name variants (real parsed data) ---');
+    await check('"Prof. Arjun" (Emerging Tools cell "Arjun" parses to this) fires on transition', () => {
+        const cls = { day: MONDAY, subject: 'Emerging Tools and Applications', faculty: 'Prof. Arjun', startTime: '15:00', endTime: '15:55', room: 'AB1-101' };
+        const r = eggSession1.checkArjunSinghTransition({ classes: [cls], nowMin: 900, day: MONDAY, current: cls, next: null, prevCurrent: null });
+        assert.equal(r, cls);
+    });
+    await check('raw "Arjun" (un-normalized sheet form) fires too', () => {
+        const cls = { day: MONDAY, subject: 'Emerging Tools and Applications', faculty: 'Arjun', startTime: '15:05', endTime: '16:00', room: 'AB1-101' };
+        const r = eggSession1.checkArjunSinghTransition({ classes: [cls], nowMin: 905, day: MONDAY, current: cls, next: null, prevCurrent: null });
+        assert.equal(r, cls);
+    });
+    await check('"Prof. Arjun Singh" (full parser-normalized name) fires on transition', () => {
+        const cls = { day: MONDAY, subject: 'Algorithms', faculty: 'Prof. Arjun Singh', startTime: '18:00', endTime: '18:55', room: 'AB1-101' };
+        const r = eggSession1.checkArjunSinghTransition({ classes: [cls], nowMin: 1080, day: MONDAY, current: cls, next: null, prevCurrent: null });
+        assert.equal(r, cls);
+    });
+    await check('similar but different name ("Prof. Arjun Kumar") never fires', () => {
+        const cls = { day: MONDAY, subject: 'Algorithms', faculty: 'Prof. Arjun Kumar', startTime: '17:00', endTime: '17:55', room: 'AB1-101' };
+        const r = eggSession1.checkArjunSinghTransition({ classes: [cls], nowMin: 1020, day: MONDAY, current: cls, next: null, prevCurrent: null });
+        assert.equal(r, null);
+    });
+    await check('surname-only ("Prof. Singh") never fires', () => {
+        const cls = { day: MONDAY, subject: 'FDE', faculty: 'Prof. Singh', startTime: '17:00', endTime: '17:55', room: 'AB2-102' };
+        const r = eggSession1.checkArjunSinghTransition({ classes: [cls], nowMin: 1020, day: MONDAY, current: cls, next: null, prevCurrent: null });
         assert.equal(r, null);
     });
 
