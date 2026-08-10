@@ -191,6 +191,27 @@ try {
         assert.equal(c[0].faculty, 'Prof. Sonar');
     });
 
+    console.log('--- Room-scoped scan (Year 2 SCDS) ---');
+    const roomCsv = [
+        'Day,Time,Column2,Column3',
+        'MONDAY,9:00 AM - 9:55 AM,Theory (Sec 1)  Prof A,Theory (Sec 2)  Prof B',
+        ',,AB1 Computer Lab,AB2-101',
+        'TUESDAY,10:15 AM - 11:05 AM,Embedded Systems (Sec 1)  Prof C,',
+        ',,AB1-COMPUTER LAB,',
+    ].join('\n');
+    await check('room-scoped scan finds classes only in configured rooms', () => {
+        const c = parseCSV(roomCsv, 'grid', null, null, ['AB1 Computer Lab', 'AB2-101']);
+        assert.equal(c.length, 3);
+        assert.ok(c[0].subject.includes('Theory') && c[0].section === 1, 'lab-room class parsed with section');
+        assert.ok(c[1].subject.includes('Theory') && c[1].section === 2, 'AB2-101 class parsed with section');
+        assert.deepEqual(c.map((x) => x.room), ['AB1 Computer Lab', 'AB2-101', 'AB1-COMPUTER LAB']);
+    });
+    await check('hyphen and space spellings of the same room both match', () => {
+        const c = parseCSV(roomCsv, 'grid', null, null, ['AB1 Computer Lab']);
+        assert.equal(c.length, 2, 'both Monday and Tuesday rows resolve to the lab room');
+        assert.ok(c.some((x) => x.subject.includes('Embedded Systems')), 'the AB1-COMPUTER LAB spelling is recognised');
+    });
+
     console.log('--- Merge (main SCDS + labs) ---');
     const mainCsv = [
         'Day,Time,Column2,Column3',

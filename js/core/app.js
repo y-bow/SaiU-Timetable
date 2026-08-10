@@ -1,13 +1,14 @@
-import { CONFIG } from './config.js?v=2026-08-09-008';
-import { parseCSV, offeringKey } from '../data/parser.js?v=2026-08-09-008';
-import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen, getSelectedDay, setSelectedDay } from '../services/storage.js?v=2026-08-09-008';
-import * as nav from '../ui/navigation.js?v=2026-08-09-008';
-import * as ui from '../ui/ui.js?v=2026-08-09-008';
-import { checkArjunSinghTransition } from '../ui/easter-eggs.js?v=2026-08-09-008';
-import * as labSection from '../ui/lab-section.js?v=2026-08-09-008';
-import { loadMergedYear2Timetable } from '../services/lab-fetch.js?v=2026-08-09-008';
-import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-08-09-008';
-import { init as initAnalytics, trackEvent } from '../services/analytics.js?v=2026-08-09-008';
+import { CONFIG } from './config.js?v=2026-08-10-002';
+import { parseCSV, offeringKey } from '../data/parser.js?v=2026-08-10-002';
+import { compareTimetables, classIdentity } from '../data/change-detector.js?v=2026-08-10-002';
+import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen, getSelectedDay, setSelectedDay } from '../services/storage.js?v=2026-08-10-002';
+import * as nav from '../ui/navigation.js?v=2026-08-10-002';
+import * as ui from '../ui/ui.js?v=2026-08-10-002';
+import { checkArjunSinghTransition } from '../ui/easter-eggs.js?v=2026-08-10-002';
+import * as labSection from '../ui/lab-section.js?v=2026-08-10-002';
+import { loadMergedYear2Timetable } from '../services/lab-fetch.js?v=2026-08-10-002';
+import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-08-10-002';
+import { init as initAnalytics, trackEvent } from '../services/analytics.js?v=2026-08-10-002';
 
 /**
  * App bootstrap, fetch, and interactivity.
@@ -233,7 +234,11 @@ async function load({ silent = false, background = false } = {}) {
         loadedFor = year?.id ?? null;
         lastUpdated = new Date();
         writeCache(cacheKey, classes);
-        updateRoomMapWithKey(classes);
+        // Smart change detection: compare the previous fetch against this one.
+        // Classes are compared, not spreadsheet cells — a class that moved to
+        // another cell/room/time/day keeps its identity and is reported as
+        // moved/room-changed, never as removed + unrelated added.
+        applyChanges(cached && cached.classes ? cached.classes : [], classes);
         syncSections();
         render();
         trackEvent('timetable_refreshed', { source: background ? 'background' : silent ? 'manual' : 'initial' });
@@ -256,47 +261,60 @@ function writeCache(key, data) {
     catch { /* full */ }
 }
 
-const PLACEHOLDER_ROOM = /^(tba|tbd|to be announced|to be decided|room tba|n\/?a)$/i;
-
-// Compute the stable room-change key + normalized room for one class/offering
-// and detect a change against the persisted map. The key must stay identical
-// to what updateRoomMapWithKey stores.
-function roomChangeFor(c, map) {
-    const ck = `${c.subject}|${c.faculty}|${c.section ?? ''}|${c.day ?? ''}|${c.startTime ?? ''}`;
-    const rawRoom = String(c.room ?? '').replace(/\s+/g, ' ').trim();
-    const room = rawRoom && !PLACEHOLDER_ROOM.test(rawRoom) ? rawRoom.toLowerCase() : '';
-    const prevRaw = String(map[ck] ?? '').trim();
-    const prev = prevRaw && !PLACEHOLDER_ROOM.test(prevRaw) ? prevRaw.toLowerCase() : '';
-    return { key: ck, room: rawRoom, changed: !!(room && prev && prev !== room), original: prevRaw };
+// Read the persisted identity → { room, originalRoom } map.
+function readRoomMap() {
+    try {
+        const raw = localStorage.getItem(getRoomCacheKey());
+        const map = raw ? JSON.parse(raw) : {};
+        return map && typeof map === 'object' ? map : {};
+    } catch { return {}; }
 }
 
-function updateRoomMapWithKey(classes) {
-    const key = getRoomCacheKey();
-    let map = {};
-    try { const raw = localStorage.getItem(key); map = raw ? JSON.parse(raw) : {}; } catch { map = {}; }
-    for (const c of classes) {
-        // Multi-offering events register a map entry per offering, keyed by
-        // each offering's faculty/section, so the chosen offering's room
-        // change is detected after resolution.
-        const entries = (c.offerings && c.offerings.length > 1)
-            ? c.offerings.map(o => ({ subject: c.subject, faculty: o.faculty, section: o.section, day: c.day, startTime: c.startTime, room: o.room }))
-            : [c];
-        for (const e of entries) {
-            const r = roomChangeFor(e, map);
-            if (e === c && r.changed) { c.roomChanged = true; c.originalRoom = r.original; }
-            if (r.room) map[r.key] = r.room;
+function writeRoomMap(map) {
+    try { localStorage.setItem(getRoomCacheKey(), JSON.stringify(map)); } catch { /* full */ }
+}
+
+/**
+ * Smart change detection over the freshly fetched timetable.
+ *
+ * Compares the previous successful fetch against the new one via the generic
+ * change detector (compareTimetables). Classes keep their identity across
+ * cell/room/time/day moves, so the room-change badge follows a class wherever
+ * it goes and is never reset by a timetable sync.
+ *
+ * For each flat class whose room changed, the badge metadata is attached
+ * directly. The persisted room map (identity → latest room + original room)
+ * lets the app badge an elective offering AFTER the user resolves it.
+ */
+function applyChanges(prevClasses, newClasses) {
+    const { changes, roomMap } = compareTimetables(prevClasses, newClasses);
+
+    for (const c of newClasses) {
+        if (c.offerings && c.offerings.length > 1) continue; // badge on resolution
+        const rec = roomMap[classIdentity(c)];
+        if (rec && rec.originalRoom && rec.originalRoom !== rec.room) {
+            c.roomChanged = true;
+            c.originalRoom = rec.originalRoom;
         }
     }
-    try { localStorage.setItem(key, JSON.stringify(map)); } catch { /* full */ }
+
+    // The room map is the persisted source of truth for resolved offerings.
+    const map = readRoomMap();
+    for (const [id, rec] of Object.entries(roomMap)) map[id] = rec;
+    writeRoomMap(map);
+
+    return changes;
 }
 
 // Recompute the room-change badge for an already-resolved class (used for the
 // offering chosen after a multi-offering event is resolved).
 function applyRoomChange(c) {
-    let map = {};
-    try { const raw = localStorage.getItem(getRoomCacheKey()); map = raw ? JSON.parse(raw) : {}; } catch { map = {}; }
-    const r = roomChangeFor(c, map);
-    if (r.changed) { c.roomChanged = true; c.originalRoom = r.original; }
+    const map = readRoomMap();
+    const rec = map[classIdentity(c)];
+    if (rec && rec.originalRoom && rec.originalRoom !== rec.room) {
+        c.roomChanged = true;
+        c.originalRoom = rec.originalRoom;
+    }
 }
 
 // ============================================================

@@ -50,6 +50,7 @@ export const SCHOOLS = [
                     'AB1-104',
                     'AB1-101',
                     'AB1-MOOT COURT HALL',
+                    'AB1 Computer Lab',
                 ],
                 mandatoryCourses: null,
                 electives: [
@@ -91,6 +92,8 @@ export const SCHOOLS = [
                     { id: 'organizational-psychology', label: 'Organizational Psychology' },
                     { id: 'computer-organization-and-architecture', label: 'Computer Organization and Architecture' },
                     { id: 'human-ai-interaction', label: 'Human AI Interaction' },
+                    { id: 'introduction-to-financial-accounting', label: 'Introduction to Financial Accounting' },
+                    { id: 'critical-thinking', label: 'Critical Thinking' },
                 ],
             },
         ],

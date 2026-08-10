@@ -1,7 +1,7 @@
-import { CONFIG } from '../core/config.js?v=2026-08-09-008';
-import { parseCSV } from '../data/parser.js?v=2026-08-09-008';
-import * as nav from '../ui/navigation.js?v=2026-08-09-008';
-import { toMinutes, minutesToClock, todayName, WEEKDAYS } from '../core/utils.js?v=2026-08-09-008';
+import { CONFIG } from '../core/config.js?v=2026-08-10-002';
+import { parseCSV } from '../data/parser.js?v=2026-08-10-002';
+import * as nav from '../ui/navigation.js?v=2026-08-10-002';
+import { toMinutes, minutesToClock, todayName, WEEKDAYS } from '../core/utils.js?v=2026-08-10-002';
 
 /**
  * Background timetable sync for the Breakout game page (game.html).

@@ -300,21 +300,38 @@ function parseGridCSV(text, mandatoryCourses = null, electives = null, rooms = n
             const sectionMatch = cell.match(SECTION_REGEX);
 
             if (sectionMatch) {
-                // Sectioned cell — always parse (existing behavior)
+                // Sectioned cell — parse when it belongs to this year: a
+                // mandatory course or a configured elective. With no course
+                // config (raw grid parsing) every sectioned cell is kept.
+                // Aliases are expanded and electives tagged so a sectioned
+                // elective is only shown once the student selects it.
                 const section = parseInt(sectionMatch[1], 10);
                 if (!section) continue;
 
                 const room = findRoom(lines, i, j);
                 const { subject, faculty } = splitSubjectFaculty(cell);
+                const name = expandSubjectAlias(subject);
+                const subjLower = name.trim().toLowerCase();
+
+                let elective = null;
+                if (electiveList) elective = matchElective(subjLower);
+
+                let isMandatory = false;
+                if (mandatoryList) {
+                    isMandatory = !elective && mandatoryList.some(t => matchesName(subjLower, t));
+                }
+
+                if ((mandatoryList || electiveList) && !isMandatory && !elective) continue;
 
                 data.push({
                     day: currentDay,
-                    subject,
+                    subject: name,
                     faculty,
                     room,
                     section,
                     startTime: times.start,
                     endTime: times.end,
+                    ...(elective ? { elective: elective.id } : {}),
                 });
             } else if (mandatoryList || electiveList) {
                 // Unsectioned cell — parse only when it is a mandatory course
@@ -367,13 +384,16 @@ const SUBJECT_ALIASES = [
     { match: /^QML$/i, name: 'Quantum Machine Learning' },
     { match: /^CYBER$/i, name: 'Cybersecurity: Fundamental Concepts and Management' },
     { match: /^COA$/i, name: 'Computer Organization and Architecture' },
+    { match: /^IFA$/i, name: 'Introduction to Financial Accounting' },
+    { match: /^CT$/i, name: 'Critical Thinking' },
 ];
 
-// Normalize room names for comparison: uppercase, "AB2 - 101" -> "AB2-101".
+// Normalize room names for comparison: uppercase, hyphens equivalent to
+// spaces ("AB2 - 101" -> "AB2 101", "AB1-COMPUTER LAB" -> "AB1 COMPUTER LAB").
 function normalizeRoom(name) {
     return String(name ?? '')
         .toUpperCase()
-        .replace(/\s*-\s*/g, '-')
+        .replace(/-/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
 }

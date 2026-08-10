@@ -1,5 +1,5 @@
-import { getStoredLabSection, setStoredLabSection } from '../services/storage.js?v=2026-08-09-008';
-import { isYear2SCDS } from '../data/lab-config.js?v=2026-08-09-008';
+import { getStoredLabSection, setStoredLabSection } from '../services/storage.js?v=2026-08-10-002';
+import { isYear2SCDS } from '../data/lab-config.js?v=2026-08-10-002';
 
 /**
  * Lab-section selector state + UI.

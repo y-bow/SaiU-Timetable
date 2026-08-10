@@ -26,7 +26,7 @@
  * deliberately self-contained so this module never needs to edit parser.js.
  */
 
-import { parseTimeRange, normalizeFacultyName } from './parser.js?v=2026-08-09-008';
+import { parseTimeRange, normalizeFacultyName } from './parser.js?v=2026-08-10-002';
 
 const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
 
