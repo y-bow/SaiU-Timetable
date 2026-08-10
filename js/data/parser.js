@@ -33,6 +33,11 @@ const SECTION_REGEX = /\(Sec\s*(\d+)\)/i;
  */
 const FACULTY_ALIASES = [
     { match: /^dr\.?\s*k\.?\s*k\.?\s*$/i, name: 'Dr.K.K.Singh' },
+    // The sheet spells this teacher inconsistently ("Dr. Tamil" in most cells,
+    // "Dr. Tamilarasi" in a few), and often adds a "mam" honorific. Normalize
+    // every variant to the canonical full name so the timetable displays one
+    // consistent teacher across all sections/days.
+    { match: /^(?:dr\.?\s*)?(?:tamilarasiarasi|tamilarasi|tamil(?:\s*arasi)?)\s*(?:mam|ma'?am|madam)?\s*$/i, name: 'Dr.Tamilarasi' },
 ];
 
 export function normalizeFacultyName(faculty) {

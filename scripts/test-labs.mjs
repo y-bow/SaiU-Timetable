@@ -272,6 +272,29 @@ try {
             'no de-tagged emerging tools event leaks into the mandatory list');
     });
 
+    console.log('--- Faculty normalization (Tamilarasi) ---');
+    const tamilCsv = [
+        'Day,Time,Column2,Column3',
+        'MONDAY,09:15 AM - 10:10 AM,Linear Algebra - Sec 7 - Dr. Tamil,Linear Algebra - Sec 3 - Dr. Tamilarasi',
+        ',,AB1 - Moot Court Hall,AB2-202',
+        'TUESDAY,09:15 AM - 10:10 AM,Linear Algebra - Sec 3 - Dr. Tamilarasi Mam,',
+        ',,AB2-202,',
+    ].join('\n');
+    await check('every sheet spelling of the teacher normalizes to Dr.Tamilarasi', () => {
+        const c = parseCSV(tamilCsv, 'grid', null, null, ['AB1 - Moot Court Hall', 'AB2-202']);
+        assert.equal(c.length, 3);
+        assert.ok(c.every((x) => x.faculty === 'Prof. Dr.Tamilarasi'),
+            `expected only 'Prof. Dr.Tamilarasi', got ${JSON.stringify(c.map((x) => x.faculty))}`);
+    });
+    await check('lab list rows also normalize the Tamilarasi variant', () => {
+        const c = parse([
+            'Day,Time,Section',
+            'Thursday,11.15 AM - 12.10 PM,daa sec2 dr. tamil',
+        ].join('\n'), DAA, {});
+        assert.equal(c.length, 1);
+        assert.equal(c[0].faculty, 'Prof. Dr.Tamilarasi');
+    });
+
     console.log('--- Merge (main SCDS + labs) ---');
     const mainCsv = [
         'Day,Time,Column2,Column3',
