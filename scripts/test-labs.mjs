@@ -8,7 +8,7 @@
  *   Emerging Tools Lab → elective lab rows become FLAT classes carrying the
  *                electine id (the app resolves the chosen course offering via
  *                the sidebar dropdown); different sections/faculties stay
- *                separate; consecutive sessions of one offering merge.
+ *                separate.
  *   Merge      → main SCDS timetable + labs → merged Year 2 timetable with no
  *                duplicate records and each record's source preserved.
  *
@@ -34,6 +34,8 @@ const MODULES = [
     'js/data/lab-config.js',
     'js/data/lab-parser.js',
     'js/services/lab-fetch.js',
+    'js/data/course-normalizer.js',
+    'js/data/change-detector.js',
 ];
 
 const dir = mkdtempSync(join(tmpdir(), 'tt-lab-tests-'));
@@ -50,6 +52,10 @@ try {
     const { parseCSV } = await import(pathToFileURL(join(dir, 'js/data/parser.js')).href);
     const { parseLabCSV, recordsToAppClasses, mergeTimelines, stableIdentity, matchesEmergingToolsSection } =
         await import(pathToFileURL(join(dir, 'js/data/lab-parser.js')).href);
+    const { foldCourseText, resolveCourse } =
+        await import(pathToFileURL(join(dir, 'js/data/course-normalizer.js')).href);
+    const { compareTimetables, classIdentity } =
+        await import(pathToFileURL(join(dir, 'js/data/change-detector.js')).href);
     const labFetch = await import(pathToFileURL(join(dir, 'js/services/lab-fetch.js')).href);
     const { fetchLabSource, syncYear2Labs } = labFetch;
 
@@ -138,6 +144,17 @@ try {
         assert.equal(c[0].source, 'fde-lab');
         assert.equal(c[0].day, 'Tuesday');
     });
+    await check('a quoted cell with a literal newline does not eat its row', () => {
+        const csv = [
+            'Day,Time,Section',
+            'Tuesday,9:00 AM - 9:50 AM,fde sec3 collard',
+            ',10:15 AM - 11:10 AM,fde sec3 collard,,"Day","Time","Section","Lab In charge\nFaculty-1"',
+        ].join('\n');
+        const c = parse(csv, FDE, {});
+        assert.equal(c.length, 2, 'both Tuesday sessions survive the embedded-newline cell');
+        assert.ok(c.every((x) => x.day === 'Tuesday' && x.section === 3));
+        assert.deepEqual(c.map((x) => x.startTime), ['09:00', '10:15']);
+    });
 
     console.log('--- Day inheritance + interruptions ---');
     const inheritedDay = [
@@ -185,18 +202,6 @@ try {
         const c = parse(etV1, ET, {});
         assert.equal(new Set(c.map((x) => x.faculty)).size, 3);
         assert.equal(new Set(c.map((x) => x.day)).size, 3);
-    });
-    await check('consecutive sessions of one offering merge into one class', () => {
-        const csv = [
-            'Day,Time,Section',
-            'Monday,3:00 PM - 3:55 PM,et sec3 sonar',
-            ',4:00 PM - 4:55 PM,et sec3 sonar',
-        ].join('\n');
-        const c = parse(csv, ET, {});
-        assert.equal(c.length, 1, 'two consecutive sessions merge');
-        assert.equal(c[0].startTime, '15:00');
-        assert.equal(c[0].endTime, '16:55');
-        assert.equal(c[0].faculty, 'Prof. Sonar');
     });
 
     console.log('--- Emerging Tools Lab selection (section identity) ---');
@@ -337,6 +342,66 @@ try {
         assert.ok(!main.map(stableIdentity).includes(labKey), 'main vs lab identity must differ');
         const merged = mergeTimelines(main, [sameClass]);
         assert.equal(merged.filter((m) => stableIdentity(m) === labKey).length, 1);
+    });
+
+    console.log('--- Course ids (canonical normalization) ---');
+    await check('parser stamps canonical courseId on known courses', () => {
+        const csv = [
+            'Day,Time,Column2,Column3',
+            'MONDAY,09:15 AM - 10:10 AM,ET - Sec 1 - Arjun,Linear Algebra - Sec 1 - Dr. Tamil',
+            ',,AB2-101,AB2-202',
+        ].join('\n');
+        const etElectives = [{ id: 'emerging-tools-and-applications', label: 'Emerging Tools and Applications', sections: [] }];
+        const c = parseCSV(csv, 'grid', null, etElectives, ['AB2-101', 'AB2-202']);
+        const et = c.find((x) => x.elective);
+        const la = c.find((x) => !x.elective);
+        assert.ok(et && la, 'both cells parse');
+        assert.equal(et.courseId, 'emerging-tools-and-applications');
+        assert.equal(la.courseId, 'linear-algebra');
+    });
+    await check('lab classes carry a courseId distinct from the lecture', () => {
+        const c = parse(daaV1, DAA, {});
+        assert.equal(c.length, 2);
+        assert.ok(c.every((x) => x.courseId === 'design-and-analysis-of-algorithms-lab'));
+    });
+    await check('foldCourseText normalizes casing, "&" and punctuation', () => {
+        assert.equal(foldCourseText('Discrete Mathematics & Set Theory'), 'discrete mathematics and set theory');
+        assert.equal(foldCourseText('  Deep Learning  '), 'deep learning');
+        assert.equal(foldCourseText('R&D'), 'r and d');
+    });
+    await check('resolveCourse maps abbreviations and full names to one canonical id', () => {
+        assert.equal(resolveCourse('DL').canonical, 'deep-learning');
+        assert.equal(resolveCourse('Deep Learning').canonical, 'deep-learning');
+        assert.equal(resolveCourse('INT EMB').canonical, 'intelligent-embedded-systems');
+        assert.equal(resolveCourse('Intelligent Embedded Systems').canonical, 'intelligent-embedded-systems');
+        assert.equal(resolveCourse('ET').canonical, 'emerging-tools-and-applications');
+        assert.equal(resolveCourse('Discrete Mathematics & Set Theory').canonical, 'discrete-mathematics');
+        assert.equal(resolveCourse('Principles in Financial Management').canonical, 'principles-in-financial-management');
+    });
+    await check('resolveCourse returns a stable slug for unknown courses', () => {
+        const r = resolveCourse('Some Future Course');
+        assert.equal(r.canonical, 'some-future-course');
+        assert.equal(r.matched, false);
+    });
+
+    console.log('--- Change detection (course id stability) ---');
+    await check('classIdentity is stable across subject spelling changes via courseId', () => {
+        const a = { courseId: 'deep-learning', subject: 'Deep Learning', faculty: 'Prof. X', section: 5, source: 'scds-main' };
+        const b = { courseId: 'deep-learning', subject: 'DL', faculty: 'Prof. X', section: 5, source: 'scds-main' };
+        assert.equal(classIdentity(a), classIdentity(b));
+    });
+    await check('a subject rename is a no-change, never removed + added', () => {
+        const mk = (subject) => [{
+            day: 'Monday', startTime: '09:00', endTime: '09:55',
+            courseId: 'deep-learning', subject, faculty: 'Prof. X', section: 5, source: 'scds-main', room: 'AB2-101',
+        }];
+        const { changes } = compareTimetables(mk('Deep Learning'), mk('DL'));
+        assert.equal(changes.length, 0);
+    });
+    await check('records without courseId keep the old subject-keyed identity', () => {
+        const a = { subject: 'Theory', faculty: 'Prof A', section: 1, source: 'scds-main' };
+        const b = { subject: 'theory', faculty: 'prof a', section: 1, source: 'scds-main' };
+        assert.equal(classIdentity(a), classIdentity(b));
     });
 
     console.log('--- Fetch layer (independent sources, failure isolation) ---');

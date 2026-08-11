@@ -32,7 +32,7 @@ const isDevHost = DEV_HOSTS.includes(self.location.hostname);
 
 // Replaced by scripts/build.mjs on every build — the file's bytes change every
 // deployment so the Service Worker update is always detected.
-const BUILD_ID = '2026-08-10-006';
+const BUILD_ID = '2026-08-11-002';
 
 const CACHE_NAME = 'saiu-timetable-v' + BUILD_ID;
 const SHEET_CACHE = 'timetable-sheet-v1';
@@ -49,14 +49,20 @@ const ASSETS = [
   versioned('js/generated/build.js'),
   versioned('js/core/config.js'),
   versioned('js/data/parser.js'),
+  versioned('js/data/change-detector.js'),
+  versioned('js/data/schools.js'),
+  versioned('js/data/lab-config.js'),
+  versioned('js/data/lab-parser.js'),
   versioned('js/core/utils.js'),
   versioned('js/services/storage.js'),
-  versioned('js/data/schools.js'),
-  versioned('js/ui/navigation.js'),
-  versioned('js/ui/ui.js'),
-  versioned('js/core/spring.js'),
   versioned('js/services/analytics.js'),
   versioned('js/services/timetable-sync.js'),
+  versioned('js/services/lab-fetch.js'),
+  versioned('js/services/n8n.js'),
+  versioned('js/ui/navigation.js'),
+  versioned('js/ui/ui.js'),
+  versioned('js/ui/lab-section.js'),
+  versioned('js/core/spring.js'),
   versioned('js/core/app.js'),
   versioned('js/ui/easter-eggs.js'),
   versioned('js/game/breakout.js'),

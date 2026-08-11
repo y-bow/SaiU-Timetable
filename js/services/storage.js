@@ -1,4 +1,4 @@
-import { CONFIG } from '../core/config.js?v=2026-08-10-006';
+import { CONFIG } from '../core/config.js?v=2026-08-11-002';
 
 /**
  * localStorage persistence: timetable cache, room-change map,
@@ -228,20 +228,5 @@ export function setStoredLabGroup(group) {
         localStorage.setItem('tt-nav-lab-group', group);
     } else {
         localStorage.removeItem('tt-nav-lab-group');
-    }
-}
-
-// --- Selected weekday (persisted across sessions/updates) ---
-
-export function getSelectedDay() {
-    const day = localStorage.getItem('tt-nav-day');
-    return day && CONFIG.WEEKDAYS.includes(day) ? day : null;
-}
-
-export function setSelectedDay(day) {
-    if (day && CONFIG.WEEKDAYS.includes(day)) {
-        localStorage.setItem('tt-nav-day', day);
-    } else {
-        localStorage.removeItem('tt-nav-day');
     }
 }

@@ -44,6 +44,7 @@ const MODULES = [
     'js/core/utils.js',
     'js/core/spring.js',
     'js/data/parser.js',
+    'js/data/course-normalizer.js',
     'js/ui/ui.js',
     'js/ui/display.js',
     'js/ui/easter-eggs.js',

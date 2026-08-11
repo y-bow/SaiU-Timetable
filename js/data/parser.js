@@ -23,8 +23,22 @@
  * multiple offerings in the sheet is supported with no per-course config.
  */
 
+import { resolveCourse } from './course-normalizer.js?v=2026-08-11-002';
+
 const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
 const SECTION_REGEX = /\(Sec\s*(\d+)\)/i;
+
+/**
+ * Canonical course id for a class subject. Known courses resolve to their
+ * registry id; unknown courses get a stable folded slug so change detection
+ * still has a durable identity. Ambiguous names resolve to null (never
+ * guessed). Elective records carry their configured id instead — the elective
+ * `id` in schools.js IS the canonical course id.
+ */
+function resolveCourseId(raw) {
+    const res = resolveCourse(raw);
+    return res ? res.canonical : null;
+}
 
 /**
  * Faculty name aliases — maps the free-text teacher names in the sheet to
@@ -171,6 +185,7 @@ function groupElectiveOfferings(classes) {
                     startTime: c.startTime,
                     endTime: c.endTime,
                     elective: c.elective,
+                    courseId: c.courseId,
                     offerings,
                 });
             } else {
@@ -276,6 +291,7 @@ function parseGridCSV(text, mandatoryCourses = null, electives = null, rooms = n
                     section,
                     startTime: times.start,
                     endTime: times.end,
+                    courseId: elective ? elective.id : resolveCourseId(name),
                     ...(elective ? { elective: elective.id } : {}),
                 });
             } else if (mandatoryList || electiveList) {
@@ -301,6 +317,7 @@ function parseGridCSV(text, mandatoryCourses = null, electives = null, rooms = n
                     section: 1,
                     startTime: times.start,
                     endTime: times.end,
+                    courseId: elective ? elective.id : resolveCourseId(name),
                     ...(elective ? { elective: elective.id } : {}),
                 });
             }
@@ -461,6 +478,7 @@ function parseGridCSVRooms(text, electives = null, rooms = null) {
                     section: section ?? 1,
                     startTime: times.start,
                     endTime: times.end,
+                    courseId: elective ? elective.id : resolveCourseId(name),
                     ...(elective ? { elective: elective.id } : {}),
                 });
                 break; // one class per room per slot
@@ -506,31 +524,58 @@ function to24Hour(h, min, meridiem) {
 }
 
 export function splitSubjectFaculty(cell) {
-    const text = stripSemMarkers(cell);
+    // Strip semester/section markers WITHOUT collapsing the whitespace that
+    // separates subject from faculty. SOAI/SOB cells rely on a run of spaces
+    // as the subject/faculty separator ("Differential Equations         ArunKumar");
+    // collapsing it early (the old strip) glued the teacher into the subject.
+    const text = stripClassMarkers(cell);
+
     const parts = text.split(/\s{2,}/).map(p => p.trim()).filter(Boolean)
         .filter(p => !/^\(Sec\s*\d+\)$/i.test(p));
     let subject = (parts[0] || '').replace(/\s*\(Sec\s*\d+\)/i, '').trim();
     let faculty = parts.slice(1).join(' ');
+
+    // "Subject - Teacher" dash format (single or double spaces around the dash,
+    // e.g. "Image Processing - Dr Aasy"). Used only when the multi-space split
+    // above did not already isolate a teacher, or left the dash glued to the
+    // subject ("Law of Insurance -                      Sanjay Bang").
     if ((!faculty || faculty.trim().startsWith('-')) && /-\s*\S/.test(text)) {
-        const m = text.match(/-\s*(.+)$/);
+        const m = text.match(/\s*-\s*(.+)$/);
         if (m) faculty = m[1].trim();
         subject = subject.replace(/\s*-\s*.+$/, '').trim();
     }
+    // A multi-space cell with the dash glued to the subject leaves a trailing
+    // dash, e.g. "Law of Insurance -" — drop it, the teacher is isolated.
+    subject = subject.replace(/\s*-\s*$/, '').trim();
+
     // Unwrap a fully-parenthesized faculty name, e.g. "(Aravind)" → "Aravind".
     const unwrapped = faculty.match(/^\((.+)\)$/);
     if (unwrapped) faculty = unwrapped[1].trim();
+
+    // Defensive: a marker strip can leave a stray leading dash on the faculty
+    // (e.g. "ET - (Sec 5) - Salim"). A dash is never part of a name.
+    faculty = faculty.replace(/^-\s*/, '').trim();
+
     return { subject, faculty: normalizeFacultyName(faculty) };
 }
 
 /**
- * Strip semester markers used by multi-year courses, e.g. "DL - Sem 5 - Dr. KK"
- * or "MATH - Sem1 - Dr. Beaulah", leaving subject + faculty for the parser. A
- * course is tagged with the semester its class belongs to, never a section.
+ * Strip semester/section markers used by multi-year or multi-section courses,
+ * e.g. "DL - Sem 5 - Dr. KK", "INTT EMB - Sec 1 - Dr. Ashok" or "(Sec 5)".
+ *
+ * The whitespace run that separates subject from faculty in SOAI/SOB cells is
+ * deliberately PRESERVED: collapsing it here (as the old strip did) destroyed
+ * "Differential Equations         ArunKumar" before splitSubjectFaculty could
+ * use the spacing as the subject/faculty separator.
  */
-function stripSemMarkers(text) {
+function stripClassMarkers(text) {
     return String(text ?? '')
         .replace(/\s*-\s*Sem(?:ester)?\s*\.?\s*\d+\s*-?\s*/gi, ' - ')
-        .replace(/\s+/g, ' ')
+        .replace(/\s*-\s*[Ss]ec\s*\.?\s*\d+\s*-?\s*/gi, ' - ')
+        .replace(/\s*\(Sec\s*\.?\s*\d+\)\s*/gi, ' ')
+        // Whitespace-only parens ("Labour Law 2 (    )") are an empty faculty
+        // placeholder, never a subject. Drop them so they don't split the cell.
+        .replace(/\s*\(\s*\)\s*/g, ' ')
         .trim();
 }
 
@@ -602,6 +647,7 @@ function parseListCSV(text, electives = null) {
             section,
             startTime: times.start,
             endTime: times.end,
+            courseId: elective || resolveCourseId(subject),
             ...(elective ? { elective } : {}),
         });
     }
