@@ -29,6 +29,59 @@
 
 const norm = (s) => String(s ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
 
+// ---------------------------------------------------------------------------
+// Invalid-value detection (first safety layer).
+//
+// A missing / placeholder value in a timetable record means the parser result
+// is incomplete. Comparing an incomplete value against a real one and
+// reporting it as a "change" produces false notifications (e.g. a class whose
+// room the sheet has not announced yet suddenly "moved"). Every room / time
+// comparison in classify() therefore requires BOTH sides to be known values;
+// a comparison that cannot be trusted is ignored here — it never becomes a
+// change record, so it can never reach n8n.
+// ---------------------------------------------------------------------------
+
+/** True for values that carry no real timetable data: null, undefined, empty
+ * or whitespace-only strings, and the literal strings "null" / "undefined". */
+export function isUnknownValue(value) {
+    if (value === null || value === undefined) return true;
+    if (typeof value === 'string') {
+        const s = value.trim().toLowerCase();
+        return s === '' || s === 'null' || s === 'undefined';
+    }
+    return false;
+}
+
+/** Inverse of isUnknownValue — a value that can be meaningfully compared. */
+export function isKnownValue(value) {
+    return !isUnknownValue(value);
+}
+
+// Development-only diagnostics (see setChangeDetectorDebug). Off by default —
+// normal operation never logs. Used to explain why a suspected change was
+// ignored because one side of the comparison was incomplete.
+let DEBUG = false;
+
+/** Toggle diagnostic logging for ignored comparisons (dev only). */
+export function setChangeDetectorDebug(enabled) {
+    DEBUG = !!enabled;
+}
+
+function debugLog(message) {
+    if (!DEBUG) return;
+    try {
+        if (typeof console !== 'undefined' && console.log) console.log(`[change-detector] ${message}`);
+    } catch { /* logging must never throw */ }
+}
+
+// Human-readable value for diagnostics: undefined/null/empty stay visible.
+function debugValue(v) {
+    if (v === undefined) return 'undefined';
+    if (v === null) return 'null';
+    const s = String(v);
+    return s === '' ? '""' : s;
+}
+
 // True for flat Emerging Tools Lab records. Their identity is keyed by
 // subject/elective/section/source ONLY — the lab teacher is a mutable property,
 // so the university can swap instructors (or move the class in time/room)
@@ -46,6 +99,30 @@ function isEmergingToolsLab(c) {
 export function normalizeRoom(room) {
     const s = String(room ?? '').replace(/\s+/g, ' ').trim();
     return s.toUpperCase().replace(/-/g, ' ').replace(/\s+/g, ' ');
+}
+
+// Placeholder room labels that mean "no room announced / not parsed yet", not
+// a real classroom. The change detector treats them as unknown values so a
+// later real room is never reported as a phantom room change. A parser that
+// knows the placeholder IS the actual published room can still confirm it
+// per-record with `roomConfirmed: true`.
+const ROOM_PLACEHOLDER = /^(tba|tbd|to be announced|to be decided|room tba|n\/?a)$/i;
+
+/**
+ * True when `value` is a real, comparable room name. Beyond the generic
+ * unknown-value rules, placeholder labels ("TBA", "TBD", "To be announced",
+ * "N/A") are not real rooms — unless `confirmed` is set, which lets a source
+ * explicitly state that the placeholder was the room actually published.
+ */
+export function isKnownRoomValue(value, confirmed = false) {
+    if (isUnknownValue(value)) return false;
+    if (confirmed) return true;
+    return typeof value === 'string' ? !ROOM_PLACEHOLDER.test(value.trim()) : true;
+}
+
+/** True when a record's start and end times are both real, comparable values. */
+export function isKnownTimeRange(c) {
+    return isKnownValue(c && c.startTime) && isKnownValue(c && c.endTime);
 }
 
 const toMinutes = (t) => {
@@ -215,21 +292,47 @@ function classify(oldC, newC) {
     const changedProps = [];
     let roomChanged = false;
 
+    // A room is a mutable property; a non-empty room that differs is a change.
+    // Placeholder rooms like "TBA" are unknown values (unless the parser
+    // confirmed them), so an incomplete comparison — unknown → valid, valid →
+    // unknown — is ignored rather than reported as a phantom room change.
     const oRoom = normalizeRoom(oldC.room);
     const nRoom = normalizeRoom(newC.room);
-    // A room is a mutable property; a non-empty room that differs is a
-    // change. Placeholder rooms like "TBA" are distinct values too, so
-    // TBA → a real room is reported as a room change.
-    if (oRoom && nRoom && oRoom !== nRoom) {
-        roomChanged = true;
-        changedProps.push('room');
+    const oldRoomKnown = isKnownRoomValue(oldC.room, oldC.roomConfirmed === true);
+    const newRoomKnown = isKnownRoomValue(newC.room, newC.roomConfirmed === true);
+    if (oRoom !== nRoom) {
+        if (oldRoomKnown && newRoomKnown) {
+            roomChanged = true;
+            changedProps.push('room');
+        } else {
+            debugLog(`ignored incomplete room comparison: ${debugValue(oldC.room)} → ${debugValue(newC.room)}`);
+        }
     }
 
     const dayChanged = norm(oldC.day) !== norm(newC.day);
-    const timeChanged =
+    const timeValuesDiffer =
         norm(oldC.startTime) !== norm(newC.startTime) ||
         norm(oldC.endTime) !== norm(newC.endTime);
-    if (dayChanged || timeChanged) changedProps.push('day', 'time');
+
+    // A day/time move is only trustworthy when BOTH the old and the new time
+    // ranges are complete. A missing time on either side means the parser
+    // result is incomplete — ignoring the comparison is safer than reporting a
+    // phantom move / time change.
+    const oldTimesKnown = isKnownTimeRange(oldC);
+    const newTimesKnown = isKnownTimeRange(newC);
+    const timesComplete = oldTimesKnown && newTimesKnown;
+    if (dayChanged || timeValuesDiffer) {
+        if (timesComplete) {
+            changedProps.push('day', 'time');
+        } else if (timeValuesDiffer) {
+            debugLog(
+                'ignored incomplete time comparison: ' +
+                `${debugValue(oldC.startTime)}–${debugValue(oldC.endTime)} → ` +
+                `${debugValue(newC.startTime)}–${debugValue(newC.endTime)}`
+            );
+        }
+    }
+    const dayOrTimeChanged = timesComplete && (dayChanged || timeValuesDiffer);
 
     // Emerging Tools Lab: the teacher is a mutable property — swapping the lab
     // instructor is a modified class, never a removed + added pair. Day, time
@@ -242,14 +345,21 @@ function classify(oldC, newC) {
     if (roomChanged && changedProps.length === 1) {
         return { type: 'room-changed', changedProps, oldRoom: oldC.room, newRoom: newC.room };
     }
-    if (dayChanged || timeChanged) {
+    if (dayOrTimeChanged) {
         return {
             type: 'moved',
             changedProps,
             roomChanged,
             oldRoom: roomChanged ? oldC.room : null,
             newRoom: roomChanged ? newC.room : null,
-            moved: { oldDay: oldC.day, newDay: newC.day, oldStartTime: oldC.startTime, newStartTime: newC.startTime },
+            moved: {
+                oldDay: oldC.day,
+                newDay: newC.day,
+                oldStartTime: oldC.startTime,
+                oldEndTime: oldC.endTime,
+                newStartTime: newC.startTime,
+                newEndTime: newC.endTime,
+            },
         };
     }
     // Same slot, same room, same identity — defensive catch-all. With day,

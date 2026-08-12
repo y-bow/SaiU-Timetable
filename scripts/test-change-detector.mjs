@@ -28,8 +28,10 @@ import assert from 'node:assert/strict';
 
 const MODULE = new URL('../js/data/change-detector.js', import.meta.url);
 
-const { classIdentity, normalizeRoom, compareTimetables, flattenClasses } =
-    await import(MODULE);
+const {
+    classIdentity, normalizeRoom, compareTimetables, flattenClasses,
+    setChangeDetectorDebug, isUnknownValue, isKnownValue, isKnownRoomValue, isKnownTimeRange,
+} = await import(MODULE);
 
 let passed = 0;
 let failed = 0;
@@ -81,6 +83,34 @@ await check('hyphen-dash + case folding makes rooms equal', () => {
 });
 await check('a placeholder TBA room is distinct from a real room', () => {
     assert.notEqual(normalizeRoom('TBA'), normalizeRoom('AB1 Computer Lab'));
+});
+
+console.log('--- unknown / invalid value helpers ---');
+await check('isUnknownValue flags null, undefined, empty, whitespace, "null", "undefined"', () => {
+    for (const bad of [null, undefined, '', '   ', 'null', 'NULL', 'undefined', '  undefined  ']) {
+        assert.ok(isUnknownValue(bad), JSON.stringify(bad));
+    }
+    for (const good of ['AB1', 'AB1 Computer Lab', 'CR-201', '15:00', 0, false]) {
+        assert.ok(isKnownValue(good), JSON.stringify(good));
+    }
+});
+await check('isKnownRoomValue keeps real rooms valid', () => {
+    for (const room of ['AB1', 'AB1 Computer Lab', 'CR-201']) {
+        assert.ok(isKnownRoomValue(room), room);
+    }
+});
+await check('isKnownRoomValue treats TBA-family placeholders as unknown unless confirmed', () => {
+    for (const bad of ['TBA', 'TBA ', 'tba', 'TBD', 'To be announced', 'N/A', 'Room TBA']) {
+        assert.equal(isKnownRoomValue(bad), false, bad);
+    }
+    assert.ok(isKnownRoomValue('TBA', true));
+    assert.ok(isKnownRoomValue('TBA', false) === false);
+});
+await check('isKnownTimeRange requires both start and end', () => {
+    assert.equal(isKnownTimeRange({ startTime: '14:00', endTime: '14:55' }), true);
+    assert.equal(isKnownTimeRange({ startTime: undefined, endTime: '14:55' }), false);
+    assert.equal(isKnownTimeRange({ startTime: '14:00', endTime: '' }), false);
+    assert.equal(isKnownTimeRange({}), false);
 });
 
 console.log('--- compareTimetables: same classes ---');
@@ -149,13 +179,194 @@ await check('a faculty change is a new identity (removed + added), not modified'
     const types = changes.map((c) => c.type).sort();
     assert.deepEqual(types, ['added', 'removed']);
 });
-await check('TBA → real room is a room change', () => {
+await check('TBA → real room is NOT a room change (incomplete value)', () => {
     const { changes } = compareTimetables(
         [cls({ subject: 'DAA', room: 'TBA' })],
         [cls({ subject: 'DAA', room: 'AB2-101' })]
     );
+    assert.equal(changes.length, 0);
+});
+await check('a parser-confirmed TBA room change is still reported', () => {
+    const { changes } = compareTimetables(
+        [cls({ subject: 'DAA', room: 'TBA', roomConfirmed: true })],
+        [cls({ subject: 'DAA', room: 'AB2-101' })]
+    );
     assert.equal(changes.length, 1);
     assert.equal(changes[0].type, 'room-changed');
+    assert.equal(changes[0].oldRoom, 'TBA');
+    assert.equal(changes[0].newRoom, 'AB2-101');
+});
+
+console.log('--- invalid/incomplete comparisons (first safety layer) ---');
+await check('AB2 → AB1 is a real room change', () => {
+    const { changes } = compareTimetables(
+        [cls({ subject: 'DAA', room: 'AB2' })],
+        [cls({ subject: 'DAA', room: 'AB1' })]
+    );
+    assert.equal(changes.length, 1);
+    assert.equal(changes[0].type, 'room-changed');
+    assert.equal(changes[0].oldRoom, 'AB2');
+    assert.equal(changes[0].newRoom, 'AB1');
+});
+await check('AB2 → undefined is not a room change', () => {
+    const { changes } = compareTimetables(
+        [cls({ subject: 'DAA', room: 'AB2' })],
+        [cls({ subject: 'DAA', room: undefined })]
+    );
+    assert.equal(changes.length, 0);
+});
+await check('undefined → AB1 is not a room change', () => {
+    const { changes } = compareTimetables(
+        [cls({ subject: 'DAA', room: undefined })],
+        [cls({ subject: 'DAA', room: 'AB1' })]
+    );
+    assert.equal(changes.length, 0);
+});
+await check('AB2 → "" is not a room change', () => {
+    const { changes } = compareTimetables(
+        [cls({ subject: 'DAA', room: 'AB2' })],
+        [cls({ subject: 'DAA', room: '' })]
+    );
+    assert.equal(changes.length, 0);
+});
+await check('TBA → AB1 is not a room change', () => {
+    const { changes } = compareTimetables(
+        [cls({ subject: 'DAA', room: 'TBA' })],
+        [cls({ subject: 'DAA', room: 'AB1' })]
+    );
+    assert.equal(changes.length, 0);
+});
+await check('every unknown room form is ignored in both directions', () => {
+    const bads = [null, undefined, '', '   ', 'null', 'undefined', 'NULL'];
+    for (const bad of bads) {
+        const toReal = compareTimetables(
+            [cls({ subject: 'DAA', room: bad })],
+            [cls({ subject: 'DAA', room: 'AB1' })]
+        );
+        assert.equal(toReal.changes.length, 0, `unknown → AB1 with room ${JSON.stringify(bad)}`);
+        const fromReal = compareTimetables(
+            [cls({ subject: 'DAA', room: 'AB2' })],
+            [cls({ subject: 'DAA', room: bad })]
+        );
+        assert.equal(fromReal.changes.length, 0, `AB2 → unknown with room ${JSON.stringify(bad)}`);
+    }
+});
+await check('valid room formats stay comparable ("AB1", "AB1 Computer Lab", "CR-201")', () => {
+    const { changes } = compareTimetables(
+        [cls({ subject: 'DAA', room: 'CR-201' })],
+        [cls({ subject: 'DAA', room: 'AB1 Computer Lab' })]
+    );
+    assert.equal(changes.length, 1);
+    assert.equal(changes[0].type, 'room-changed');
+});
+await check('a genuine room change preserves oldRoom and newRoom', () => {
+    const { changes } = compareTimetables(
+        [cls({ subject: 'DAA', room: 'AB2' })],
+        [cls({ subject: 'DAA', room: 'AB1 Computer Lab' })]
+    );
+    assert.equal(changes.length, 1);
+    assert.equal(changes[0].type, 'room-changed');
+    assert.equal(changes[0].oldRoom, 'AB2');
+    assert.equal(changes[0].newRoom, 'AB1 Computer Lab');
+});
+await check('14:00–14:55 → 15:00–15:55 is a time change (moved, same day)', () => {
+    const { changes } = compareTimetables(
+        [cls({ subject: 'DAA', startTime: '14:00', endTime: '14:55' })],
+        [cls({ subject: 'DAA', startTime: '15:00', endTime: '15:55' })]
+    );
+    assert.equal(changes.length, 1);
+    assert.equal(changes[0].type, 'moved');
+    assert.equal(changes[0].moved.oldDay, 'Monday');
+    assert.equal(changes[0].moved.newDay, 'Monday');
+});
+await check('14:00–14:55 → undefined/undefined is not a time change', () => {
+    const { changes } = compareTimetables(
+        [cls({ subject: 'DAA', startTime: '14:00', endTime: '14:55' })],
+        [cls({ subject: 'DAA', startTime: undefined, endTime: undefined })]
+    );
+    assert.equal(changes.length, 0);
+});
+await check('undefined/undefined → 15:00–15:55 is not a time change', () => {
+    const { changes } = compareTimetables(
+        [cls({ subject: 'DAA', startTime: undefined, endTime: undefined })],
+        [cls({ subject: 'DAA', startTime: '15:00', endTime: '15:55' })]
+    );
+    assert.equal(changes.length, 0);
+});
+await check('an incomplete side is ignored even when only one time field is missing', () => {
+    const partial = compareTimetables(
+        [cls({ subject: 'DAA', startTime: '14:00', endTime: '14:55' })],
+        [cls({ subject: 'DAA', startTime: '15:00', endTime: undefined })]
+    );
+    assert.equal(partial.changes.length, 0);
+    const empty = compareTimetables(
+        [cls({ subject: 'DAA', startTime: '', endTime: '' })],
+        [cls({ subject: 'DAA', startTime: '15:00', endTime: '15:55' })]
+    );
+    assert.equal(empty.changes.length, 0);
+});
+await check('a genuine time change preserves all four time fields', () => {
+    const { changes } = compareTimetables(
+        [cls({ subject: 'DAA', startTime: '14:00', endTime: '14:55' })],
+        [cls({ subject: 'DAA', startTime: '15:00', endTime: '15:55' })]
+    );
+    const m = changes[0].moved;
+    assert.equal(m.oldStartTime, '14:00');
+    assert.equal(m.oldEndTime, '14:55');
+    assert.equal(m.newStartTime, '15:00');
+    assert.equal(m.newEndTime, '15:55');
+});
+await check('a valid day move still reports class_moved (class_moved is not suppressed)', () => {
+    const { changes } = compareTimetables(
+        [cls({ subject: 'DAA', day: 'Monday', startTime: '09:00', endTime: '09:55' })],
+        [cls({ subject: 'DAA', day: 'Wednesday', startTime: '09:00', endTime: '09:55' })]
+    );
+    assert.equal(changes.length, 1);
+    assert.equal(changes[0].type, 'moved');
+    assert.equal(changes[0].moved.oldDay, 'Monday');
+    assert.equal(changes[0].moved.newDay, 'Wednesday');
+});
+await check('added / removed / modified are not suppressed by missing room/time', () => {
+    const added = compareTimetables([], [cls({ subject: 'DAA', room: undefined, startTime: undefined, endTime: undefined })]);
+    assert.equal(added.changes.length, 1);
+    assert.equal(added.changes[0].type, 'added');
+
+    const removed = compareTimetables([cls({ subject: 'DAA', room: undefined, startTime: undefined, endTime: undefined })], []);
+    assert.equal(removed.changes.length, 1);
+    assert.equal(removed.changes[0].type, 'removed');
+
+    const modified = compareTimetables(
+        [cls({ subject: 'Emerging Tools Lab', source: 'emerging-tools-lab', faculty: 'Prof. Old', room: undefined, startTime: undefined, endTime: undefined })],
+        [cls({ subject: 'Emerging Tools Lab', source: 'emerging-tools-lab', faculty: 'Prof. New', room: undefined, startTime: undefined, endTime: undefined })]
+    );
+    assert.equal(modified.changes.length, 1);
+    assert.equal(modified.changes[0].type, 'modified');
+});
+await check('ignored comparisons are silent unless debug mode is on', () => {
+    const orig = console.log;
+    const logs = [];
+    console.log = (m) => logs.push(m);
+    try {
+        setChangeDetectorDebug(false);
+        compareTimetables([cls({ room: 'AB2' })], [cls({ room: undefined })]);
+        assert.equal(logs.length, 0, 'default operation must not log');
+
+        setChangeDetectorDebug(true);
+        compareTimetables([cls({ room: 'AB2' })], [cls({ room: undefined })]);
+        assert.ok(logs.some((l) => String(l).includes('ignored incomplete room comparison: AB2 → undefined')),
+            `expected debug line, got: ${logs.join(' | ')}`);
+
+        logs.length = 0;
+        compareTimetables(
+            [cls({ startTime: '14:00', endTime: '14:55' })],
+            [cls({ startTime: '15:00', endTime: undefined })]
+        );
+        assert.ok(logs.some((l) => String(l).includes('ignored incomplete time comparison')),
+            `expected time debug line, got: ${logs.join(' | ')}`);
+    } finally {
+        console.log = orig;
+        setChangeDetectorDebug(false);
+    }
 });
 
 console.log('--- Emerging Tools Lab (section identity, mutable teacher) ---');

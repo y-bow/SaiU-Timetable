@@ -1,4 +1,4 @@
-import { CONFIG } from '../core/config.js?v=2026-08-11-002';
+import { CONFIG } from '../core/config.js?v=2026-08-12-003';
 
 /**
  * n8n timetable-change notifications (optional, fully isolated).
@@ -53,7 +53,7 @@ const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frid
  * most useful concrete date for an event is the next time that class actually
  * happens.
  */
-function dateForWeekday(dayName) {
+export function dateForWeekday(dayName) {
     const raw = String(dayName ?? '').trim();
     if (!raw) return null;
     const idx = DAY_NAMES.findIndex((d) => d.toLowerCase() === raw.toLowerCase());

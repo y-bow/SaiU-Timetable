@@ -1025,6 +1025,246 @@ input { font-family: inherit; }
 .section-modal.show .section-modal-sheet { transform: translateY(0); }
 
 /* ============================================================
+   "Ask SaiU Timetable AI" chat panel (localhost only for now)
+   Bottom sheet on mobile, right drawer on desktop. The feature is
+   inert when disabled — the module renders no DOM at all, so these
+   rules only ever apply once the panel exists.
+   ============================================================ */
+.ai-panel {
+    position: fixed; inset: 0;
+    z-index: 600;
+    pointer-events: none;
+}
+.ai-backdrop {
+    position: absolute; inset: 0;
+    background: var(--material-scrim);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    opacity: 0; transition: opacity 350ms cubic-bezier(0.15, 0.5, 0.3, 1.05);
+}
+.ai-sheet {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    width: 100%;
+    max-height: 88vh;
+    display: flex;
+    flex-direction: column;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    background: var(--material-sheet);
+    backdrop-filter: blur(32px) saturate(180%);
+    -webkit-backdrop-filter: blur(32px) saturate(180%);
+    border: 1px solid var(--border-bright);
+    border-bottom: none;
+    box-shadow: var(--shadow-xl);
+    transform: translateY(100%);
+    transition: transform 420ms cubic-bezier(0.1, 0.6, 0.2, 1.15);
+    will-change: transform;
+}
+.ai-panel.open { pointer-events: auto; }
+.ai-panel.open .ai-backdrop { opacity: 1; }
+.ai-panel.open .ai-sheet { transform: translateY(0); }
+
+.ai-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 18px 18px 12px;
+    border-bottom: 1px solid var(--border-bright);
+    flex-shrink: 0;
+}
+.ai-heading { min-width: 0; }
+.ai-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.3;
+}
+.ai-spark { display: inline-flex; color: var(--primary-text); flex-shrink: 0; }
+.ai-subtitle { color: var(--text-tertiary); font-size: 0.76rem; margin-top: 2px; }
+
+.ai-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 16px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.ai-msg {
+    max-width: 88%;
+    padding: 9px 13px;
+    font-size: 0.86rem;
+    line-height: 1.5;
+    border-radius: var(--radius-lg);
+    word-wrap: break-word;
+    white-space: pre-wrap;
+}
+.ai-msg-ai {
+    align-self: flex-start;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-bottom-left-radius: 6px;
+}
+
+/* Markdown-rendered AI answers: headings, paragraphs, lists, inline code. */
+.ai-msg-ai p { margin: 0 0 6px; }
+.ai-msg-ai p:last-child { margin-bottom: 0; }
+.ai-msg-ai h3 {
+    margin: 10px 0 6px;
+    font-size: 0.93rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.35;
+}
+.ai-msg-ai h3:first-child { margin-top: 0; }
+.ai-msg-ai ul { margin: 4px 0 6px; padding: 0; list-style: none; }
+.ai-msg-ai li { margin: 2px 0; padding-left: 18px; position: relative; }
+.ai-msg-ai li::before {
+    content: '•';
+    position: absolute;
+    left: 2px;
+    color: var(--primary-text);
+}
+.ai-msg-ai code {
+    padding: 1px 5px;
+    border-radius: 5px;
+    background: var(--surface-3);
+    border: 1px solid var(--border);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.82em;
+}
+.ai-msg-user {
+    align-self: flex-end;
+    background: var(--primary);
+    color: #111;
+    border-bottom-right-radius: 6px;
+    font-weight: 500;
+}
+.ai-msg-error {
+    align-self: flex-start;
+    background: var(--primary-soft);
+    border: 1px solid var(--border-bright);
+    color: var(--primary-text);
+}
+.ai-msg-thinking {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-tertiary);
+    font-size: 0.82rem;
+    padding: 8px 4px;
+}
+.ai-dots { display: inline-flex; gap: 3px; }
+.ai-dots i {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--text-tertiary);
+    animation: ai-blink 1.2s infinite ease-in-out;
+}
+.ai-dots i:nth-child(2) { animation-delay: 0.15s; }
+.ai-dots i:nth-child(3) { animation-delay: 0.3s; }
+@keyframes ai-blink {
+    0%, 80%, 100% { opacity: 0.3; }
+    40% { opacity: 1; }
+}
+
+.ai-suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    padding: 4px 16px 12px;
+    flex-shrink: 0;
+}
+.ai-chip {
+    padding: 6px 11px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    border-radius: var(--radius-pill);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    transition: background var(--fast), border-color var(--fast), color var(--fast);
+}
+.ai-chip:hover { border-color: var(--primary); color: var(--primary-text); }
+.ai-chip:active { transform: scale(0.97); }
+.ai-chip:disabled { opacity: 0.5; cursor: default; }
+
+.ai-input-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--border-bright);
+    background: var(--material-sheet);
+    flex-shrink: 0;
+}
+.ai-input {
+    flex: 1;
+    min-width: 0;
+    padding: 10px 14px;
+    font-size: 0.88rem;
+    color: var(--text);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
+    outline: none;
+    transition: border-color var(--fast);
+}
+.ai-input:focus { border-color: var(--primary); }
+.ai-input::placeholder { color: var(--text-tertiary); }
+.ai-send-btn {
+    flex: none;
+    width: 38px; height: 38px;
+    display: grid; place-items: center;
+    border-radius: 50%;
+    background: var(--primary);
+    color: #111;
+    transition: filter var(--fast), transform 100ms ease-out, opacity var(--fast);
+}
+.ai-send-btn:hover { filter: brightness(1.1); }
+.ai-send-btn:active { transform: scale(0.92); }
+.ai-send-btn:disabled { opacity: 0.45; cursor: default; }
+
+/* Launch buttons: top bar (mobile) + sidebar footer (always) */
+.ai-topbar-btn { color: var(--text-secondary); }
+.ai-launch-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--primary-text);
+    background: var(--primary-soft);
+    border: 1px solid transparent;
+    transition: border-color var(--fast), filter var(--fast), transform 100ms ease-out;
+}
+.ai-launch-btn:hover { border-color: var(--primary); filter: brightness(1.1); }
+.ai-launch-btn:active { transform: scale(0.97); }
+
+@media (min-width: 768px) {
+    .ai-sheet {
+        top: 0; bottom: 0; left: auto;
+        width: 400px;
+        max-width: min(92vw, 400px);
+        max-height: none;
+        border-radius: 0;
+        border: 1px solid var(--border-bright);
+        border-right: none;
+        transform: translateX(100%);
+    }
+    .ai-panel.open .ai-sheet { transform: translateX(0); }
+}
+
+/* ============================================================
    Animations — spring-like curves
    ============================================================ */
 @keyframes rise {
@@ -1053,7 +1293,7 @@ input { font-family: inherit; }
 
 /* Reduced transparency — frostier, near-solid surfaces */
 @media (prefers-reduced-transparency: reduce) {
-    .mobile-topbar, .sidebar, .section-modal-sheet, .toast {
+    .mobile-topbar, .sidebar, .section-modal-sheet, .toast, .ai-sheet {
         background: #1E1E22 !important;
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
@@ -1062,7 +1302,7 @@ input { font-family: inherit; }
 
 /* High contrast — near-solid backgrounds, defined borders */
 @media (prefers-contrast: more) {
-    .mobile-topbar, .sidebar, .section-modal-sheet, .toast {
+    .mobile-topbar, .sidebar, .section-modal-sheet, .toast, .ai-sheet {
         background: #111111 !important;
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
