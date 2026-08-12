@@ -108,12 +108,13 @@ function versionRefs(html, patterns) {
 // These pages are not otherwise processed by the build, but they must still
 // point at the current BUILD_ID so a cache never serves them stale CSS/JS.
 // ---------------------------------------------------------------------------
-for (const file of ['game.html', '404.html']) {
+for (const file of ['game.html', '404.html', 'teachers.html']) {
   if (!existsSync(join(ROOT, file))) continue;
   write(file, versionRefs(read(file), [
     'style\\.css',
     'js/services/timetable-sync\\.js',
     'js/game/breakout\\.js',
+    'js/teachers/teacher-app\\.js',
     'icons/[A-Za-z0-9._/-]+\\.png',
   ]));
 }

@@ -39,7 +39,7 @@ export const CONFIG = {
     // The n8n "Webhook" node URL. Keep empty to disable the integration: the
     // timetable then works exactly as before and no network requests are made.
     // Set a real URL to enable event delivery (see README for n8n CORS setup).
-    N8N_WEBHOOK_URL: 'https://saiutimetable.app.n8n.cloud/webhook-test/timetable-change',
+    N8N_WEBHOOK_URL: 'https://saiutimetable.app.n8n.cloud/webhook/timetable-change',
 
     // Short timeout so a slow or unreachable n8n can never stall the app.
     // Event dispatch is fire-and-forget anyway; this only bounds the request.

@@ -1,0 +1,335 @@
+/**
+ * Teacher timetable page controller (teachers.html).
+ *
+ * Standalone page — deliberately independent of the student app shell. It
+ * loads the full teacher index once (see js/services/teacher-fetch.js), then
+ * offers a fast, searchable teacher list and renders the selected teacher's
+ * weekly schedule using the same timeline markup/CSS as the student app.
+ *
+ * Only real classes from the source sheets are ever shown. Days without any
+ * of the teacher's classes are not offered as filters, and free periods are
+ * never invented — the timeline simply shows the classes that exist.
+ */
+
+import { loadTeacherIndex } from '../services/teacher-fetch.js?v=2026-08-11-002';
+import { toMinutes, minutesToLabel, minutesToClock, todayName, WEEKDAYS } from '../core/utils.js?v=2026-08-11-002';
+
+const $ = (sel) => document.querySelector(sel);
+
+const DEBUG = typeof location !== 'undefined'
+    && new URLSearchParams(location.search).has('debug');
+
+const BREAK_THRESHOLD_MIN = 40;
+
+function escapeHtml(s) {
+    return String(s ?? '').replace(/[&<>"']/g, (c) => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+    ));
+}
+
+const ICONS = {
+    pin: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>',
+    coffee: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><path d="M6 2v2M10 2v2M14 2v2"/></svg>',
+};
+
+const state = {
+    index: null,
+    order: [],
+    selectedKey: null,
+    selectedDay: null,
+};
+
+const byStart = (a, b) => toMinutes(a.startTime) - toMinutes(b.startTime);
+
+function dayClasses(key, day) {
+    const rec = state.index && state.index.get(key);
+    if (!rec) return [];
+    return rec.classes.filter((c) => c.day === day).sort(byStart);
+}
+
+// ============================================================
+// Teacher picker (searchable list)
+// ============================================================
+
+function renderTeacherList() {
+    const list = $('#teacher-list');
+    list.innerHTML = '';
+    for (const key of state.order) {
+        const rec = state.index.get(key);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'teacher-list-item' + (key === state.selectedKey ? ' active' : '');
+        btn.dataset.key = key;
+        btn.setAttribute('role', 'option');
+        btn.setAttribute('aria-selected', key === state.selectedKey ? 'true' : 'false');
+        btn.innerHTML = `<span class="teacher-list-name">${escapeHtml(rec.name)}</span><span class="teacher-list-count">${rec.classes.length}</span>`;
+        btn.addEventListener('click', () => select(key));
+        list.appendChild(btn);
+    }
+    applySearch('');
+}
+
+function applySearch(query) {
+    const needle = query.trim().toLowerCase();
+    const list = $('#teacher-list');
+    let visible = 0;
+    for (const btn of list.children) {
+        const show = !needle || btn.dataset.key.includes(needle);
+        btn.classList.toggle('hidden', !show);
+        if (show) visible++;
+    }
+    const count = $('#teacher-count');
+    if (count) {
+        count.textContent = needle
+            ? `${visible} of ${state.order.length} teachers`
+            : `${state.order.length} teacher${state.order.length === 1 ? '' : 's'}`;
+    }
+}
+
+function select(key) {
+    if (!state.index.has(key)) return;
+    state.selectedKey = key;
+    for (const btn of $('#teacher-list').children) {
+        const active = btn.dataset.key === key;
+        btn.classList.toggle('active', active);
+        btn.setAttribute('aria-selected', active ? 'true' : 'false');
+    }
+
+    const rec = state.index.get(key);
+    const days = WEEKDAYS.filter((d) => rec.classes.some((c) => c.day === d));
+    let day = state.selectedDay && days.includes(state.selectedDay) ? state.selectedDay : null;
+    if (!day) {
+        const t = todayName();
+        day = days.includes(t) ? t : (days[0] || null);
+    }
+    state.selectedDay = day;
+
+    $('#teacher-name').textContent = rec.name;
+    $('#teacher-summary').textContent =
+        `${rec.classes.length} weekly class${rec.classes.length === 1 ? '' : 'es'} on ${days.length} day${days.length === 1 ? '' : 's'}`;
+    renderDayFilter(days);
+    renderTimeline(day);
+}
+
+function renderDayFilter(days) {
+    const container = $('#days-filter');
+    container.innerHTML = '';
+    const rows = [document.createElement('div'), document.createElement('div')];
+    rows.forEach((row) => { row.className = 'days-row'; });
+    days.forEach((day, i) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'day-filter-btn' + (day === state.selectedDay ? ' active' : '');
+        btn.dataset.day = day;
+        btn.textContent = day;
+        btn.setAttribute('role', 'radio');
+        btn.setAttribute('aria-checked', day === state.selectedDay ? 'true' : 'false');
+        btn.setAttribute('aria-label', day);
+        btn.addEventListener('click', () => {
+            state.selectedDay = day;
+            renderDayFilter(days);
+            renderTimeline(day);
+        });
+        rows[i < 3 ? 0 : 1].appendChild(btn);
+    });
+    container.replaceChildren(...rows);
+}
+
+// ============================================================
+// Timeline
+// ============================================================
+
+function renderTimeline(day) {
+    const timeline = $('#timeline');
+    timeline.innerHTML = '';
+    $('#timeline-title').textContent = day
+        ? `${state.index.get(state.selectedKey).name} — ${day}`
+        : state.index.get(state.selectedKey).name;
+
+    const list = day ? dayClasses(state.selectedKey, day) : [];
+    if (!list.length) {
+        $('#timeline-stats').textContent = '';
+        timeline.innerHTML = `
+            <li class="tl-done empty">
+                <strong>No classes</strong>
+                <span>${day ? `No classes scheduled on ${day}.` : 'No classes found for this teacher.'}</span>
+            </li>`;
+        return;
+    }
+
+    $('#timeline-stats').textContent = `${list.length} class${list.length > 1 ? 'es' : ''}`;
+    let prevEnd = null;
+    for (const c of list) {
+        const startMin = toMinutes(c.startTime);
+        const endMin = toMinutes(c.endTime);
+        if (prevEnd !== null && startMin - prevEnd >= BREAK_THRESHOLD_MIN) {
+            timeline.insertAdjacentHTML('beforeend', `
+                <li class="tl-break">
+                    <span class="tl-break-line"></span>
+                    <span class="tl-break-label">${ICONS.coffee}Break · ${minutesToLabel(startMin - prevEnd)}</span>
+                    <span class="tl-break-line"></span>
+                </li>`);
+        }
+        timeline.appendChild(buildItem(c, startMin, endMin));
+        prevEnd = endMin;
+    }
+}
+
+function buildItem(c, startMin, endMin) {
+    const li = document.createElement('li');
+    li.className = 'tl-item upcoming';
+
+    const badges = [];
+    const sectionText = c.section != null ? `Section ${c.section}` : '';
+    if (sectionText) badges.push(`<span class="badge">${escapeHtml(sectionText)}</span>`);
+    if (c.lab) badges.push('<span class="badge badge-lab">Lab</span>');
+    if (c.course && c.course !== c.subject) {
+        badges.push(`<span class="badge badge-course">${escapeHtml(c.course)}</span>`);
+    }
+    for (const ctx of c.contexts || []) {
+        badges.push(`<span class="badge badge-context">${escapeHtml(ctx)}</span>`);
+    }
+
+    const coTaught = c.teachers && c.teachers.length > 1
+        ? `<div class="tl-co-taught">Co-taught with ${c.teachers.slice(1).map((t) => escapeHtml(t)).join(', ')}</div>`
+        : '';
+
+    li.innerHTML = `
+        <div class="tl-marker"></div>
+        <div class="tl-card">
+            <div class="tl-card-top">
+                <div>
+                    <div class="tl-subject">${escapeHtml(c.subject)}</div>
+                    <div class="tl-meta">
+                        <span class="tl-faculty">${escapeHtml(c.teacher)}</span>
+                        <span class="tl-room">${ICONS.pin}<span>${escapeHtml(c.room || 'Room TBA')}</span></span>
+                    </div>
+                </div>
+            </div>
+            ${coTaught}
+            ${badges.length ? `<div class="teacher-badges">${badges.join('')}</div>` : ''}
+            <div class="tl-time-row">
+                <span>${minutesToClock(startMin)} – ${minutesToClock(endMin)}</span>
+                <span class="tl-duration">${minutesToLabel(endMin - startMin)}</span>
+            </div>
+        </div>`;
+    return li;
+}
+
+// ============================================================
+// Loading / states
+// ============================================================
+
+function hideSplash() {
+    const s = $('#splash');
+    if (s) s.classList.add('splash-hidden');
+}
+
+function showLoading() {
+    $('#loading-state')?.classList.add('visible');
+}
+
+function hideLoading() {
+    $('#loading-state')?.classList.remove('visible');
+    hideSplash();
+}
+
+function showToast(message) {
+    const toast = $('.toast');
+    if (!toast) return;
+    toast.textContent = message;
+    toast.classList.add('show');
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(() => { toast.classList.remove('show'); toast.textContent = ''; }, 3000);
+}
+
+function showEmpty(title, message, withRetry) {
+    hideLoading();
+    const card = $('#teacher-empty');
+    if (!card) return;
+    $('#state-title').textContent = title;
+    $('#state-message').textContent = message;
+    $('#teacher-retry').classList.toggle('hidden', !withRetry);
+    card.classList.remove('hidden');
+    $('#timeline-title').textContent = '';
+    $('#timeline-stats').textContent = '';
+}
+
+function renderDebug(res) {
+    const el = $('#teacher-debug');
+    if (!el) return;
+    if (!DEBUG) { el.classList.add('hidden'); return; }
+    const s = res.stats || {};
+    const statuses = res.statuses || {};
+    const labLine = Object.entries(statuses.labs || {})
+        .map(([k, v]) => `${k}=${v}`).join(', ');
+    el.innerHTML = `
+        <div>indexed classes: <b>${s.classes}</b> · teachers: <b>${s.teachers}</b> · entries: <b>${s.entries}</b> · unassigned (no teacher): <b>${s.unassigned}</b></div>
+        <div>sources: main=${statuses.main || '-'}${labLine ? ` · labs: ${escapeHtml(labLine)}` : ''} · cache=${res.source || '-'}</div>`;
+    el.classList.remove('hidden');
+}
+
+async function load({ silent = false } = {}) {
+    if (!silent) showLoading();
+    const res = await loadTeacherIndex();
+    if (!res) {
+        showEmpty("Couldn't load the teacher timetable", 'Check your connection and try again. Your last known teacher index is still cached offline.', true);
+        return;
+    }
+
+    state.index = res.index;
+    state.order = res.order;
+    renderDebug(res);
+
+    const updated = $('#teacher-updated');
+    if (updated) {
+        updated.textContent = res.savedAt
+            ? `Updated ${new Date(res.savedAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}`
+            : '';
+    }
+
+    if (!state.order.length) {
+        showEmpty('No teachers found', 'No teacher timetable could be built from the source sheets.', false);
+        return;
+    }
+
+    hideLoading();
+    $('#teacher-empty').classList.add('hidden');
+    renderTeacherList();
+
+    if (state.selectedKey && state.index.has(state.selectedKey)) {
+        select(state.selectedKey);
+    } else {
+        select(state.order[0]);
+    }
+    if (!silent) hideSplash();
+}
+
+// ============================================================
+// Bootstrap
+// ============================================================
+
+function init() {
+    const search = $('#teacher-search');
+    if (search) {
+        search.addEventListener('input', () => applySearch(search.value));
+        search.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter') return;
+            e.preventDefault();
+            const first = [...$('#teacher-list').children].find((btn) => !btn.classList.contains('hidden'));
+            if (first) select(first.dataset.key);
+        });
+    }
+    $('#teacher-refresh')?.addEventListener('click', () => {
+        load({ silent: true });
+        showToast('Teacher timetable refreshed');
+    });
+    $('#teacher-retry')?.addEventListener('click', () => load());
+
+    // Failsafe: never let the splash block the page if a script fails.
+    setTimeout(hideSplash, 4000);
+
+    load();
+}
+
+document.addEventListener('DOMContentLoaded', init);

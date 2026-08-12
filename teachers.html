@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>SaiU · Teacher Timetable</title>
+    <meta name="description" content="Weekly timetable for every SaiU teacher — SCDS, SOAI and SOB — rebuilt from the same public timetable sheets as the student app.">
+    <meta name="theme-color" content="#0D0D0D">
+
+    <style>
+        /* Inlined splash: dark screen before the real stylesheet loads. */
+        .splash { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; background: #0D0D0D; pointer-events: none; }
+        .splash.splash-hidden { opacity: 0; visibility: hidden; }
+        .splash-logo { width: 88px; height: 88px; }
+    </style>
+
+    <link rel="stylesheet" href="style.css?v=2026-08-11-002">
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/favicon/favicon-192.png?v=2026-08-11-002">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="teacher-page">
+
+    <div id="splash" class="splash" aria-hidden="true">
+        <img class="splash-logo" src="icons/favicon/favicon-192.png?v=2026-08-11-002" alt="">
+    </div>
+
+    <header class="teacher-topbar">
+        <div class="teacher-brand" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M8 16h.01M12 16h.01M8 12h.01M12 12h.01M16 12h.01"/></svg>
+        </div>
+        <h1 class="teacher-title">Teacher Timetable</h1>
+        <div class="teacher-topbar-actions">
+            <span id="teacher-updated" class="teacher-updated"></span>
+            <button id="teacher-refresh" class="icon-btn" type="button" aria-label="Refresh">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg>
+            </button>
+        </div>
+    </header>
+
+    <main class="teacher-main">
+        <section class="teacher-picker" aria-label="Teacher picker">
+            <div class="teacher-search-wrap">
+                <input id="teacher-search" type="search" autocomplete="off"
+                       placeholder="Type a teacher name…" aria-label="Search teachers">
+                <span id="teacher-count" class="teacher-count"></span>
+            </div>
+            <ul id="teacher-list" class="teacher-list" role="listbox" aria-label="Teachers"></ul>
+        </section>
+
+        <section class="teacher-content" aria-label="Teacher timetable">
+            <div id="teacher-debug" class="teacher-debug hidden" aria-live="polite"></div>
+
+            <div class="teacher-context">
+                <h2 id="teacher-name" class="teacher-name">–</h2>
+                <span id="teacher-summary" class="teacher-summary"></span>
+            </div>
+
+            <nav id="days-filter" class="days-filter" role="radiogroup" aria-label="Select day"></nav>
+
+            <div class="main-header">
+                <h3 id="timeline-title" class="main-title"></h3>
+                <span id="timeline-stats" class="main-stats"></span>
+            </div>
+
+            <div id="loading-state" class="loading-state" role="status" aria-live="polite">
+                <div class="loading-spinner" aria-hidden="true"></div>
+                <span>Loading teacher timetable…</span>
+            </div>
+
+            <ol id="timeline" class="timeline"></ol>
+
+            <div id="teacher-empty" class="state-card hidden">
+                <h3 id="state-title">No teachers found</h3>
+                <p id="state-message">No teacher timetable could be built from the source sheets.</p>
+                <button id="teacher-retry" class="retry-btn btn primary hidden" type="button">Try again</button>
+            </div>
+        </section>
+    </main>
+
+    <div class="toast" role="status" aria-live="polite"></div>
+
+    <script type="module" src="js/teachers/teacher-app.js?v=2026-08-11-002"></script>
+</body>
+</html>
