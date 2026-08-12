@@ -23,8 +23,22 @@
  * multiple offerings in the sheet is supported with no per-course config.
  */
 
+import { resolveCourse } from './course-normalizer.js?v=2026-08-11-002';
+
 const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
 const SECTION_REGEX = /\(Sec\s*(\d+)\)/i;
+
+/**
+ * Canonical course id for a class subject. Known courses resolve to their
+ * registry id; unknown courses get a stable folded slug so change detection
+ * still has a durable identity. Ambiguous names resolve to null (never
+ * guessed). Elective records carry their configured id instead — the elective
+ * `id` in schools.js IS the canonical course id.
+ */
+function resolveCourseId(raw) {
+    const res = resolveCourse(raw);
+    return res ? res.canonical : null;
+}
 
 /**
  * Faculty name aliases — maps the free-text teacher names in the sheet to
@@ -171,6 +185,7 @@ function groupElectiveOfferings(classes) {
                     startTime: c.startTime,
                     endTime: c.endTime,
                     elective: c.elective,
+                    courseId: c.courseId,
                     offerings,
                 });
             } else {
@@ -276,6 +291,7 @@ function parseGridCSV(text, mandatoryCourses = null, electives = null, rooms = n
                     section,
                     startTime: times.start,
                     endTime: times.end,
+                    courseId: elective ? elective.id : resolveCourseId(name),
                     ...(elective ? { elective: elective.id } : {}),
                 });
             } else if (mandatoryList || electiveList) {
@@ -301,6 +317,7 @@ function parseGridCSV(text, mandatoryCourses = null, electives = null, rooms = n
                     section: 1,
                     startTime: times.start,
                     endTime: times.end,
+                    courseId: elective ? elective.id : resolveCourseId(name),
                     ...(elective ? { elective: elective.id } : {}),
                 });
             }
@@ -461,6 +478,7 @@ function parseGridCSVRooms(text, electives = null, rooms = null) {
                     section: section ?? 1,
                     startTime: times.start,
                     endTime: times.end,
+                    courseId: elective ? elective.id : resolveCourseId(name),
                     ...(elective ? { elective: elective.id } : {}),
                 });
                 break; // one class per room per slot
@@ -602,6 +620,7 @@ function parseListCSV(text, electives = null) {
             section,
             startTime: times.start,
             endTime: times.end,
+            courseId: elective || resolveCourseId(subject),
             ...(elective ? { elective } : {}),
         });
     }

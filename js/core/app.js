@@ -1,15 +1,16 @@
-import { CONFIG } from './config.js?v=2026-08-10-006';
-import { parseCSV, offeringKey } from '../data/parser.js?v=2026-08-10-006';
-import { compareTimetables, classIdentity } from '../data/change-detector.js?v=2026-08-10-006';
-import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen, getSelectedDay, setSelectedDay } from '../services/storage.js?v=2026-08-10-006';
-import * as nav from '../ui/navigation.js?v=2026-08-10-006';
-import * as ui from '../ui/ui.js?v=2026-08-10-006';
-import { checkArjunSinghTransition } from '../ui/easter-eggs.js?v=2026-08-10-006';
-import * as labSection from '../ui/lab-section.js?v=2026-08-10-006';
-import { loadMergedYear2Timetable } from '../services/lab-fetch.js?v=2026-08-10-006';
-import { matchesEmergingToolsSection } from '../data/lab-parser.js?v=2026-08-10-006';
-import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-08-10-006';
-import { init as initAnalytics, trackEvent } from '../services/analytics.js?v=2026-08-10-006';
+import { CONFIG } from './config.js?v=2026-08-11-002';
+import { parseCSV, offeringKey } from '../data/parser.js?v=2026-08-11-002';
+import { compareTimetables, classIdentity } from '../data/change-detector.js?v=2026-08-11-002';
+import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen, getSelectedDay, setSelectedDay } from '../services/storage.js?v=2026-08-11-002';
+import * as nav from '../ui/navigation.js?v=2026-08-11-002';
+import * as ui from '../ui/ui.js?v=2026-08-11-002';
+import { checkArjunSinghTransition } from '../ui/easter-eggs.js?v=2026-08-11-002';
+import * as labSection from '../ui/lab-section.js?v=2026-08-11-002';
+import { loadMergedYear2Timetable } from '../services/lab-fetch.js?v=2026-08-11-002';
+import { matchesEmergingToolsSection } from '../data/lab-parser.js?v=2026-08-11-002';
+import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-08-11-002';
+import { init as initAnalytics, trackEvent } from '../services/analytics.js?v=2026-08-11-002';
+import { dispatchTimetableChanges, setN8nDebug } from '../services/n8n.js?v=2026-08-11-002';
 
 /**
  * App bootstrap, fetch, and interactivity.
@@ -209,6 +210,21 @@ function syncSections() {
     }
 }
 
+// The current navigation context, as n8n events need it. Records parsed from
+// the sheet usually carry day/subject/faculty/room/time but NOT school/year —
+// those come from the app's live navigation state, so event context is built
+// here rather than at parse time.
+function n8nContext() {
+    const year = nav.getYear();
+    const school = nav.getSchool();
+    return {
+        year: year?.id ?? null,
+        school: school?.id ?? null,
+        section: selectedSection,
+        labGroup: labSection.getLabGroup(),
+    };
+}
+
 // ============================================================
 // Data loading
 // ============================================================
@@ -265,7 +281,11 @@ async function load({ silent = false, background = false } = {}) {
         // Classes are compared, not spreadsheet cells — a class that moved to
         // another cell/room/time/day keeps its identity and is reported as
         // moved/room-changed, never as removed + unrelated added.
-        applyChanges(cached && cached.classes ? cached.classes : [], classes);
+        const changes = applyChanges(cached && cached.classes ? cached.classes : [], classes);
+        // Optional n8n notifications. Fire-and-forget and fully isolated: an
+        // empty webhook URL (the default) disables it entirely; the sender
+        // never throws, so a broken n8n can never break this load.
+        dispatchTimetableChanges(changes, n8nContext());
         syncSections();
         render();
         trackEvent('timetable_refreshed', { source: background ? 'background' : silent ? 'manual' : 'initial' });
@@ -811,6 +831,7 @@ function migrateLegacySection() {
 function init() {
     initAnalytics();
     initPWA();
+    setN8nDebug(!!CONFIG.N8N_DEBUG);
     nav.initNavigation();
     migrateLegacySection();
     selectedSection = nav.getState().section;

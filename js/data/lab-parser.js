@@ -25,13 +25,13 @@
  * parsing) and normalizeFacultyName (display names). Everything else here is
  * deliberately self-contained so this module never needs to edit parser.js.
  *
- * RAW RECORDS ARE THE SOURCE OF TRUTH: one lab class per slot, never merged
- * at parse time. Consecutive sessions of one continuous lab are glued only by
- * the display layer (js/ui/display.js), and the smart change detector and the
- * cache always operate on the raw per-slot records.
+ * RAW RECORDS ARE THE SOURCE OF TRUTH: one lab class per slot, never merged.
+ * Consecutive sessions of one continuous lab stay as separate per-slot records;
+ * the smart change detector and the cache always operate on those raw records.
  */
 
-import { parseTimeRange, normalizeFacultyName } from './parser.js?v=2026-08-10-006';
+import { parseTimeRange, normalizeFacultyName } from './parser.js?v=2026-08-11-002';
+import { resolveCourse } from './course-normalizer.js?v=2026-08-11-002';
 
 const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
 
@@ -40,9 +40,38 @@ const norm = (s) => String(s ?? '').trim().toLowerCase();
 // Room-ish text that is really just a place-holder, not a named room.
 const PLACEHOLDER_ROOM = /^(tba|tbd|to be announced|to be decided|room tba|n\/?a)$/i;
 
-function splitCsvLine(line) {
-    return line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/)
-        .map((cell) => cell.replace(/^"|"$/g, '').trim());
+/**
+ * Split a whole CSV document into rows, honoring quoted fields that contain
+ * commas OR literal newlines (Google's CSV export quotes such cells). The lab
+ * sheets occasionally carry an embedded second table whose header cells span
+ * several physical lines; without a quote-aware reader those logical rows get
+ * fragmented and their classes silently dropped.
+ */
+function parseCsvRows(csv) {
+    const text = String(csv ?? '');
+    const rows = [];
+    let row = [];
+    let cell = '';
+    let inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (inQuotes) {
+            if (ch === '"') {
+                if (text[i + 1] === '"') { cell += '"'; i++; continue; } // escaped quote
+                inQuotes = false;
+                continue;
+            }
+            cell += ch;
+            continue;
+        }
+        if (ch === '"') { inQuotes = true; continue; }
+        if (ch === ',') { row.push(cell.trim()); cell = ''; continue; }
+        if (ch === '\n') { row.push(cell.trim()); rows.push(row); row = []; cell = ''; continue; }
+        if (ch === '\r') { continue; } // CRLF: the \n ends the row
+        cell += ch;
+    }
+    if (cell !== '' || row.length > 0) { row.push(cell.trim()); rows.push(row); }
+    return rows;
 }
 
 /**
@@ -174,7 +203,7 @@ const LIST_ENTRY_RE = /^(.*?)\s+sec\s*\.?\s*(\d+)\s*(?:[-|]\s*)?(.*)$/i;
  *     startTime, endTime, year, school, source }
  */
 export function parseLabList(csv, config) {
-    const rows = String(csv ?? '').split(/\r?\n/).map(splitCsvLine);
+    const rows = parseCsvRows(csv);
     const records = [];
     let currentDay = null;
 
@@ -235,7 +264,7 @@ export function parseLabCSV(csv, config) {
  *     startTime, endTime, year, school, source }
  */
 export function parseLabSheet(csv, config) {
-    const rows = String(csv ?? '').split(/\r?\n/).map(splitCsvLine);
+    const rows = parseCsvRows(csv);
     const records = [];
     let currentDay = null;
 
@@ -318,8 +347,8 @@ export function parseLabSheet(csv, config) {
  * Mandatory labs (DAA, FDE) become flat class objects carrying `lab: true` and
  * the lab-section number found in the sheet. A lab cell WITHOUT any section is
  * dropped (each lab tab always keys a section, so there is nothing to show for
- * a sectionless cell). Back-to-back sessions of one continuous lab stay
- * separate records here; the display layer merges them only for rendering.
+ * a sectionless cell). Back-to-back sessions of one continuous lab stay as
+ * separate per-slot records.
  *
  * The Emerging Tools Lab is an elective tied to the Emerging Tools course
  * offering: each row becomes a flat class carrying `elective` + its own
@@ -338,42 +367,49 @@ export function recordsToAppClasses(records, config, ctx = {}) {
 
     return records
         .filter((r) => r.section != null)
-        .map((r) => ({
+        .map((r) => {
+            const res = resolveCourse(r.course);
+            return {
+                lab: true,
+                day: r.day,
+                subject: r.subject,
+                faculty: r.faculty || '',
+                room: config.fixedRoom || r.room || '',
+                section: r.section,
+                startTime: r.startTime,
+                endTime: r.endTime,
+                course: r.course,
+                courseId: res ? res.canonical : null,
+                year: r.year,
+                school: r.school,
+                source: r.source,
+            };
+        });
+}
+
+// Flat elective classes for the Emerging Tools Lab. Each record keeps its own
+// section + faculty. The app selects the effective offering via the sidebar
+// dropdown by SECTION (the teacher is never the selector).
+function toFlatElectiveClasses(records, config) {
+    return records.map((r) => {
+        const res = resolveCourse(r.course);
+        return {
             lab: true,
             day: r.day,
             subject: r.subject,
             faculty: r.faculty || '',
             room: config.fixedRoom || r.room || '',
-            section: r.section,
+            section: r.section ?? 1,
             startTime: r.startTime,
             endTime: r.endTime,
+            elective: config.electiveId,
             course: r.course,
+            courseId: res ? res.canonical : null,
             year: r.year,
             school: r.school,
             source: r.source,
-        }));
-}
-
-// Flat elective classes for the Emerging Tools Lab. Each record keeps its own
-// section + faculty. The app selects the effective offering via the sidebar
-// dropdown by SECTION (the teacher is never the selector); the display layer
-// merges consecutive slots of the same offering.
-function toFlatElectiveClasses(records, config) {
-    return records.map((r) => ({
-        lab: true,
-        day: r.day,
-        subject: r.subject,
-        faculty: r.faculty || '',
-        room: config.fixedRoom || r.room || '',
-        section: r.section ?? 1,
-        startTime: r.startTime,
-        endTime: r.endTime,
-        elective: config.electiveId,
-        course: r.course,
-        year: r.year,
-        school: r.school,
-        source: r.source,
-    }));
+        };
+    });
 }
 
 // --- Merge ----------------------------------------------------------------

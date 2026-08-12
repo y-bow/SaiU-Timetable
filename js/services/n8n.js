@@ -1,0 +1,378 @@
+import { CONFIG } from '../core/config.js?v=2026-08-11-002';
+
+/**
+ * n8n timetable-change notifications (optional, fully isolated).
+ *
+ * THE TIMETABLE NEVER DEPENDS ON n8n. This module is a fire-and-forget event
+ * producer: the app detects a meaningful timetable change, builds a structured
+ * event, and POSTs it to the configured n8n webhook. The webhook URL is
+ * centralized in CONFIG.N8N_WEBHOOK_URL (js/core/config.js).
+ *
+ * Pipeline:
+ *
+ *     Timetable parser → change detection → N8N event builder
+ *         → N8N event sender → webhook → n8n workflow → email
+ *
+ * Guarantees:
+ *   - Empty N8N_WEBHOOK_URL → integration disabled; no network requests and
+ *     no errors. The timetable keeps working normally.
+ *   - Events are produced ONLY for meaningful changes (room / time / move /
+ *     add / cancel / modify). An unchanged timetable never sends anything and
+ *     repeated polls of an unchanged timetable never send anything either.
+ *   - Every change gets a deterministic change id derived from the event type
+ *     plus the course/date/section and old/new values (NOT the timestamp).
+ *     Recently dispatched ids are persisted in localStorage, so the same
+ *     change is never POSTed twice, even if the sheet still shows it on the
+ *     next sync.
+ *   - Sending is non-blocking, uses a short timeout, and is fully wrapped in
+ *     try/catch — an offline / slow / broken n8n can never break timetable
+ *     rendering or synchronization.
+ *   - No personally identifying information is ever included (no name, email,
+ *     phone, IP, fingerprint). Events carry timetable data only; the n8n
+ *     workflow maps affected students from section / year / school / course.
+ */
+
+// The webhook URL is read lazily so tests can toggle it and so a future
+// runtime configuration change works without reloading the module.
+const webhookUrl = () => String(CONFIG.N8N_WEBHOOK_URL || '').trim();
+
+const TIMEOUT_MS = CONFIG.N8N_TIMEOUT_MS || 4000;
+const SENT_KEY = CONFIG.N8N_EVENTS_KEY || 'tt-n8n-sent-v1';
+const MAX_SENT = 200;
+
+// Development-only debug logging (see CONFIG.N8N_DEBUG and setN8nDebug).
+let DEBUG = !!CONFIG.N8N_DEBUG;
+
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+// --- Small helpers -----------------------------------------------------------
+
+/**
+ * The date (YYYY-MM-DD) of the next occurrence of the timetable weekday,
+ * starting from today. The timetable is a weekly schedule of day names, so the
+ * most useful concrete date for an event is the next time that class actually
+ * happens.
+ */
+function dateForWeekday(dayName) {
+    const raw = String(dayName ?? '').trim();
+    if (!raw) return null;
+    const idx = DAY_NAMES.findIndex((d) => d.toLowerCase() === raw.toLowerCase());
+    if (idx === -1) return null;
+    const now = new Date();
+    const diff = (idx - now.getDay() + 7) % 7;
+    const target = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diff);
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${target.getFullYear()}-${pad(target.getMonth() + 1)}-${pad(target.getDate())}`;
+}
+
+// FNV-1a 32-bit — deterministic across browsers and devices.
+function hashString(str) {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < str.length; i++) {
+        h ^= str.charCodeAt(i);
+        h = (h >>> 0) * 0x01000193 >>> 0;
+    }
+    return h.toString(16).padStart(8, '0');
+}
+
+/**
+ * Deterministic change id for an event. Built from stable identity fields
+ * only — the event timestamp is deliberately excluded so re-detecting the same
+ * change on a later sync produces the same id and is skipped as a duplicate.
+ */
+export function buildChangeId(event) {
+    const parts = [
+        event.event,
+        event.date,
+        event.courseId,
+        event.section,
+        event.day,
+        event.oldStartTime, event.oldEndTime, event.newStartTime, event.newEndTime,
+        event.startTime, event.endTime,
+        event.oldRoom, event.newRoom, event.room,
+        event.oldFaculty, event.faculty,
+    ];
+    const canonical = parts
+        .map((p) => String(p ?? '').trim().toLowerCase().replace(/\s+/g, ' '))
+        .join('|');
+    return hashString(canonical);
+}
+
+// --- Dispatched-change persistence (localStorage, defensive) -----------------
+
+function readSent() {
+    try {
+        const raw = localStorage.getItem(SENT_KEY);
+        const arr = raw ? JSON.parse(raw) : [];
+        return Array.isArray(arr) ? arr : [];
+    } catch {
+        return [];
+    }
+}
+
+function hasSent(id) {
+    return readSent().includes(id);
+}
+
+function markSent(id) {
+    try {
+        const arr = readSent();
+        if (!arr.includes(id)) arr.push(id);
+        if (arr.length > MAX_SENT) arr.splice(0, arr.length - MAX_SENT);
+        localStorage.setItem(SENT_KEY, JSON.stringify(arr));
+    } catch {
+        // Storage full / unavailable — dedupe simply degrades to per-session.
+    }
+}
+
+// --- Debug logging -----------------------------------------------------------
+
+function debugLog(event, status) {
+    if (!DEBUG) return;
+    try {
+        const line = (k, v) => {
+            if (v !== undefined && v !== null && v !== '') console.log(`${k}:\n${v}`);
+        };
+        console.log('N8N EVENT');
+        line('event', event.event);
+        line('eventId', event.eventId);
+        line('course', event.course);
+        line('section', event.section);
+        line('oldStartTime', event.oldStartTime);
+        line('newStartTime', event.newStartTime);
+        line('oldRoom', event.oldRoom);
+        line('newRoom', event.newRoom);
+        console.log(`status:\n${status}`);
+    } catch {
+        // Logging must never throw.
+    }
+}
+
+// --- Event builder -----------------------------------------------------------
+
+/**
+ * Fields common to every timetable event. `c` is the class record the event
+ * describes; `ctx` carries the app's current navigation context (school,
+ * year, section, lab group) for records that do not carry it themselves.
+ */
+function coreFields(c, ctx, event) {
+    ctx = ctx || {};
+    const out = {
+        event,
+        timestamp: new Date().toISOString(),
+        date: dateForWeekday(c.day),
+        day: c.day ?? null,
+        course: c.subject ?? null,
+        courseId: c.courseId ?? null,
+        faculty: c.faculty ?? undefined,
+        year: c.year != null ? c.year : (ctx.year != null ? ctx.year : null),
+        school: ctx.school || (c.school ? String(c.school).toUpperCase() : null),
+        section: c.section != null ? c.section : (ctx.section != null ? ctx.section : null),
+        source: 'timetable',
+    };
+    if (c.elective) out.elective = c.elective;
+    if ((c.lab === true || c.source) && ctx.labGroup) out.labGroup = ctx.labGroup;
+    return out;
+}
+
+function buildRoomChanged(change, ctx) {
+    const c = change.class;
+    return {
+        ...coreFields(c, ctx, 'room_changed'),
+        startTime: c.startTime ?? null,
+        endTime: c.endTime ?? null,
+        oldRoom: change.oldRoom ?? null,
+        newRoom: change.newRoom ?? null,
+    };
+}
+
+function buildMoved(change, ctx) {
+    const oldC = change.oldClass;
+    const newC = change.class;
+    const m = change.moved || {};
+    const roomChanged = !!change.roomChanged;
+
+    // Same weekday, only the time changed → time_changed. If the day moved or
+    // the room also changed it is a genuine move → class_moved.
+    if (m.oldDay !== m.newDay || roomChanged) {
+        const ev = {
+            ...coreFields(newC, ctx, 'class_moved'),
+            oldStartTime: m.oldStartTime ?? oldC.startTime ?? null,
+            oldEndTime: oldC.endTime ?? null,
+            newStartTime: m.newStartTime ?? newC.startTime ?? null,
+            newEndTime: newC.endTime ?? null,
+        };
+        if (roomChanged) {
+            ev.oldRoom = change.oldRoom ?? null;
+            ev.newRoom = change.newRoom ?? null;
+        }
+        return ev;
+    }
+
+    return {
+        ...coreFields(newC, ctx, 'time_changed'),
+        oldStartTime: m.oldStartTime ?? oldC.startTime ?? null,
+        oldEndTime: oldC.endTime ?? null,
+        newStartTime: m.newStartTime ?? newC.startTime ?? null,
+        newEndTime: newC.endTime ?? null,
+        room: newC.room ?? null,
+    };
+}
+
+function buildAdded(change, ctx) {
+    const c = change.class;
+    return {
+        ...coreFields(c, ctx, 'class_added'),
+        startTime: c.startTime ?? null,
+        endTime: c.endTime ?? null,
+        room: c.room ?? null,
+    };
+}
+
+function buildRemoved(change, ctx) {
+    // The new timetable no longer contains this class — the OLD record is the
+    // only information we still have, so the event is built from it.
+    const c = change.oldClass;
+    return {
+        ...coreFields(c, ctx, 'class_cancelled'),
+        startTime: c.startTime ?? null,
+        endTime: c.endTime ?? null,
+        room: c.room ?? null,
+    };
+}
+
+function buildModified(change, ctx) {
+    const c = change.class;
+    const oldC = change.oldClass;
+    const ev = {
+        ...coreFields(c, ctx, 'class_modified'),
+        startTime: c.startTime ?? null,
+        endTime: c.endTime ?? null,
+        room: c.room ?? null,
+    };
+    if (oldC && oldC.faculty !== c.faculty) ev.oldFaculty = oldC.faculty ?? null;
+    return ev;
+}
+
+/**
+ * Map a smart change-detector record to a structured n8n event.
+ * Returns null for changes that are not meaningful (nothing to notify).
+ */
+export function buildN8nEvent(change, ctx) {
+    if (!change || !change.type) return null;
+    switch (change.type) {
+        case 'room-changed': return buildRoomChanged(change, ctx);
+        case 'moved': return buildMoved(change, ctx);
+        case 'added': return buildAdded(change, ctx);
+        case 'removed': return buildRemoved(change, ctx);
+        case 'modified': return buildModified(change, ctx);
+        default: return null;
+    }
+}
+
+// --- Event sender ------------------------------------------------------------
+
+/**
+ * POST one event to the n8n webhook. Fire-and-forget: never throws, bounded
+ * by a short timeout. Returns { status } where status is one of:
+ *   'disabled' (no webhook configured), 'sent', 'failed', 'http_<code>'.
+ */
+export async function sendN8nEvent(event) {
+    const url = webhookUrl();
+    if (!url) {
+        debugLog(event, 'disabled');
+        return { status: 'disabled' };
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    try {
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(event),
+            signal: controller.signal,
+        });
+        const status = res.ok ? 'sent' : `http_${res.status}`;
+        debugLog(event, status);
+        return { status };
+    } catch {
+        debugLog(event, 'failed');
+        return { status: 'failed' };
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
+// --- Orchestration -----------------------------------------------------------
+
+/**
+ * Convert a list of smart change-detector records into events and dispatch
+ * them to n8n. Non-blocking: the caller must NOT await this.
+ *
+ * Only meaningful changes produce events; dedupe ensures each distinct change
+ * is sent at most once per browser; the sender never throws.
+ *
+ * ctx = { year, school, section, labGroup } from the app's current navigation
+ * state (see app.js n8nContext).
+ */
+export function dispatchTimetableChanges(changes, ctx) {
+    if (!webhookUrl() || !changes || !changes.length) return;
+    for (const change of changes) {
+        const event = buildN8nEvent(change, ctx);
+        if (!event) continue;
+        const changeId = buildChangeId(event);
+        if (hasSent(changeId)) continue;
+        // Mark BEFORE the network call: even if n8n is down, the same change is
+        // never re-sent on the next sync (guarantees a single request per
+        // distinct change).
+        markSent(changeId);
+        event.eventId = changeId;
+        sendN8nEvent(event); // fire-and-forget
+    }
+}
+
+// --- Development helpers -----------------------------------------------------
+
+// Event types a manual test event may carry. The helper exists to exercise the
+// REAL sender path with realistic data, so only the meaningful change types are
+// accepted — anything else is rejected before a request is made.
+const TEST_EVENT_TYPES = new Set(['room_changed', 'time_changed', 'class_cancelled']);
+
+/**
+ * Dev-only toggle for N8N debug logging. When enabled it also exposes
+ * window.testN8nWebhook(event) so a timetable-change event can be triggered
+ * manually without waiting for the real timetable to change. Disable for
+ * production (CONFIG.N8N_DEBUG).
+ */
+export function setN8nDebug(enabled) {
+    DEBUG = !!enabled;
+    try {
+        if (typeof window === 'undefined') return;
+        if (DEBUG) window.testN8nWebhook = sendTestEvent;
+        else delete window.testN8nWebhook;
+    } catch {
+        // Debug wiring must never throw.
+    }
+}
+
+/**
+ * Dev-only manual test: send ONE timetable-change event through the real
+ * sendN8nEvent() pipeline. The event object is passed through as-is (a
+ * timestamp is added when missing). Only `room_changed`, `time_changed` and
+ * `class_cancelled` are allowed — any other type is rejected without a
+ * request, so the helper can never fabricate a payload shape the production
+ * pipeline would not produce. Returns the same { status } as sendN8nEvent().
+ */
+export function sendTestEvent(event) {
+    const type = event && event.event;
+    if (!TEST_EVENT_TYPES.has(type)) {
+        return Promise.resolve({
+            status: 'rejected',
+            reason: `testN8nWebhook expects an event object with event one of: ${Array.from(TEST_EVENT_TYPES).join(', ')}`,
+        });
+    }
+    return sendN8nEvent({
+        ...event,
+        timestamp: event.timestamp || new Date().toISOString(),
+    });
+}
