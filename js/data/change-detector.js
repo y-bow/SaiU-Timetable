@@ -70,7 +70,12 @@ const DAY_ORDER = Object.fromEntries(
  * history into removed + added — it is the same class, reported as modified.
  */
 export function classIdentity(c) {
-    const parts = [c.subject, c.elective ?? '', c.section ?? ''];
+    // The canonical course id is the durable course key — it stays identical
+    // across refreshes even when the sheet spells the subject differently
+    // ("ET" vs "Emerging Tools and Applications", "INT EMB" vs full name).
+    // Records produced before course ids existed (or records that never had
+    // one) fall back to the parsed subject.
+    const parts = [c.courseId || c.subject, c.elective ?? '', c.section ?? ''];
     if (!isEmergingToolsLab(c)) parts.push(c.faculty);
     parts.push(c.source ?? '');
     return parts.map(norm).join('|');
