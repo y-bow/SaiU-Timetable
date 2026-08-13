@@ -122,7 +122,14 @@ async function networkFirst(request, cacheName, fallback) {
       const copy = response.clone();
       const cache = await caches.open(cacheName);
       await cache.put(request, copy);
+      return response;
     }
+    // Non-ok upstream response (404/429/5xx — Google Sheets rate limiting or
+    // an outage). Serve the last good cached copy instead of surfacing the
+    // error as a broken timetable load (the app would show a false "offline"
+    // toast). Only fall through when there is no cached copy at all.
+    const cached = await caches.match(request);
+    if (cached) return cached;
     return response;
   } catch {
     const cached = await caches.match(request);
