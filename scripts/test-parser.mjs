@@ -202,11 +202,13 @@ const SCDS3_GRID = [
     'MONDAY,09:15 AM - 10:10 AM,DL - Sem 5 - Dr. KK',
     ',10:15 AM - 11:10 AM,Financial Reporting and Analysis         Surya C',
     ',11:15 AM - 12:10 PM,Computer Networks',
+    ',12:15 PM - 1:10 PM,Forensic Psychology         Meera',
 ].join('\n');
 const SCDS3_MANDATORY = ['Deep Learning', 'Theory of Computation'];
 const SCDS3_ELECTIVES = [
     { id: 'financial-reporting-and-analysis', label: 'Financial Reporting and Analysis' },
     { id: 'computer-networks', label: 'Computer Networks' },
+    { id: 'forensic-psychology', label: 'Forensic Psychology' },
 ];
 
 await check('SCDS-3 mandatory Sem-marker class keeps subject/faculty', () => {
@@ -226,6 +228,15 @@ await check('SCDS-3 plain elective with no teacher keeps empty faculty', () => {
     const c = out.find((x) => x.subject === 'Computer Networks');
     assert.ok(c, 'class parsed');
     assert.equal(c.faculty, '');
+});
+await check('SCDS-3 newly added elective (minor) is parsed with its teacher', () => {
+    const out = parseCSV(SCDS3_GRID, 'grid', SCDS3_MANDATORY, SCDS3_ELECTIVES, null);
+    const c = out.find((x) => x.subject === 'Forensic Psychology');
+    assert.ok(c, 'class parsed');
+    assert.equal(c.elective, 'forensic-psychology');
+    assert.equal(c.courseId, 'forensic-psychology');
+    assert.equal(c.faculty, 'Prof. Meera');
+    assert.equal(c.section, 1);
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

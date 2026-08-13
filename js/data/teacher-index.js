@@ -37,8 +37,8 @@
  * in the browser and in the Node test harness.
  */
 
-import { normalizeFacultyName } from './parser.js?v=2026-08-11-002';
-import { classIdentity, flattenClasses } from './change-detector.js?v=2026-08-11-002';
+import { normalizeFacultyName } from './parser.js?v=2026-08-13-004';
+import { classIdentity, flattenClasses } from './change-detector.js?v=2026-08-13-004';
 
 const TEACHER_SPLIT_RE = /\s*(?:[,;/]|\band\b|&)\s*/gi;
 
@@ -99,37 +99,58 @@ export function teacherKey(name) {
  * @returns {{
  *   index: Map<string, {name: string, classes: Array<object>}>,
  *   order: Array<string>,
- *   stats: {classes: number, unassigned: number, teachers: number, entries: number}
+ *   all: Array<object>,
+ *   stats: {total: number, meetings: number, duplicates: number, classes: number,
+ *           unassigned: number, teachers: number, entries: number},
+ *   excluded: Array<object>
  * }}
  *   index  key → { name (display), classes: entries }; entries carry
  *          `teacher`, `teachers`, `originalFaculty`, `contexts` plus the full
  *          class record.
  *   order  sorted keys (search-friendly).
- *   stats  classes = indexed unique classes, unassigned = unique classes with
- *          no teacher, teachers = distinct keys, entries = total entries.
+ *   all    every deduped MEETING (indexed or not) — the full normalized
+ *          timetable, useful for AI prompts that must search the whole week.
+ *   stats  total = normalized records in, meetings = deduped meetings,
+ *          duplicates = collapsed repeats, classes = indexed unique meetings,
+ *          unassigned = unique meetings with no teacher, teachers = distinct
+ *          keys, entries = total entries.
+ *   excluded  one record per normalized input that did NOT become an indexed
+ *          entry, with a machine `reason` ('duplicate meeting' | 'no teacher
+ *          parsed') — for the teacher page's ?debug panel.
  */
 export function buildTeacherIndex(classes) {
-    const stats = { classes: 0, unassigned: 0, teachers: 0, entries: 0 };
+    const stats = { total: 0, meetings: 0, duplicates: 0, classes: 0, unassigned: 0, teachers: 0, entries: 0 };
+    const excluded = [];
 
-    // Dedupe the same physical class seen through several year configs or the
-    // Year 2 room-scoped scan. classIdentity excludes day/time/room, so a
-    // moved class still dedupes; context labels from later parses are merged.
+    // Dedupe the same MEETING surfaced by several year configs or the Year 2
+    // room-scoped scan. classIdentity alone is deliberately time/room-agnostic
+    // (change detection tracks a class across moves), so using it here would
+    // collapse "FDE Sec 2 – Mon 12:15" and "FDE Sec 2 – Mon 16:00" into one
+    // entry and silently drop classes from the teacher's week. meetingIdentity
+    // (identity + day + time + room) merges only genuinely identical meetings;
+    // context labels from later parses are merged onto the surviving record.
+    const flattened = flattenClasses(classes || []);
+    stats.total = flattened.length;
     const unique = new Map();
-    for (const c of flattenClasses(classes || [])) {
-        const id = classIdentity(c);
+    for (const c of flattened) {
+        const id = meetingIdentity(c);
         const first = unique.get(id);
         if (first) {
             if (c._ctxLabel && !first._ctxLabels.has(c._ctxLabel)) first._ctxLabels.add(c._ctxLabel);
+            stats.duplicates++;
+            excluded.push(diagnoseRecord(c, 'duplicate meeting'));
             continue;
         }
         unique.set(id, { ...c, _ctxLabels: new Set(c._ctxLabel ? [c._ctxLabel] : []) });
     }
+    stats.meetings = unique.size;
 
     const index = new Map();
     for (const c of unique.values()) {
         const teachers = splitTeachers(c.faculty);
         if (!teachers.length) {
             stats.unassigned++;
+            excluded.push(diagnoseRecord(c, 'no teacher parsed'));
             continue;
         }
         stats.classes++;
@@ -155,5 +176,22 @@ export function buildTeacherIndex(classes) {
 
     stats.teachers = index.size;
     const order = [...index.keys()].sort();
-    return { index, order, stats };
+    return { index, order, all: [...unique.values()], stats, excluded };
+}
+
+// Compact, JSON-safe view of a normalized record that did not make it into
+// the index, plus the machine-readable reason.
+function diagnoseRecord(c, reason) {
+    return {
+        subject: c.subject ?? c.course ?? null,
+        courseId: c.courseId ?? null,
+        day: c.day ?? null,
+        startTime: c.startTime ?? null,
+        endTime: c.endTime ?? null,
+        school: c.school ?? null,
+        year: c.year ?? null,
+        section: c.section ?? null,
+        faculty: c.faculty ?? null,
+        reason,
+    };
 }

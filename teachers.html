@@ -14,8 +14,16 @@
         .splash-logo { width: 88px; height: 88px; }
     </style>
 
-    <link rel="stylesheet" href="style.css?v=2026-08-11-002">
-    <link rel="icon" type="image/png" sizes="192x192" href="icons/favicon/favicon-192.png?v=2026-08-11-002">
+    <link rel="stylesheet" href="style.css?v=2026-08-13-004">
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon/favicon-32.png?v=2026-08-13-004">
+    <link rel="icon" type="image/png" sizes="48x48" href="icons/favicon/favicon-48.png?v=2026-08-13-004">
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/favicon/favicon-192.png?v=2026-08-13-004">
+    <link rel="icon" type="image/png" sizes="512x512" href="icons/app/white-icon-512.png?v=2026-08-13-004">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="SaiU Teacher Timetable">
+    <link rel="apple-touch-icon" href="icons/app/apple-touch-icon.png?v=2026-08-13-004">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -23,14 +31,14 @@
 <body class="teacher-page">
 
     <div id="splash" class="splash" aria-hidden="true">
-        <img class="splash-logo" src="icons/favicon/favicon-192.png?v=2026-08-11-002" alt="">
+        <img class="splash-logo" src="icons/favicon/favicon-192.png?v=2026-08-13-004" alt="">
     </div>
 
     <header class="teacher-topbar">
-        <div class="teacher-brand" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M8 16h.01M12 16h.01M8 12h.01M12 12h.01M16 12h.01"/></svg>
-        </div>
-        <h1 class="teacher-title">Teacher Timetable</h1>
+        <h1 class="teacher-title">
+            <img class="brand-logo" src="icons/favicon/favicon-48.png?v=2026-08-13-004" alt="" aria-hidden="true">
+            Teacher Timetable
+        </h1>
         <div class="teacher-topbar-actions">
             <span id="teacher-updated" class="teacher-updated"></span>
             <button id="teacher-refresh" class="icon-btn" type="button" aria-label="Refresh">
@@ -81,6 +89,6 @@
 
     <div class="toast" role="status" aria-live="polite"></div>
 
-    <script type="module" src="js/teachers/teacher-app.js?v=2026-08-11-002"></script>
+    <script type="module" src="js/teachers/teacher-app.js?v=2026-08-13-004"></script>
 </body>
 </html>

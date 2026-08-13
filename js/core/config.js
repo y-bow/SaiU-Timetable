@@ -58,25 +58,23 @@ export const CONFIG = {
     N8N_EVENTS_KEY: 'tt-n8n-sent-v1',
 
     // ---------------------------------------------------------------------
-    // Generative-AI timetable assistant ("Ask SaiU Timetable AI").
+    // Generative-AI timetable assistant ("Ask SaiU AI").
     //
-    // LOCALHOST ONLY for now — the production build must not depend on this
-    // feature yet. The chat panel and its launch buttons are only rendered
-    // when isAiEnabled() (js/services/timetable-ai.js) returns true, which is:
+    // The chat panel and its launch buttons are rendered when isAiEnabled()
+    // (js/services/timetable-ai.js) returns true, which is:
+    //   - anywhere once AI_FEATURE_ENABLED is true (live in production), OR
     //   - any page served from a localhost host while N8N_AI_WEBHOOK_URL is
-    //     set (development/testing), OR
-    //   - everywhere once AI_FEATURE_ENABLED is flipped to true (the single
-    //     switch for going live in production).
-    // Until then N8N_AI_WEBHOOK_URL MUST stay a localhost / test n8n webhook.
-    // It must never point at the production timetable-change webhook
-    // (N8N_WEBHOOK_URL) and never at a production AI webhook.
-    AI_FEATURE_ENABLED: false,
+    //     set (development/testing).
+    // The webhook below is the production n8n AI webhook. It must never point
+    // at the production timetable-change webhook (N8N_WEBHOOK_URL).
+    AI_FEATURE_ENABLED: true,
 
-    // n8n cloud "timetable AI" test webhook (POST). The browser talks ONLY to
-    // this webhook; AI provider credentials (Gemini/OpenAI/…) stay inside n8n.
-    N8N_AI_WEBHOOK_URL: 'https://saiutimetable.app.n8n.cloud/webhook-test/60e460ce-2b67-424e-bf2e-eec687c8172e',
+    // n8n cloud "SaiU AI" production webhook (POST). The browser talks ONLY
+    // to this webhook; AI provider credentials (Gemini/OpenAI/…) stay inside
+    // n8n.
+    N8N_AI_WEBHOOK_URL: 'https://saiutimetable.app.n8n.cloud/webhook/60e460ce-2b67-424e-bf2e-eec687c8172e',
 
     // Bounded request timeout — a slow or unreachable n8n must never hang the
     // chat; the UI shows a friendly error and lets the user retry.
-    N8N_AI_TIMEOUT_MS: 15000,
+    N8N_AI_TIMEOUT_MS: 45000,
 };

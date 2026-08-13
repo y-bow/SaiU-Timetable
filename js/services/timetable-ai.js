@@ -1,12 +1,12 @@
-import { CONFIG } from '../core/config.js?v=2026-08-12-003';
-import { offeringKey } from '../data/parser.js?v=2026-08-12-003';
-import { dateForWeekday } from './n8n.js?v=2026-08-12-003';
+import { CONFIG } from '../core/config.js?v=2026-08-13-004';
+import { offeringKey } from '../data/parser.js?v=2026-08-13-004';
+import { dateForWeekday } from './n8n.js?v=2026-08-13-004';
 
 /**
- * Generative-AI timetable assistant (LOCALHOST ONLY for now).
+ * Generative-AI timetable assistant ("Ask SaiU AI").
  *
  * The chat UI (js/ui/ai-assistant.js) turns natural-language questions into a
- * POST to a dedicated n8n "timetable AI" webhook. This module is the ONLY
+ * POST to a dedicated n8n "SaiU AI" webhook. This module is the ONLY
  * place that knows the request shape and the webhook URL:
  *
  *     {
@@ -108,7 +108,7 @@ export function buildTimetablePayload(classes, ctx = {}) {
 }
 
 /**
- * Ask the timetable AI a natural-language question.
+ * Ask SaiU AI a natural-language question.
  *
  * POSTs the live parsed timetable + current navigation context to the n8n
  * webhook. Never throws: network failures, timeouts and non-JSON responses all
@@ -124,7 +124,7 @@ export async function askTimetableAI(question, classes, ctx = {}) {
         return { success: false };
     }
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), CONFIG.N8N_AI_TIMEOUT_MS || 15000);
+    const timer = setTimeout(() => controller.abort(), CONFIG.N8N_AI_TIMEOUT_MS || 45000);
     try {
         const res = await fetch(url, {
             method: 'POST',

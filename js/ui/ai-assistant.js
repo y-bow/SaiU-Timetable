@@ -1,14 +1,14 @@
-import { isAiEnabled, askTimetableAI } from '../services/timetable-ai.js?v=2026-08-12-003';
-import { trackEvent } from '../services/analytics.js?v=2026-08-12-003';
+import { isAiEnabled, askTimetableAI } from '../services/timetable-ai.js?v=2026-08-13-004';
+import { trackEvent } from '../services/analytics.js?v=2026-08-13-004';
 
 /**
- * "Ask SaiU Timetable AI" — chat panel (LOCALHOST ONLY for now).
+ * "Ask SaiU AI" — chat panel.
  *
- * Renders an "Ask AI" launch button (mobile top bar + sidebar footer) and a
- * right-drawer chat panel. Questions are sent to the n8n timetable-AI webhook
- * with the LIVE parsed timetable (see js/services/timetable-ai.js); this
- * module only renders the response. It never calculates free periods or
- * conflicts — n8n does that.
+ * Renders an "Ask AI" launch button (mobile top bar + sidebar footer, plus the
+ * teacher page's top bar) and a right-drawer chat panel. Questions are sent
+ * to the n8n timetable-AI webhook with the LIVE parsed timetable (see
+ * js/services/timetable-ai.js); this module only renders the response. It
+ * never calculates free periods or conflicts — n8n does that.
  *
  * The whole feature is inert when isAiEnabled() is false: no DOM, no buttons,
  * no network requests, so production/GitHub Pages is completely unaffected.
@@ -22,14 +22,21 @@ import { trackEvent } from '../services/analytics.js?v=2026-08-12-003';
 
 const $ = (sel) => document.querySelector(sel);
 
-const GENERIC_ERROR = "I couldn't reach the timetable AI right now. Please try again.";
+const GENERIC_ERROR = "I couldn't reach SaiU AI right now. Please try again.";
 
 const SUGGESTED_QUESTIONS = [
     "What's my next class?",
     'When is Deep Learning?',
     'When is SCDS Section 3 free?',
-    'When are SCDS 3 and SOAI 2 both free?',
+    'When are SCDS 3 and SCDS 2 both free?',
     'What changed today?',
+];
+
+const TEACHER_SUGGESTED_QUESTIONS = [
+    'What classes does Dr. Tamilarasi have today?',
+    "When is Prof. Salim free?",
+    'Where is Prof. Arjun teaching?',
+    'Who teaches Deep Learning?',
 ];
 
 // Live data accessors — wired in by the app (js/core/app.js) so the module
@@ -47,7 +54,6 @@ const svg = (inner, size = 16) =>
     `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
 
 const SPARK_ICON = svg('<path d="M12 3l2.4 6.6L21 12l-6.6 2.4L12 21l-2.4-6.6L3 12l6.6-2.4z"/>', 15);
-const CHAT_ICON = svg('<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>', 18);
 const CLOSE_ICON = svg('<path d="M18 6 6 18M6 6l12 12"/>', 18);
 const SEND_ICON = svg('<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>', 16);
 
@@ -73,7 +79,7 @@ function ensureDom() {
             <div class="ai-sheet">
                 <header class="ai-header">
                     <div class="ai-heading">
-                        <h2 id="ai-title" class="ai-title"><span class="ai-spark">${SPARK_ICON}</span>SaiU Timetable AI</h2>
+                        <h2 id="ai-title" class="ai-title"><span class="ai-spark">${SPARK_ICON}</span>SaiU AI</h2>
                         <p class="ai-subtitle">Ask anything about your timetable</p>
                     </div>
                     <button type="button" id="ai-close-btn" class="icon-btn" aria-label="Close AI assistant">${CLOSE_ICON}</button>
@@ -112,9 +118,9 @@ function ensureLaunchButtons() {
         btn.type = 'button';
         btn.id = 'ai-launch-topbar';
         btn.className = 'icon-btn ai-topbar-btn';
-        btn.setAttribute('aria-label', 'Ask SaiU Timetable AI');
+        btn.setAttribute('aria-label', 'Ask SaiU AI');
         btn.setAttribute('aria-haspopup', 'dialog');
-        btn.innerHTML = CHAT_ICON;
+        btn.innerHTML = SPARK_ICON;
         btn.addEventListener('click', openPanel);
         topbar.insertBefore(btn, document.querySelector('#refresh-btn-mobile') || null);
     }
@@ -129,6 +135,29 @@ function ensureLaunchButtons() {
         btn.innerHTML = `${SPARK_ICON}<span>Ask AI</span>`;
         btn.addEventListener('click', openPanel);
         footer.insertBefore(btn, footer.firstChild);
+    }
+
+    // Teacher page (teachers.html): a chat button in the top-right action
+    // row. The whole week (all schools/years + labs, stamped with school/year
+    // by teacher-fetch.js) is sent, so "What classes does Dr. X have today?"
+    // works exactly like the student questions.
+    const teacherTopbar = document.querySelector('.teacher-topbar');
+    if (teacherTopbar && !document.querySelector('#ai-launch-teacher')) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.id = 'ai-launch-teacher';
+        btn.className = 'icon-btn ai-topbar-btn';
+        btn.setAttribute('aria-label', 'Ask SaiU AI');
+        btn.setAttribute('aria-haspopup', 'dialog');
+        btn.innerHTML = SPARK_ICON;
+        btn.addEventListener('click', openPanel);
+        const actions = teacherTopbar.querySelector('.teacher-topbar-actions');
+        const refresh = document.querySelector('#teacher-refresh');
+        if (actions && refresh && actions.contains(refresh)) {
+            actions.insertBefore(btn, refresh);
+        } else {
+            (actions || teacherTopbar).appendChild(btn);
+        }
     }
 }
 
@@ -145,7 +174,7 @@ function openPanel() {
     focusTrapCleanup = trapFocus(panel, closePanel);
     if (!welcomed) {
         welcomed = true;
-        addMessage('ai', "Hi! Ask me anything about your timetable — like “When is my next class?” or “When are SCDS 3 and SOAI 2 both free?”.");
+        addMessage('ai', "Hi! Ask me anything about your timetable — like “When is my next class?” or “When are SCDS 3 and SCDS 2 both free?”.");
     }
     inputEl.focus();
     trackEvent('ai_assistant_opened');
@@ -434,7 +463,13 @@ function sendQuestion(raw) {
 }
 
 function renderSuggestions() {
-    for (const q of SUGGESTED_QUESTIONS) {
+    const isTeacherPage = typeof document !== 'undefined'
+        && document.body
+        && document.body.classList.contains('teacher-page');
+    const questions = isTeacherPage
+        ? [...TEACHER_SUGGESTED_QUESTIONS, ...SUGGESTED_QUESTIONS]
+        : SUGGESTED_QUESTIONS;
+    for (const q of questions) {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'ai-chip';

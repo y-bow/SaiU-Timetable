@@ -1,4 +1,4 @@
-import { CONFIG } from '../core/config.js?v=2026-08-12-003';
+import { CONFIG } from '../core/config.js?v=2026-08-13-004';
 
 /**
  * n8n timetable-change notifications (optional, fully isolated).
@@ -317,17 +317,25 @@ export async function sendN8nEvent(event) {
  */
 export function dispatchTimetableChanges(changes, ctx) {
     if (!webhookUrl() || !changes || !changes.length) return;
+    // The dispatch runs inside load()'s try/catch — a single malformed change
+    // record must never throw here, or the timetable would misreport a
+    // successful fetch as "offline". Each record is isolated so one bad event
+    // can never block the rest.
     for (const change of changes) {
-        const event = buildN8nEvent(change, ctx);
-        if (!event) continue;
-        const changeId = buildChangeId(event);
-        if (hasSent(changeId)) continue;
-        // Mark BEFORE the network call: even if n8n is down, the same change is
-        // never re-sent on the next sync (guarantees a single request per
-        // distinct change).
-        markSent(changeId);
-        event.eventId = changeId;
-        sendN8nEvent(event); // fire-and-forget
+        try {
+            const event = buildN8nEvent(change, ctx);
+            if (!event) continue;
+            const changeId = buildChangeId(event);
+            if (hasSent(changeId)) continue;
+            // Mark BEFORE the network call: even if n8n is down, the same change is
+            // never re-sent on the next sync (guarantees a single request per
+            // distinct change).
+            markSent(changeId);
+            event.eventId = changeId;
+            sendN8nEvent(event); // fire-and-forget
+        } catch {
+            // A broken event must never break the timetable load.
+        }
     }
 }
 

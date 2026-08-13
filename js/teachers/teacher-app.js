@@ -11,8 +11,10 @@
  * never invented — the timeline simply shows the classes that exist.
  */
 
-import { loadTeacherIndex } from '../services/teacher-fetch.js?v=2026-08-11-002';
-import { toMinutes, minutesToLabel, minutesToClock, todayName, WEEKDAYS } from '../core/utils.js?v=2026-08-11-002';
+import { loadTeacherIndex } from '../services/teacher-fetch.js?v=2026-08-13-004';
+import { CONFIG } from '../core/config.js?v=2026-08-13-004';
+import { initAiAssistant } from '../ui/ai-assistant.js?v=2026-08-13-004';
+import { toMinutes, minutesToLabel, minutesToClock, todayName, WEEKDAYS } from '../core/utils.js?v=2026-08-13-004';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -35,6 +37,7 @@ const ICONS = {
 const state = {
     index: null,
     order: [],
+    classes: [],
     selectedKey: null,
     selectedDay: null,
 };
@@ -263,9 +266,17 @@ function renderDebug(res) {
     const statuses = res.statuses || {};
     const labLine = Object.entries(statuses.labs || {})
         .map(([k, v]) => `${k}=${v}`).join(', ');
+    const excluded = res.excluded || [];
     el.innerHTML = `
-        <div>indexed classes: <b>${s.classes}</b> · teachers: <b>${s.teachers}</b> · entries: <b>${s.entries}</b> · unassigned (no teacher): <b>${s.unassigned}</b></div>
-        <div>sources: main=${statuses.main || '-'}${labLine ? ` · labs: ${escapeHtml(labLine)}` : ''} · cache=${res.source || '-'}</div>`;
+        <div>normalized: <b>${s.total}</b> → meetings: <b>${s.meetings}</b> (duplicates dropped: <b>${s.duplicates}</b>) · indexed classes: <b>${s.classes}</b> · teachers: <b>${s.teachers}</b> · entries: <b>${s.entries}</b> · unassigned (no teacher): <b>${s.unassigned}</b></div>
+        <div>sources: main=${statuses.main || '-'}${labLine ? ` · labs: ${escapeHtml(labLine)}` : ''} · cache=${res.source || '-'}</div>
+        ${excluded.length ? `
+            <details>
+                <summary>${excluded.length} class(es) not indexed</summary>
+                <ul class="debug-excluded">${excluded.map((e) => `<li>${escapeHtml([
+                    e.day, e.startTime, e.subject, `Sec ${e.section ?? '-'}`, e.school ?? '', e.faculty || 'no teacher', e.reason,
+                ].filter(Boolean).join(' · '))}</li>`).join('')}</ul>
+            </details>` : ''}`;
     el.classList.remove('hidden');
 }
 
@@ -279,6 +290,7 @@ async function load({ silent = false } = {}) {
 
     state.index = res.index;
     state.order = res.order;
+    state.classes = res.all || [];
     renderDebug(res);
 
     const updated = $('#teacher-updated');
@@ -326,8 +338,19 @@ function init() {
     });
     $('#teacher-retry')?.addEventListener('click', () => load());
 
-    // Failsafe: never let the splash block the page if a script fails.
+    // Failsafe FIRST: never let the splash block the page if anything below
+    // (AI wiring, load) throws.
     setTimeout(hideSplash, 4000);
+
+    initAiAssistant({
+        getClasses: () => state.classes,
+        getContext: () => ({ school: null, year: null, section: null, labGroup: null }),
+    });
+
+    // Courses added to the sheets/config show up automatically: every load
+    // rebuilds the index from the live sheet, and a silent periodic refresh
+    // keeps an open page current (same cadence as the student app).
+    setInterval(() => load({ silent: true }), CONFIG.REFRESH_INTERVAL || 5 * 60 * 1000);
 
     load();
 }

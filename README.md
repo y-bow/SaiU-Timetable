@@ -51,19 +51,18 @@ throws, so a broken n8n can never break the app. Events are de-duplicated per
 change id via `N8N_EVENTS_KEY`, and `N8N_DEBUG` exposes a
 `window.testN8nWebhook(event)` console hook for local testing.
 
-### "Ask SaiU Timetable AI" assistant
+### "Ask SaiU AI" assistant
 
 A chat panel ("Ask AI") that turns natural-language questions into a POST to
-`N8N_AI_WEBHOOK_URL` (`http://localhost:5678/webhook/ask-ai` by default),
+`N8N_AI_WEBHOOK_URL` (the production n8n "SaiU AI" webhook by default),
 sending the app's **live parsed timetable** plus the current navigation
 context — the AI never sees hard-coded or invented data.
 
-The feature is **LOCALHOST ONLY for now**: the panel and its buttons only
-render when `isAiEnabled()` returns true, which is any page served from a
-localhost host while `N8N_AI_WEBHOOK_URL` is set, or everywhere once
-`AI_FEATURE_ENABLED` is flipped to `true` (the single switch for going live
-in production). Until then, `N8N_AI_WEBHOOK_URL` must stay a localhost/test
-webhook — never the production change-notification webhook.
+The panel and its buttons render when `isAiEnabled()` returns true, which is
+everywhere once `AI_FEATURE_ENABLED` is `true` (live in production), or any
+page served from a localhost host while `N8N_AI_WEBHOOK_URL` is set
+(development/testing). `N8N_AI_WEBHOOK_URL` must never point at the
+production change-notification webhook.
 
 **Request** (`POST`, JSON, bounded by `N8N_AI_TIMEOUT_MS`):
 

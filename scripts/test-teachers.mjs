@@ -19,9 +19,14 @@
  *       Dr.Tamilarasi" under one key;
  *     - a co-taught class ("Prof. Arjun, Prof. Sonar") is indexed under EACH
  *       teacher, each entry carrying the full teachers array;
- *     - the same physical class seen by two parses dedupes into ONE entry and
- *       merges school/year contexts; day/time/room are NOT part of identity,
- *       so a moved class still dedupes.
+ *     - ONE ENTRY PER MEETING: two weekly meetings of the same course/section/
+ *       teacher ("FDE Sec 2 – Mon 12:15" and "FDE Sec 2 – Mon 16:00") BOTH
+ *       survive — classIdentity alone (day/time/room-agnostic) must not be
+ *       used to dedupe;
+ *     - the SAME meeting surfaced by two parses dedupes into ONE entry and
+ *       merges school/year contexts; a moved meeting (new day/time/room) stays
+ *       a separate entry. `stats` reports total/meetings/duplicates/classes,
+ *       and `excluded` lists the collapsed duplicate with a machine reason.
  *
  *   gatherAllTimetables (real per-year configs)
  *     - one main-sheet text parsed once per year config (SCDS-2 room-scoped
@@ -132,7 +137,7 @@ try {
 
     console.log('--- buildTeacherIndex ---');
     await check('basic indexing keeps teacher/teachers/originalFaculty/contexts', () => {
-        const { index, order, stats } = teacherIndex.buildTeacherIndex([cls()]);
+        const { index, order, all, stats, excluded } = teacherIndex.buildTeacherIndex([cls()]);
         assert.equal(index.size, 1);
         assert.ok(index.has('prof. david'));
         assert.deepEqual(order, ['prof. david']);
@@ -143,19 +148,29 @@ try {
         assert.deepEqual(entry.contexts, []);
         assert.equal(entry.section, 1);
         assert.equal(entry.source, 'daa-lab');
+        assert.equal(stats.total, 1);
+        assert.equal(stats.meetings, 1);
+        assert.equal(stats.duplicates, 0);
         assert.equal(stats.classes, 1);
         assert.equal(stats.entries, 1);
         assert.equal(stats.teachers, 1);
         assert.equal(stats.unassigned, 0);
+        assert.equal(all.length, 1);
+        assert.deepEqual(excluded, []);
     });
     await check('classes with no teacher are never indexed', () => {
-        const { index, stats } = teacherIndex.buildTeacherIndex([
+        const { index, all, stats, excluded } = teacherIndex.buildTeacherIndex([
             cls({ faculty: '', section: 1 }),
             cls({ faculty: '   ', section: 2 }),
         ]);
         assert.equal(index.size, 0);
         assert.equal(stats.classes, 0);
         assert.equal(stats.unassigned, 2);
+        assert.equal(all.length, 2, 'teacherless meetings still surface in `all`');
+        assert.deepEqual(
+            excluded.map((e) => e.reason),
+            ['no teacher parsed', 'no teacher parsed'],
+        );
     });
     await check('NO fuzzy merging: distinct names stay distinct teachers', () => {
         const { index } = teacherIndex.buildTeacherIndex([
@@ -168,8 +183,8 @@ try {
     });
     await check('alias spellings merge under the canonical key', () => {
         const { index } = teacherIndex.buildTeacherIndex([
-            cls({ subject: 'DL', faculty: 'Dr. Tamil mam', section: 5, source: 'main' }),
-            cls({ subject: 'DL', faculty: 'Dr.Tamilarasi', section: 5, source: 'main' }),
+            cls({ subject: 'DL', faculty: 'Dr. Tamil mam', section: 5, source: 'main', day: 'Monday', startTime: '09:15', endTime: '10:10' }),
+            cls({ subject: 'DL', faculty: 'Dr.Tamilarasi', section: 5, source: 'main', day: 'Tuesday', startTime: '09:15', endTime: '10:10' }),
         ]);
         assert.equal(index.size, 1);
         assert.ok(index.has('prof. dr.tamilarasi'));
@@ -191,17 +206,41 @@ try {
         assert.equal(stats.classes, 1);
         assert.equal(stats.entries, 2);
     });
-    await check('same class from two parses dedupes; moved class still dedupes', () => {
+    await check('two weekly meetings of one course survive; identical meetings merge contexts', () => {
         const year2 = cls({ _ctxLabel: 'SCDS · Year 2' });
         const year3 = cls({ _ctxLabel: 'SCDS · Year 3' });
         const moved = cls({ day: 'Tuesday', startTime: '11:15', endTime: '12:10', room: 'AB2-101' });
-        const { index, stats } = teacherIndex.buildTeacherIndex([year2, year3, moved]);
+        const { index, order, all, stats, excluded } = teacherIndex.buildTeacherIndex([year2, year3, moved]);
         assert.equal(index.size, 1);
-        const entry = index.get('prof. david').classes[0];
-        assert.equal(index.get('prof. david').classes.length, 1);
-        assert.deepEqual(entry.contexts, ['SCDS · Year 2', 'SCDS · Year 3']);
-        assert.equal(stats.classes, 1);
-        assert.equal(stats.entries, 1);
+        assert.deepEqual(order, ['prof. david']);
+        const rec = index.get('prof. david');
+        assert.equal(rec.classes.length, 2, 'moved meeting is a SEPARATE weekly class, not collapsed');
+        assert.equal(rec.classes[0].day, 'Monday');
+        assert.deepEqual(rec.classes[0].contexts, ['SCDS · Year 2', 'SCDS · Year 3']);
+        assert.equal(rec.classes[1].day, 'Tuesday');
+        assert.deepEqual(rec.classes[1].contexts, []);
+        assert.equal(all.length, 2);
+        assert.equal(stats.total, 3);
+        assert.equal(stats.meetings, 2);
+        assert.equal(stats.duplicates, 1);
+        assert.equal(stats.classes, 2);
+        assert.equal(stats.entries, 2);
+        assert.equal(stats.teachers, 1);
+        assert.equal(excluded.length, 1);
+        assert.equal(excluded[0].reason, 'duplicate meeting');
+        assert.equal(excluded[0].day, 'Monday');
+    });
+    await check('same course+section+teacher in two weekly meetings → both indexed', () => {
+        const a = cls({ subject: 'FDE', faculty: 'Prof. Ram', section: 2, source: 'main', day: 'Monday', startTime: '12:15', endTime: '13:10', room: 'AB1-101' });
+        const b = cls({ subject: 'FDE', faculty: 'Prof. Ram', section: 2, source: 'main', day: 'Monday', startTime: '16:00', endTime: '16:55', room: 'AB1-101' });
+        const { index, stats } = teacherIndex.buildTeacherIndex([a, b]);
+        assert.equal(index.size, 1);
+        assert.equal(index.get('prof. ram').classes.length, 2, 'both weekly meetings survive (FDE Sec 2 regression)');
+        assert.equal(stats.total, 2);
+        assert.equal(stats.meetings, 2);
+        assert.equal(stats.duplicates, 0);
+        assert.equal(stats.classes, 2);
+        assert.equal(stats.entries, 2);
     });
 
     console.log('--- gatherAllTimetables (real per-year configs) ---');
@@ -228,6 +267,26 @@ try {
         assert.equal(dl.subject, 'Deep Learning');
         assert.equal(dl.section, 1);
         assert.deepEqual(dl.contexts, ['SCDS · Year 2', 'SCDS · Year 3']);
+    });
+    await check('a newly added elective (minor) automatically lands in the teacher index', () => {
+        const text = [
+            'MONDAY,09:15 AM - 10:10 AM,Deep Learning - Sem 5 - Dr. KK',
+            ',10:15 AM - 11:10 AM,Forensic Psychology         Meera',
+        ].join('\n');
+        const all = teacherFetch.gatherAllTimetables(text, []);
+        const fp = all.find((c) => c.subject === 'Forensic Psychology');
+        assert.ok(fp, 'Forensic Psychology parsed as a class (SCDS Year 3)');
+        assert.equal(fp.elective, 'forensic-psychology');
+        assert.equal(fp.courseId, 'forensic-psychology');
+        assert.equal(fp.school, 'scds');
+        assert.equal(fp.year, 3);
+        const { index, stats } = teacherIndex.buildTeacherIndex(all);
+        assert.equal(stats.classes, 2, 'DL + Forensic Psychology both indexed');
+        assert.ok(index.has('prof. meera'), 'the added course teacher appears automatically');
+        const entry = index.get('prof. meera').classes[0];
+        assert.equal(entry.subject, 'Forensic Psychology');
+        assert.equal(entry.elective, 'forensic-psychology');
+        assert.deepEqual(entry.contexts, ['SCDS · Year 3']);
     });
     await check('lab classes merge in with a lab context label', () => {
         const lab = cls({ school: 'SCDS', year: 2, lab: true });

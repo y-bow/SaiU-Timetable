@@ -98,6 +98,7 @@ export const SCHOOLS = [
                     { id: 'human-ai-interaction', label: 'Human AI Interaction' },
                     { id: 'introduction-to-financial-accounting', label: 'Introduction to Financial Accounting' },
                     { id: 'critical-thinking', label: 'Critical Thinking' },
+                    { id: 'forensic-psychology', label: 'Forensic Psychology' },
                 ],
             },
         ],

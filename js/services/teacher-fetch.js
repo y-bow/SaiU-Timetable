@@ -19,10 +19,10 @@
  * the whole page down.
  */
 
-import { buildYearMap } from '../data/schools.js?v=2026-08-11-002';
-import { parseCSV } from '../data/parser.js?v=2026-08-11-002';
-import { buildTeacherIndex } from '../data/teacher-index.js?v=2026-08-11-002';
-import { syncYear2Labs } from './lab-fetch.js?v=2026-08-11-002';
+import { buildYearMap } from '../data/schools.js?v=2026-08-13-004';
+import { parseCSV } from '../data/parser.js?v=2026-08-13-004';
+import { buildTeacherIndex } from '../data/teacher-index.js?v=2026-08-13-004';
+import { syncYear2Labs } from './lab-fetch.js?v=2026-08-13-004';
 
 export const TEACHER_CACHE_KEY = 'tt-teachers-v1';
 export const MAIN_SHEET_CACHE_KEY = 'tt-teachers-main-sheet-v1';
@@ -56,7 +56,10 @@ function contextLabel(school, program, year) {
  *
  * Each parsed class is tagged with a `_ctxLabel` ("SCDS · Year 2") so the
  * teacher index can say which school/year a class belongs to — the main sheet
- * records themselves carry no school/year, exactly as in the student app.
+ * records themselves carry no school/year, exactly as in the student app, so
+ * they are stamped here with the owning `school` id and `year` level too
+ * (mirroring the lab parser's records). Those stamps feed the AI payload and
+ * the ?debug excluded-class panel.
  */
 export function gatherAllTimetables(mainText, labClasses = [], yearMap = buildYearMap()) {
     const all = [];
@@ -74,7 +77,7 @@ export function gatherAllTimetables(mainText, labClasses = [], yearMap = buildYe
             // One year must never break the whole index.
         }
         const label = contextLabel(school, program, year);
-        for (const c of parsed) all.push({ ...c, _ctxLabel: label });
+        for (const c of parsed) all.push({ ...c, school: school.id, year: year.level, _ctxLabel: label });
     }
     for (const c of labClasses || []) {
         const label = c.school
@@ -131,6 +134,7 @@ function rebuildIndex(cached) {
  * @returns {Promise<{
  *   index: Map<string, {name: string, classes: Array<object>}>,
  *   order: Array<string>,
+ *   all: Array<object>,
  *   stats: object,
  *   statuses: {main: string, labs: Record<string,string>},
  *   savedAt: number|null,
@@ -146,7 +150,9 @@ export async function loadTeacherIndex({ useCache = true } = {}) {
                 return {
                     index: rebuildIndex(cached),
                     order: cached.order,
+                    all: cached.all || [],
                     stats: cached.stats || {},
+                    excluded: cached.excluded || [],
                     statuses: cached.statuses || {},
                     savedAt: cached.savedAt || null,
                     source: 'cached',
@@ -163,6 +169,8 @@ export async function loadTeacherIndex({ useCache = true } = {}) {
     const payload = {
         order: built.order,
         stats: built.stats,
+        all: built.all,
+        excluded: built.excluded,
         teachers: built.order.map((key) => ({
             key,
             name: built.index.get(key).name,
@@ -176,7 +184,9 @@ export async function loadTeacherIndex({ useCache = true } = {}) {
     return {
         index: built.index,
         order: built.order,
+        all: built.all,
         stats: built.stats,
+        excluded: built.excluded,
         statuses: payload.statuses,
         savedAt: payload.savedAt,
         source: 'live',

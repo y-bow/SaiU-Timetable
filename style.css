@@ -1025,7 +1025,7 @@ input { font-family: inherit; }
 .section-modal.show .section-modal-sheet { transform: translateY(0); }
 
 /* ============================================================
-   "Ask SaiU Timetable AI" chat panel (localhost only for now)
+   "Ask SaiU AI" chat panel.
    Bottom sheet on mobile, right drawer on desktop. The feature is
    inert when disabled — the module renders no DOM at all, so these
    rules only ever apply once the panel exists.
@@ -1232,6 +1232,7 @@ input { font-family: inherit; }
 
 /* Launch buttons: top bar (mobile) + sidebar footer (always) */
 .ai-topbar-btn { color: var(--text-secondary); }
+
 .ai-launch-btn {
     display: flex;
     align-items: center;
@@ -1453,21 +1454,15 @@ input { font-family: inherit; }
     display: flex; align-items: center; gap: 12px;
     height: var(--topbar-h);
     padding: 0 18px;
-    background: var(--bg);
-    border-bottom: 1px solid var(--border);
-}
-
-.teacher-brand {
-    display: grid; place-items: center;
-    width: 34px; height: 34px;
-    border-radius: var(--radius-sm);
-    background: var(--primary-soft);
-    color: var(--primary-text);
-    flex-shrink: 0;
+    background: var(--material-topbar);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border-bottom: 1px solid var(--border-bright);
 }
 
 .teacher-title {
     flex: 1; margin: 0;
+    display: flex; align-items: center; gap: 8px;
     font-size: 1.05rem; font-weight: 700;
     letter-spacing: -0.01em;
 }
