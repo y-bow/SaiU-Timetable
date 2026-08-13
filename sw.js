@@ -62,6 +62,7 @@ const ASSETS = [
   versioned('js/services/n8n.js'),
   versioned('js/ui/navigation.js'),
   versioned('js/ui/ui.js'),
+  versioned('js/ui/display.js'),
   versioned('js/ui/lab-section.js'),
   versioned('js/core/spring.js'),
   versioned('js/core/app.js'),
