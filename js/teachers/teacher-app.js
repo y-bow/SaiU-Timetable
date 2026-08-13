@@ -11,10 +11,10 @@
  * never invented — the timeline simply shows the classes that exist.
  */
 
-import { loadTeacherIndex } from '../services/teacher-fetch.js?v=2026-08-13-004';
-import { CONFIG } from '../core/config.js?v=2026-08-13-004';
-import { initAiAssistant } from '../ui/ai-assistant.js?v=2026-08-13-004';
-import { toMinutes, minutesToLabel, minutesToClock, todayName, WEEKDAYS } from '../core/utils.js?v=2026-08-13-004';
+import { loadTeacherIndex } from '../services/teacher-fetch.js?v=2026-08-13-005';
+import { CONFIG } from '../core/config.js?v=2026-08-13-005';
+import { initAiAssistant } from '../ui/ai-assistant.js?v=2026-08-13-005';
+import { toMinutes, minutesToLabel, minutesToClock, todayName, WEEKDAYS } from '../core/utils.js?v=2026-08-13-005';
 
 const $ = (sel) => document.querySelector(sel);
 

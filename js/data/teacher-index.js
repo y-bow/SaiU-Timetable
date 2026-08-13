@@ -37,8 +37,8 @@
  * in the browser and in the Node test harness.
  */
 
-import { normalizeFacultyName } from './parser.js?v=2026-08-13-004';
-import { classIdentity, flattenClasses } from './change-detector.js?v=2026-08-13-004';
+import { normalizeFacultyName } from './parser.js?v=2026-08-13-005';
+import { classIdentity, flattenClasses } from './change-detector.js?v=2026-08-13-005';
 
 const TEACHER_SPLIT_RE = /\s*(?:[,;/]|\band\b|&)\s*/gi;
 

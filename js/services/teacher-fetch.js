@@ -19,10 +19,10 @@
  * the whole page down.
  */
 
-import { buildYearMap } from '../data/schools.js?v=2026-08-13-004';
-import { parseCSV } from '../data/parser.js?v=2026-08-13-004';
-import { buildTeacherIndex } from '../data/teacher-index.js?v=2026-08-13-004';
-import { syncYear2Labs } from './lab-fetch.js?v=2026-08-13-004';
+import { buildYearMap } from '../data/schools.js?v=2026-08-13-005';
+import { parseCSV } from '../data/parser.js?v=2026-08-13-005';
+import { buildTeacherIndex } from '../data/teacher-index.js?v=2026-08-13-005';
+import { syncYear2Labs } from './lab-fetch.js?v=2026-08-13-005';
 
 export const TEACHER_CACHE_KEY = 'tt-teachers-v1';
 export const MAIN_SHEET_CACHE_KEY = 'tt-teachers-main-sheet-v1';

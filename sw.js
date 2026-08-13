@@ -32,7 +32,7 @@ const isDevHost = DEV_HOSTS.includes(self.location.hostname);
 
 // Replaced by scripts/build.mjs on every build — the file's bytes change every
 // deployment so the Service Worker update is always detected.
-const BUILD_ID = '2026-08-13-004';
+const BUILD_ID = '2026-08-13-005';
 
 const CACHE_NAME = 'saiu-timetable-v' + BUILD_ID;
 const SHEET_CACHE = 'timetable-sheet-v1';
