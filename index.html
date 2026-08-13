@@ -230,7 +230,7 @@
         // var TIMETABLE_UPDATE_IN_PROGRESS = true;
         var TEMP_NOTICE_EXPIRES = '2026-08-10T09:00:00+05:30'; // Failsafe auto-hide (India Standard Time, UTC+5:30)
         (function () {
-            if (!TIMETABLE_UPDATE_IN_PROGRESS) return;
+            if (typeof TIMETABLE_UPDATE_IN_PROGRESS === 'undefined') return;
             var el = document.getElementById('temp-notice');
             if (!el) return;
             var expiry = Date.parse(TEMP_NOTICE_EXPIRES);
