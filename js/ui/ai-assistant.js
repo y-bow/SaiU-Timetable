@@ -174,7 +174,7 @@ function openPanel() {
     focusTrapCleanup = trapFocus(panel, closePanel);
     if (!welcomed) {
         welcomed = true;
-        addMessage('ai', "Hi! Ask me anything about your timetable — like “When is my next class?” or “When are SCDS 3 and SCDS 2 both free?”.");
+        addMessage('ai', "Hi! Ask me anything about your timetable — like “When is my next class?” or “What rooms might be free?”.");
     }
     inputEl.focus();
     trackEvent('ai_assistant_opened');
