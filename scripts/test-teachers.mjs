@@ -28,12 +28,23 @@
  *       a separate entry. `stats` reports total/meetings/duplicates/classes,
  *       and `excluded` lists the collapsed duplicate with a machine reason.
  *
+ *   parseTeacherGrid (raw teacher-centric parse)
+ *     - THE TEACHER TIMETABLE IS BUILT FROM THE RAW SHEET BY TEACHER, NOT FROM
+ *       THE STUDENT COURSE LIST: every cell that names a teacher is a class,
+ *       whether or not its course exists in any student config;
+ *     - a course absent from every student list still lands in the teacher's
+ *       timetable (MOST IMPORTANT); course-number cells ("Economics - 1"),
+ *       glued numbers ("Psychology-1"), multi-space padding inside course
+ *       names ("... Organization  & Management  Subramaniam") and empty paren
+ *       placeholders never create phantom teachers; title-boundary handling
+ *       folds "Sanjay Bang" / "Mridula" instead of producing "Mr.idula".
+ *
  *   gatherAllTimetables (real per-year configs)
- *     - one main-sheet text parsed once per year config (SCDS-2 room-scoped
- *       scan, SCDS-3 mandatory/electives, SOAI-2, SOB-BBA-2) with context
- *       labels, plus merged lab classes;
- *     - the DL class surfaces from BOTH the SCDS-2 room scan and the SCDS-3
- *       parse and must collapse to one entry whose contexts name both years.
+ *     - ONE raw teacher-centric parse, stamped with school/year context by
+ *       each year config (a tag, never a filter — unmatched classes stay);
+ *     - the DL class picks up BOTH the SCDS-2 room-scan and the SCDS-3
+ *       contexts while SOAI/SOB stay silent, and lab classes merge with a lab
+ *       context label.
  *
  *   loadTeacherIndex (full chain, mocked fetch/localStorage)
  *     - live run: network-first fetch of the shared sheet + lab tabs → index;
@@ -77,6 +88,7 @@ try {
 
     const teacherIndex = await import(pathToFileURL(join(dir, 'js/data/teacher-index.js')).href);
     const teacherFetch = await import(pathToFileURL(join(dir, 'js/services/teacher-fetch.js')).href);
+    const parser = await import(pathToFileURL(join(dir, 'js/data/parser.js')).href);
 
     let passed = 0;
     let failed = 0;
@@ -243,6 +255,97 @@ try {
         assert.equal(stats.entries, 2);
     });
 
+    console.log('--- parseTeacherGrid (raw teacher-centric parse) ---');
+    const grid = (rows) => rows.map((r) => r.join(',')).join('\n');
+    const indexFrom = (text) => teacherIndex.buildTeacherIndex(parser.parseTeacherGrid(text));
+
+    await check('MOST IMPORTANT: a course absent from every student list still lands in the teacher index', () => {
+        const text = grid([
+            ['MONDAY', '09:15 AM - 10:10 AM', 'Contitutional Law 2    Dr. Sanjay Bang'],
+            ['', 'AB2 - 210', 'AB2 - 210'],
+        ]);
+        const { index } = indexFrom(text);
+        assert.ok(index.has('prof. dr.sanjay bang'), 'class indexed under the teacher even though no year config knows the course');
+        const entry = index.get('prof. dr.sanjay bang').classes[0];
+        assert.equal(entry.subject, 'Contitutional Law 2');
+        assert.equal(entry.room, 'AB2 - 210');
+        assert.deepEqual(entry.contexts, [], 'no year config matches → no context tag, but the class is NOT dropped');
+    });
+    await check('course-number cells ("Economics - 1") never create a teacher "1"', () => {
+        const text = grid([['MONDAY', '09:15 AM - 10:10 AM', 'Economics - 1']]);
+        const { all, index } = indexFrom(text);
+        assert.equal(all.length, 0, 'no teacher parsed → no record');
+        assert.ok(!index.has('prof. 1'));
+    });
+    await check('glued dash numbers ("Psychology-1") never create a teacher "1"', () => {
+        const text = grid([['MONDAY', '09:15 AM - 10:10 AM', 'Psychology-1']]);
+        const { all, index } = indexFrom(text);
+        assert.equal(all.length, 0);
+        assert.ok(!index.has('prof. 1'));
+    });
+    await check('multi-space padding inside a course name keeps the full subject, one teacher', () => {
+        const text = grid([['MONDAY', '09:15 AM - 10:10 AM', 'Fundamentals of Business Organization  & Management  Subramaniam']]);
+        const { index, order } = indexFrom(text);
+        assert.ok(index.has('prof. subramaniam'), 'only the real teacher is indexed');
+        assert.ok(!index.has('prof. management subramaniam'), 'no phantom "Management Subramaniam"');
+        assert.ok(!index.has('prof. prof.'), 'no "Prof. Prof." artifact');
+        assert.ok(!index.has('prof. & management subramaniam'), 'no split-on-& artifact');
+        assert.equal(order.length, 1);
+        const entry = index.get('prof. subramaniam').classes[0];
+        assert.equal(entry.subject, 'Fundamentals of Business Organization & Management');
+    });
+    await check('course suffix kept with the subject; spaced teacher isolated ("Psychopathology II")', () => {
+        const text = grid([['MONDAY', '09:15 AM - 10:10 AM', 'Psychopathology  II       Dr. Jemima']]);
+        const { index } = indexFrom(text);
+        assert.ok(index.has('prof. dr.jemima'));
+        assert.ok(!index.has('prof. ii dr. jemima'), 'course suffix "II" must not leak into the teacher');
+        const entry = index.get('prof. dr.jemima').classes[0];
+        assert.equal(entry.subject, 'Psychopathology II');
+    });
+    await check('title-boundary: "Mridula" folds to Dr.Mridula, never "Mr.idula"', () => {
+        const text = grid([['MONDAY', '09:15 AM - 10:10 AM', 'Community Psychology  Mridula']]);
+        const { index } = indexFrom(text);
+        assert.ok(index.has('prof. dr.mridula'));
+        assert.ok(!index.has('prof. mr.idula'), 'a plain name starting with the letters of a title must not be mangled');
+        assert.equal(index.get('prof. dr.mridula').classes[0].faculty, 'Prof. Dr.Mridula');
+    });
+    await check('parenthesized teacher ("Law of Contracts 2 ( Sanjay Bang )") parses', () => {
+        const text = grid([['MONDAY', '09:15 AM - 10:10 AM', 'Law of Contracts 2 ( Sanjay Bang )']]);
+        const { index } = indexFrom(text);
+        const entry = index.get('prof. dr.sanjay bang').classes[0];
+        assert.equal(entry.subject, 'Law of Contracts 2');
+        assert.equal(entry.faculty, 'Prof. Dr.Sanjay Bang');
+    });
+    await check('trailing dash before the teacher ("Law of Insurance -  Sanjay Bang") is trimmed from the subject', () => {
+        const text = grid([['MONDAY', '09:15 AM - 10:10 AM', 'Law of Insurance -     Sanjay Bang']]);
+        const { index } = indexFrom(text);
+        const entry = index.get('prof. dr.sanjay bang').classes[0];
+        assert.equal(entry.subject, 'Law of Insurance');
+    });
+    await check('combined cells parse and index under EACH teacher', () => {
+        const text = grid([
+            ['MONDAY', '09:15 AM - 10:10 AM', '"ET - Sec 1 - Arjun, Sonar"'],
+        ]);
+        const { index } = indexFrom(text);
+        assert.ok(index.has('prof. arjun'));
+        assert.ok(index.has('prof. sonar'));
+        assert.equal(index.get('prof. arjun').classes[0].subject, 'Emerging Tools and Applications');
+        assert.deepEqual(index.get('prof. arjun').classes[0].teachers, ['Prof. Arjun', 'Prof. Sonar']);
+    });
+    await check('empty paren placeholder ("Labour Law 2 (    )") yields no teacher', () => {
+        const text = grid([['MONDAY', '09:15 AM - 10:10 AM', 'Labour Law 2 (    )']]);
+        const { all, index } = indexFrom(text);
+        assert.equal(all.length, 0);
+        assert.equal(index.size, 0);
+    });
+    await check('no room row → room empty, class still indexed', () => {
+        const text = grid([['MONDAY', '09:15 AM - 10:10 AM', 'Microbiology  Dr. Grace']]);
+        const { index } = indexFrom(text);
+        const entry = index.get('prof. dr.grace').classes[0];
+        assert.equal(entry.subject, 'Microbiology');
+        assert.equal(entry.room, '');
+    });
+
     console.log('--- gatherAllTimetables (real per-year configs) ---');
     const MAIN_TEXT = [
         'MONDAY,09:15 AM - 10:10 AM,ET - Sec 5 - Salim',
@@ -250,9 +353,9 @@ try {
         ',10:15 AM - 11:10 AM,DL - Sec 1 - Dr. KK',
         ',AB2 - 207,AB2 - 207',
     ].join('\n');
-    await check('one sheet parsed per year config; DL collapsed across years', () => {
+    await check('one raw teacher-centric parse; SCDS-2 + SCDS-3 contexts stamped, SOAI/SOB silent', () => {
         const all = teacherFetch.gatherAllTimetables(MAIN_TEXT, []);
-        assert.equal(all.length, 3, 'SCDS-2 (2) + SCDS-3 (1); SOAI/SOB must stay silent');
+        assert.equal(all.length, 2, 'one record per teacher-named cell — ET and DL, no per-year re-parse');
         const { index, stats } = teacherIndex.buildTeacherIndex(all);
         assert.equal(stats.classes, 2);
         assert.equal(stats.entries, 2);
@@ -268,25 +371,24 @@ try {
         assert.equal(dl.section, 1);
         assert.deepEqual(dl.contexts, ['SCDS · Year 2', 'SCDS · Year 3']);
     });
-    await check('a newly added elective (minor) automatically lands in the teacher index', () => {
+    await check('a course absent from every student list still lands in the teacher index', () => {
         const text = [
             'MONDAY,09:15 AM - 10:10 AM,Deep Learning - Sem 5 - Dr. KK',
             ',10:15 AM - 11:10 AM,Forensic Psychology         Meera',
         ].join('\n');
         const all = teacherFetch.gatherAllTimetables(text, []);
         const fp = all.find((c) => c.subject === 'Forensic Psychology');
-        assert.ok(fp, 'Forensic Psychology parsed as a class (SCDS Year 3)');
-        assert.equal(fp.elective, 'forensic-psychology');
-        assert.equal(fp.courseId, 'forensic-psychology');
-        assert.equal(fp.school, 'scds');
+        assert.ok(fp, 'Forensic Psychology parsed as a class even though it is only a student elective config');
+        assert.equal(fp.courseId, 'forensic-psychology', 'courseId still resolved from the knowledge base');
+        assert.equal(fp.elective, undefined, 'raw teacher parse carries no student-only elective tag');
+        assert.equal(fp.school, 'scds', 'context stamping still identifies the owning school');
         assert.equal(fp.year, 3);
         const { index, stats } = teacherIndex.buildTeacherIndex(all);
         assert.equal(stats.classes, 2, 'DL + Forensic Psychology both indexed');
-        assert.ok(index.has('prof. meera'), 'the added course teacher appears automatically');
+        assert.ok(index.has('prof. meera'), 'the added course teacher appears automatically, no config change');
         const entry = index.get('prof. meera').classes[0];
         assert.equal(entry.subject, 'Forensic Psychology');
-        assert.equal(entry.elective, 'forensic-psychology');
-        assert.deepEqual(entry.contexts, ['SCDS · Year 3']);
+        assert.deepEqual(entry.contexts, ['SCDS · Year 3'], 'a configured elective still gets its year context');
     });
     await check('lab classes merge in with a lab context label', () => {
         const lab = cls({ school: 'SCDS', year: 2, lab: true });

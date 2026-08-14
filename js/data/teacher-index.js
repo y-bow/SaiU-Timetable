@@ -136,12 +136,21 @@ export function buildTeacherIndex(classes) {
         const id = meetingIdentity(c);
         const first = unique.get(id);
         if (first) {
+            for (const l of c._ctxLabels || []) {
+                if (!first._ctxLabels.has(l)) first._ctxLabels.add(l);
+            }
             if (c._ctxLabel && !first._ctxLabels.has(c._ctxLabel)) first._ctxLabels.add(c._ctxLabel);
             stats.duplicates++;
             excluded.push(diagnoseRecord(c, 'duplicate meeting'));
             continue;
         }
-        unique.set(id, { ...c, _ctxLabels: new Set(c._ctxLabel ? [c._ctxLabel] : []) });
+        unique.set(id, {
+            ...c,
+            _ctxLabels: new Set([
+                ...(c._ctxLabels || []),
+                ...(c._ctxLabel ? [c._ctxLabel] : []),
+            ]),
+        });
     }
     stats.meetings = unique.size;
 

@@ -4,15 +4,26 @@
  * The teacher page needs EVERY class the app can show, not just one year's
  * slice: all schools (SCDS / SOAI / SOB), all years, plus the Year 2 lab
  * tabs. Every year config points at the SAME shared spreadsheet (gid 0), so
- * the main sheet is fetched ONCE and parsed once per year config — reusing
- * each year's parser, mandatory/elective filters and room-scoped scan exactly
- * as the student app does. The lab tabs are fetched through the existing lab
- * pipeline and merged in. The result is deduplicated and indexed by teacher
- * (see js/data/teacher-index.js).
+ * the main sheet is fetched ONCE.
  *
- *     fetch main sheet (once) ─────────────┐
- *     per-year parse (SCDS-2/3, SOAI-2, ───┼→ gather → teacherIndex
- *     SOB-BBA-2) + lab tabs                 ┘
+ * THE TEACHER TIMETABLE IS BUILT FROM THE RAW SHEET BY TEACHER, NOT FROM THE
+ * STUDENT COURSE LIST.
+ *
+ *     main sheet (once) → parseTeacherGrid (every teacher-named cell) → index
+ *                            │
+ *     context stamping (school/year tags, never a filter)
+ *                            │
+ *     + lab tabs (existing lab pipeline, merged)
+ *                            ↓
+ *                        teacherIndex
+ *
+ * parseTeacherGrid (js/data/parser.js) keeps EVERY cell that names a teacher,
+ * whether or not its course is recognized by any student course config, so a
+ * class such as "Contitutional Law 2 … Dr. Sanjay Bang" still lands in the
+ * teacher's timetable even though that course exists nowhere in the student
+ * timetables. The year configs are used ONLY to stamp school/year context on a
+ * matching class (the same matching rules each year parser applies) — a class
+ * that matches no year config is NOT dropped, it simply carries no context.
  *
  * Mirrors js/services/lab-fetch.js: network-first with a localStorage cache
  * fallback so the page works offline and one broken source can never take
@@ -20,11 +31,11 @@
  */
 
 import { buildYearMap } from '../data/schools.js?v=2026-08-13-005';
-import { parseCSV } from '../data/parser.js?v=2026-08-13-005';
+import { parseTeacherGrid } from '../data/parser.js?v=2026-08-13-005';
 import { buildTeacherIndex } from '../data/teacher-index.js?v=2026-08-13-005';
 import { syncYear2Labs } from './lab-fetch.js?v=2026-08-13-005';
 
-export const TEACHER_CACHE_KEY = 'tt-teachers-v1';
+export const TEACHER_CACHE_KEY = 'tt-teachers-v2';
 export const MAIN_SHEET_CACHE_KEY = 'tt-teachers-main-sheet-v1';
 
 const SCHOOL_LABELS = { scds: 'SCDS', soai: 'SOAI', sob: 'SOB' };
@@ -49,35 +60,89 @@ function contextLabel(school, program, year) {
     return `${schoolPart} · ${yearPart}`;
 }
 
+// Compare rooms like the parsers do: uppercase, hyphens ≈ spaces.
+function normRoom(room) {
+    return String(room ?? '')
+        .toUpperCase()
+        .replace(/-/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+// Strict elective label match, mirroring the grid parser's matchElective.
+function matchesElectiveLabel(subject, label) {
+    const s = String(subject ?? '').trim().toLowerCase();
+    const n = String(label ?? '').trim().toLowerCase();
+    return !!s && (s === n || s.startsWith(n));
+}
+
+// Mandatory-course prefix match, mirroring the grid parser's matchesName.
+function matchesMandatory(subject, name) {
+    const s = String(subject ?? '').trim().toLowerCase();
+    const n = String(name ?? '').trim().toLowerCase();
+    return !!s && (s === n || s.startsWith(n) || n.startsWith(s));
+}
+
 /**
- * Parse the shared main sheet once per year config and merge the app-shaped
- * lab classes underneath. Pure (no network): the caller supplies the main
- * sheet text and lab classes.
+ * Whether a raw teacher class belongs to a year config, using the SAME rules
+ * that year's student parser applies — purely so the class can be tagged with
+ * a school/year context label. This is a tag, never a filter: a class that
+ * matches no year config still stays in the teacher timetable.
+ */
+function belongsToYear(c, year) {
+    const mandatory = (year.mandatoryCourses || []).map((m) => m.trim());
+    const electives = year.electives || [];
+
+    // Room-scoped year (SCDS-2): a sectioned class sitting in one of the
+    // configured classrooms, or a configured elective. Unsectioned non-elective
+    // cells in those rooms (e.g. "EFA - Sem1" from another program) are NOT
+    // this year — same exclusion as the room-scoped student parser.
+    if (year.rooms && year.rooms.length) {
+        const inRoom = year.rooms.some((r) => normRoom(c.room) === normRoom(r));
+        if (!inRoom) return false;
+        if (c._hasSection) return true;
+        return electives.some((e) => matchesElectiveLabel(c.subject, e.label));
+    }
+
+    if (mandatory.some((m) => matchesMandatory(c.subject, m))) return true;
+    return electives.some((e) => matchesElectiveLabel(c.subject, e.label));
+}
+
+/**
+ * Stamp school/year context onto every raw teacher class. `_ctxLabels` is a
+ * Set of "SCHOOL · Year N" labels (a class can belong to several year configs,
+ * e.g. Deep Learning appears in both the SCDS-2 rooms and SCDS-3 mandatory
+ * list). `_hasSection` is consumed here and removed.
+ */
+function stampYearContexts(classes, yearMap) {
+    for (const c of classes || []) {
+        if (!c) continue;
+        for (const { school, program, year } of yearMap.values()) {
+            if (!belongsToYear(c, year)) continue;
+            if (c.school === undefined) c.school = school.id;
+            if (c.year === undefined) c.year = year.level;
+            if (!c._ctxLabels) c._ctxLabels = new Set();
+            c._ctxLabels.add(contextLabel(school, program, year));
+        }
+        delete c._hasSection;
+    }
+    return classes;
+}
+
+/**
+ * Build the teacher timetable from the raw main sheet + lab classes. Pure (no
+ * network): the caller supplies the main sheet text and lab classes.
  *
- * Each parsed class is tagged with a `_ctxLabel` ("SCDS · Year 2") so the
- * teacher index can say which school/year a class belongs to — the main sheet
- * records themselves carry no school/year, exactly as in the student app, so
- * they are stamped here with the owning `school` id and `year` level too
- * (mirroring the lab parser's records). Those stamps feed the AI payload and
- * the ?debug excluded-class panel.
+ * The main sheet is parsed ONCE in teacher-centric mode (parseTeacherGrid) and
+ * the year configs stamp context only. Lab classes are merged unchanged, each
+ * tagged with its own context label.
  */
 export function gatherAllTimetables(mainText, labClasses = [], yearMap = buildYearMap()) {
     const all = [];
-    for (const { school, program, year } of yearMap.values()) {
-        let parsed = [];
-        try {
-            parsed = parseCSV(
-                mainText,
-                year.parser || 'grid',
-                year.mandatoryCourses || null,
-                year.electives || null,
-                year.rooms || null,
-            );
-        } catch {
-            // One year must never break the whole index.
-        }
-        const label = contextLabel(school, program, year);
-        for (const c of parsed) all.push({ ...c, school: school.id, year: year.level, _ctxLabel: label });
+    try {
+        all.push(...stampYearContexts(parseTeacherGrid(mainText), yearMap));
+    } catch {
+        // One year must never break the whole index.
     }
     for (const c of labClasses || []) {
         const label = c.school

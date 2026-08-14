@@ -84,7 +84,7 @@ await check('"Subject - Teacher" with single spaces', () => {
 await check('"Subject - Teacher" with double spaces around the dash', () => {
     const { subject, faculty } = splitSubjectFaculty('Law of Insurance -                      Sanjay Bang');
     assert.equal(subject, 'Law of Insurance');
-    assert.equal(faculty, 'Prof. Sanjay Bang');
+    assert.equal(faculty, 'Prof. Dr.Sanjay Bang');
 });
 await check('plain "Subject - Teacher" (no extra spacing) still splits', () => {
     const { subject, faculty } = splitSubjectFaculty('Moot Court and Internship - Nasma Sultana');

@@ -110,8 +110,43 @@ function select(key) {
     $('#teacher-name').textContent = rec.name;
     $('#teacher-summary').textContent =
         `${rec.classes.length} weekly class${rec.classes.length === 1 ? '' : 'es'} on ${days.length} day${days.length === 1 ? '' : 's'}`;
+    renderTeacherDebug(rec);
     renderDayFilter(days);
     renderTimeline(day);
+}
+
+// ============================================================
+// Development diagnostics (?debug) — per-teacher source trace.
+//
+// For the selected teacher, show every indexed class with its source cell
+// location, course, extracted day/time, room and school/section context, so a
+// developer can verify "teacher found → source location → class → day/time →
+// room → school/section" end to end. Rendered only in DEBUG mode.
+// ============================================================
+
+function renderTeacherDebug(rec) {
+    const el = $('#teacher-debug');
+    if (!el || !DEBUG || !rec) return;
+    el.querySelector('.teacher-debug-detail')?.remove();
+    const rows = rec.classes
+        .slice()
+        .sort((a, b) => {
+            const d = WEEKDAYS.indexOf(a.day) - WEEKDAYS.indexOf(b.day);
+            return d || toMinutes(a.startTime) - toMinutes(b.startTime);
+        })
+        .map((c) => `
+            <li>
+                <b>${escapeHtml(c.subject)}</b> · ${escapeHtml(c.day)} ${minutesToClock(toMinutes(c.startTime))}–${minutesToClock(toMinutes(c.endTime))}
+                · room ${escapeHtml(c.room || 'TBA')}
+                · sec ${c.section ?? '-'}${c.lab ? ' · Lab' : ''}
+                ${(c.contexts || []).length ? ` · <i>${c.contexts.map((x) => escapeHtml(x)).join(', ')}</i>` : ''}
+                · <span class="debug-src">src ${c._line ?? '?'}:${c._col ?? '?'}</span>
+            </li>`).join('');
+    el.insertAdjacentHTML('beforeend', `
+        <details open class="teacher-debug-detail">
+            <summary>${rec.classes.length} class(es) indexed under this teacher</summary>
+            <ul class="debug-excluded">${rows}</ul>
+        </details>`);
 }
 
 function renderDayFilter(days) {

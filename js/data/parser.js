@@ -52,6 +52,13 @@ const FACULTY_ALIASES = [
     // every variant to the canonical full name so the timetable displays one
     // consistent teacher across all sections/days.
     { match: /^(?:dr\.?\s*)?(?:tamilarasiarasi|tamilarasi|tamil(?:\s*arasi)?)\s*(?:mam|ma'?am|madam)?\s*$/i, name: 'Dr.Tamilarasi' },
+    // Same teacher written with and without a title in different cells
+    // ("Law of Contracts 2 ( Sanjay Bang )" vs "Contitutional Law 2 ... Dr.
+    // Sanjay Bang"; "Community Psychology  Mridula" vs "Forensic Psychology ...
+    // Dr Mridula"). Fold both spellings onto the titled form so the teacher
+    // timetable shows ONE consistent teacher instead of two near-duplicates.
+    { match: /^sanjay\s+bang$/i, name: 'Dr.Sanjay Bang' },
+    { match: /^mridula$/i, name: 'Dr.Mridula' },
 ];
 
 export function normalizeFacultyName(faculty) {
@@ -67,7 +74,10 @@ export function normalizeFacultyName(faculty) {
     // Normalize a leading title to its dotted "Title." form with correct case
     // and attach it directly to the name — no space after the title, e.g.
     // "Dr. Sanjay Bang" → "Dr.Sanjay Bang", "Dr Mridula" → "Dr.Mridula".
-    name = name.replace(/^(Dr|Prof|Ms|Mr|Mrs|Miss)(\.?)\s*/i, (m, title) => {
+    // The title MUST be followed by a dot or whitespace ("Dr." / "Dr "): a
+    // plain name that merely STARTS with the letters of a title ("Mridula",
+    // "Profane") is left untouched instead of being mangled into "Mr.idula".
+    name = name.replace(/^(Dr|Prof|Ms|Mr|Mrs|Miss)(?:\.\s*|\s+)/i, (m, title) => {
         return title.charAt(0).toUpperCase() + title.slice(1).toLowerCase() + '.';
     });
     // Every teacher is shown with the "Prof." title followed by a space:
@@ -650,6 +660,156 @@ function parseListCSV(text, electives = null) {
             courseId: elective || resolveCourseId(subject),
             ...(elective ? { elective } : {}),
         });
+    }
+    return data;
+}
+
+// ============================================================
+// Teacher-centric raw grid parser.
+//
+// This is the SOURCE of the teacher timetable. It parses the ENTIRE shared
+// grid sheet and emits a class record for EVERY cell that contains a teacher
+// name — regardless of whether the course is recognized by any student course
+// config. A class belongs to a teacher's timetable because the teacher's name
+// appears in the source cell for that class, never because the course is known
+// elsewhere. This is deliberately the inverse of the student parsers, which
+// start from the course list and filter the sheet down.
+//
+//     raw timetable rows/cells → identify teacher → extract the class record
+//
+// - Day/time come from the row header; the room comes from the room-declaration
+//   row directly below the class row (same convention as the grid parser).
+// - The class's own text decides subject, section and teacher.
+// - Cells with no teacher are skipped (there is nothing to index), cells whose
+//   trailing token is a course number ("Economics - 1", "Psychology-1") are
+//   NOT treated as teachers, and cells with multiple teachers stay a single
+//   record whose faculty the teacher index later splits per teacher.
+// - Each record carries `_hasSection` (whether the cell declared an explicit
+//   "Sec N") and `_line`/`_col` (source location) for context stamping and the
+//   teacher page's ?debug diagnostics.
+// ============================================================
+
+/**
+ * Split a raw class cell into { subject, faculty, section, hasSection }.
+ *
+ * Handles the source formats observed across the shared sheet:
+ *   - "Subject - Sec 4 - Teacher"    dash + section marker
+ *   - "Subject - Sem 5 - Teacher"    dash + semester marker
+ *   - "Subject                  Teacher"   multi-space separation
+ *   - "Subject - 1    Teacher"      course-number suffix, multi-space
+ *   - "Subject ( Teacher )"          parenthesized teacher
+ *   - "Subject - Teacher"            single dash, single name
+ *   - "Subject (    )"               empty faculty placeholder → no teacher
+ *
+ * Course-number suffixes ("Economics - 1", "Psychology-1") are never teachers:
+ * a purely numeric trailing token is not a name and yields no faculty.
+ */
+function splitTeacherCell(cell) {
+    const raw = String(cell ?? '');
+    const section = extractSection(raw);
+    const hasSection = section != null;
+
+    // Remove "(Sec N)", " - Sec N - ", " - Sem N - " markers and empty parens.
+    let text = stripClassMarkers(raw);
+
+    let subject = text;
+    let faculty = '';
+
+    // 1. Parenthesized teacher: "Subject (Teacher)" / "Subject ( Teacher )".
+    const paren = text.match(/\(\s*([A-Za-z][A-Za-z .,'-]*?)\s*\)\s*$/);
+    if (paren) {
+        subject = text.slice(0, paren.index).replace(/\s+/g, ' ').trim();
+        faculty = paren[1].trim();
+    } else {
+        // 2. Multi-space separation: split at the LAST run of 2+ spaces so a
+        //    course name that itself contains double-space padding
+        //    ("Fundamentals of Business Organization  & Management
+        //    Subramaniam") keeps its full subject ("... Organization &
+        //    Management") and isolates the teacher, and a course-number suffix
+        //    stays glued to the subject ("Psychopathology  II     Dr. Jemima"
+        //    → subject "Psychopathology II", teacher "Dr. Jemima").
+        let last = null;
+        const re = /\s{2,}/g;
+        let m;
+        while ((m = re.exec(text)) !== null) last = m;
+        if (last) {
+            subject = text.slice(0, last.index).replace(/\s+/g, ' ').trim();
+            faculty = text.slice(last.index + last[0].length).trim();
+        } else {
+            // 3. Dash separation: "Subject - Teacher" (single spaces). A
+            //    trailing course number ("Economics - 1") is not a teacher.
+            const dash = text.match(/\s-\s(.+)$/);
+            if (dash && !/^\d+$/.test(dash[1].trim())) {
+                subject = text.slice(0, dash.index).replace(/\s+/g, ' ').trim();
+                faculty = dash[1].trim();
+            } else {
+                subject = text.replace(/\s+/g, ' ').trim();
+            }
+        }
+    }
+
+    // A dash glued to the front of a multi-space faculty ("- Dr. Angel"), and
+    // a dash left glued to the subject ("Law of Insurance -  Sanjay Bang").
+    faculty = faculty.replace(/^-\s*/, '').trim();
+    subject = subject.replace(/\s*-\s*$/, '').trim();
+
+    return { subject, faculty: normalizeFacultyName(faculty), section, hasSection };
+}
+
+/**
+ * Parse the whole shared grid sheet into teacher-centric class records.
+ *
+ * @param {string} text raw CSV of the main timetable sheet
+ * @returns {Array<object>} every cell that names a teacher, as a class record
+ *   { day, subject, faculty, room, section, startTime, endTime, courseId,
+ *     _hasSection, _line, _col }. `section` defaults to 1 (as the student
+ *   parsers do for unsectioned cells) while `_hasSection` records whether an
+ *   explicit "Sec N" was present.
+ */
+export function parseTeacherGrid(text) {
+    const lines = text.split(/\r?\n/);
+    const data = [];
+    let currentDay = null;
+
+    for (let i = 0; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
+        const row = splitCSVLine(lines[i]);
+        if (row.length < 3) continue;
+
+        const col0 = row[0].toUpperCase();
+        if (DAYS.includes(col0)) {
+            currentDay = col0.charAt(0) + col0.slice(1).toLowerCase();
+        }
+        if (!currentDay) continue;
+
+        const timeText = row[1];
+        if (!timeText || /LUNCH|OPEN BLOCK/i.test(timeText)) continue;
+        const times = parseTimeRange(timeText);
+        if (!times) continue;
+
+        for (let j = 2; j < row.length; j++) {
+            const cell = row[j];
+            if (!cell) continue;
+
+            const { subject, faculty, section, hasSection } = splitTeacherCell(cell);
+            if (!subject || subject.length < 2) continue;
+            if (!faculty) continue; // no teacher → nothing to index
+
+            const name = expandSubjectAlias(subject);
+            data.push({
+                day: currentDay,
+                subject: name,
+                faculty,
+                room: findRoom(lines, i, j),
+                section: section ?? 1,
+                startTime: times.start,
+                endTime: times.end,
+                courseId: resolveCourseId(name),
+                _hasSection: !!hasSection,
+                _line: i + 1,
+                _col: j + 1,
+            });
+        }
     }
     return data;
 }
