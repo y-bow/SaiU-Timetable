@@ -14,11 +14,11 @@
  *
  *   checkArjunSinghTransition (js/ui/easter-eggs.js)
  *     - fires exactly once per class occurrence, and only on an observed
- *       not-in-progress → in-progress transition;
+ *       starts-in-1-minute → in-progress transition;
  *     - never fires on page-load/refresh while the class is already running;
  *     - never fires for a different day;
- *     - per-occurrence keys (course + faculty + local date + start time) mean
- *       a fresh page session can still fire the frog for a new occurrence
+ *     - per-occurrence ids (date + start time + subject + school + section)
+ *       mean a fresh page session can still fire the frog for a new occurrence
  *       while the already-consumed one stays silent.
  *
  * Run:  node scripts/test-clock.mjs
@@ -132,6 +132,11 @@ try {
     const eggSession1 = await import(pathToFileURL(join(dir, 'js/ui/easter-eggs.js')).href);
     const eggSession2 = await import(pathToFileURL(join(dir, 'js/ui/easter-eggs-session2.js')).href);
 
+    // The frog and its [FROG] logging are dev-only: off by default in the Node
+    // shim (no localhost host), so the tests enable them explicitly.
+    eggSession1.setFrogDebug(true);
+    eggSession2.setFrogDebug(true);
+
     // A timetable for Monday with two Arjun Singh classes (14:00 and 16:00).
     const MONDAY = 'Monday';
     const arjunTwo = {
@@ -187,75 +192,85 @@ try {
     });
 
     console.log('--- Arjun frog: observed transition (session 1) ---');
-    await check('frog does not fire while the class is still upcoming', () => {
-        const r = eggSession1.checkArjunSinghTransition({ classes: allClasses, nowMin: 839, day: MONDAY, current: null, next: arjunTwo, prevCurrent: null });
+    await check('frog tracks upcoming ticks without firing', () => {
+        const r = eggSession1.checkArjunSinghTransition({ classes: allClasses, nowMin: 838, day: MONDAY });
         assert.equal(r, null);
     });
-    await check('frog fires on the exact not-in-progress → in-progress transition', () => {
-        const r = eggSession1.checkArjunSinghTransition({ classes: allClasses, nowMin: 840, day: MONDAY, current: arjunTwo, next: null, prevCurrent: null });
+    await check('frog tracks starts-in-1-minute but does not fire', () => {
+        const r = eggSession1.checkArjunSinghTransition({ classes: allClasses, nowMin: 839, day: MONDAY });
+        assert.equal(r, null);
+    });
+    await check('frog fires on the exact starts-in-1-minute → in-progress transition', () => {
+        const r = eggSession1.checkArjunSinghTransition({ classes: allClasses, nowMin: 840, day: MONDAY });
         assert.equal(r, arjunTwo);
     });
-    await check('frog does not repeat a second later (once-only + wasCurrent)', () => {
-        const r = eggSession1.checkArjunSinghTransition({ classes: allClasses, nowMin: 841, day: MONDAY, current: arjunTwo, next: null, prevCurrent: arjunTwo });
-        assert.equal(r, null);
-    });
-    await check('frog still does not repeat even if prevCurrent is lost', () => {
-        const r = eggSession1.checkArjunSinghTransition({ classes: allClasses, nowMin: 841, day: MONDAY, current: arjunTwo, next: null, prevCurrent: null });
+    await check('frog does not repeat a minute later (once-only)', () => {
+        const r = eggSession1.checkArjunSinghTransition({ classes: allClasses, nowMin: 841, day: MONDAY });
         assert.equal(r, null);
     });
     await check('a different day never fires the frog', () => {
-        const r = eggSession1.checkArjunSinghTransition({ classes: allClasses, nowMin: 840, day: 'Tuesday', current: null, next: null, prevCurrent: null });
+        const r = eggSession1.checkArjunSinghTransition({ classes: allClasses, nowMin: 840, day: 'Tuesday' });
         assert.equal(r, null);
     });
-    await check('load mid-class (prevCurrent already the running class) → no frog', () => {
-        // The 16:00 occurrence has never fired; prevCurrent being the class
-        // itself means there was no observed transition — must not fire.
-        const r = eggSession1.checkArjunSinghTransition({ classes: allClasses, nowMin: 960, day: MONDAY, current: arjunFour, next: null, prevCurrent: arjunFour });
+    await check('load mid-class (first observation already in progress) → no frog', () => {
+        // The 16:00 occurrence was never observed as starts-in-1-minute, so
+        // there is no transition to fire on.
+        const r = eggSession1.checkArjunSinghTransition({ classes: allClasses, nowMin: 960, day: MONDAY });
         assert.equal(r, null);
     });
     await check('no Arjun classes → no frog', () => {
-        const r = eggSession1.checkArjunSinghTransition({ classes: others, nowMin: 120, day: MONDAY, current: null, next: null, prevCurrent: null });
+        const r = eggSession1.checkArjunSinghTransition({ classes: others, nowMin: 120, day: MONDAY });
         assert.equal(r, null);
     });
 
     console.log('--- Arjun frog: faculty-name variants (real parsed data) ---');
     await check('"Prof. Arjun" (Emerging Tools cell "Arjun" parses to this) fires on transition', () => {
         const cls = { day: MONDAY, subject: 'Emerging Tools and Applications', faculty: 'Prof. Arjun', startTime: '15:00', endTime: '15:55', room: 'AB1-101' };
-        const r = eggSession1.checkArjunSinghTransition({ classes: [cls], nowMin: 900, day: MONDAY, current: cls, next: null, prevCurrent: null });
+        eggSession1.checkArjunSinghTransition({ classes: [cls], nowMin: 899, day: MONDAY });
+        const r = eggSession1.checkArjunSinghTransition({ classes: [cls], nowMin: 900, day: MONDAY });
         assert.equal(r, cls);
     });
     await check('raw "Arjun" (un-normalized sheet form) fires too', () => {
         const cls = { day: MONDAY, subject: 'Emerging Tools and Applications', faculty: 'Arjun', startTime: '15:05', endTime: '16:00', room: 'AB1-101' };
-        const r = eggSession1.checkArjunSinghTransition({ classes: [cls], nowMin: 905, day: MONDAY, current: cls, next: null, prevCurrent: null });
+        eggSession1.checkArjunSinghTransition({ classes: [cls], nowMin: 904, day: MONDAY });
+        const r = eggSession1.checkArjunSinghTransition({ classes: [cls], nowMin: 905, day: MONDAY });
         assert.equal(r, cls);
     });
     await check('"Prof. Arjun Singh" (full parser-normalized name) fires on transition', () => {
         const cls = { day: MONDAY, subject: 'Algorithms', faculty: 'Prof. Arjun Singh', startTime: '18:00', endTime: '18:55', room: 'AB1-101' };
-        const r = eggSession1.checkArjunSinghTransition({ classes: [cls], nowMin: 1080, day: MONDAY, current: cls, next: null, prevCurrent: null });
+        eggSession1.checkArjunSinghTransition({ classes: [cls], nowMin: 1079, day: MONDAY });
+        const r = eggSession1.checkArjunSinghTransition({ classes: [cls], nowMin: 1080, day: MONDAY });
         assert.equal(r, cls);
     });
     await check('similar but different name ("Prof. Arjun Kumar") never fires', () => {
         const cls = { day: MONDAY, subject: 'Algorithms', faculty: 'Prof. Arjun Kumar', startTime: '17:00', endTime: '17:55', room: 'AB1-101' };
-        const r = eggSession1.checkArjunSinghTransition({ classes: [cls], nowMin: 1020, day: MONDAY, current: cls, next: null, prevCurrent: null });
+        eggSession1.checkArjunSinghTransition({ classes: [cls], nowMin: 1019, day: MONDAY });
+        const r = eggSession1.checkArjunSinghTransition({ classes: [cls], nowMin: 1020, day: MONDAY });
         assert.equal(r, null);
     });
     await check('surname-only ("Prof. Singh") never fires', () => {
         const cls = { day: MONDAY, subject: 'FDE', faculty: 'Prof. Singh', startTime: '17:00', endTime: '17:55', room: 'AB2-102' };
-        const r = eggSession1.checkArjunSinghTransition({ classes: [cls], nowMin: 1020, day: MONDAY, current: cls, next: null, prevCurrent: null });
+        eggSession1.checkArjunSinghTransition({ classes: [cls], nowMin: 1019, day: MONDAY });
+        const r = eggSession1.checkArjunSinghTransition({ classes: [cls], nowMin: 1020, day: MONDAY });
         assert.equal(r, null);
     });
 
     console.log('--- Arjun frog: fresh page session (shared localStorage) ---');
     await check('already-consumed occurrence stays silent in a new session', () => {
-        const r = eggSession2.checkArjunSinghTransition({ classes: allClasses, nowMin: 840, day: MONDAY, current: arjunTwo, next: null, prevCurrent: null });
+        // Session 1 consumed Monday 14:00 Algorithms. A fresh session that
+        // would otherwise observe the same 13:59 → 14:00 transition must stay
+        // silent because the occurrence id is persisted.
+        eggSession2.checkArjunSinghTransition({ classes: allClasses, nowMin: 839, day: MONDAY });
+        const r = eggSession2.checkArjunSinghTransition({ classes: allClasses, nowMin: 840, day: MONDAY });
         assert.equal(r, null);
     });
     await check('a brand-new occurrence fires once in the new session', () => {
-        const r = eggSession2.checkArjunSinghTransition({ classes: allClasses, nowMin: 960, day: MONDAY, current: arjunFour, next: null, prevCurrent: null });
+        eggSession2.checkArjunSinghTransition({ classes: allClasses, nowMin: 959, day: MONDAY });
+        const r = eggSession2.checkArjunSinghTransition({ classes: allClasses, nowMin: 960, day: MONDAY });
         assert.equal(r, arjunFour);
     });
     await check('…and then stays silent too', () => {
-        const r = eggSession2.checkArjunSinghTransition({ classes: allClasses, nowMin: 962, day: MONDAY, current: arjunFour, next: null, prevCurrent: arjunFour });
+        const r = eggSession2.checkArjunSinghTransition({ classes: allClasses, nowMin: 962, day: MONDAY });
         assert.equal(r, null);
     });
 

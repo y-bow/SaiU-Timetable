@@ -4,7 +4,7 @@ import { compareTimetables, classIdentity, setChangeDetectorDebug } from '../dat
 import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen } from '../services/storage.js?v=2026-08-13-005';
 import * as nav from '../ui/navigation.js?v=2026-08-13-005';
 import * as ui from '../ui/ui.js?v=2026-08-13-005';
-import { checkArjunSinghTransition } from '../ui/easter-eggs.js?v=2026-08-13-005';
+import { checkArjunSinghTransition, resetArjunSinghTransition } from '../ui/easter-eggs.js?v=2026-08-13-005';
 import * as labSection from '../ui/lab-section.js?v=2026-08-13-005';
 import { loadMergedYear2Timetable } from '../services/lab-fetch.js?v=2026-08-13-005';
 import { matchesEmergingToolsSection } from '../data/lab-parser.js?v=2026-08-13-005';
@@ -33,15 +33,11 @@ let lastFeatureKey = null;
 
 // Live-clock state (see liveClockTick below).
 //
-//   prevCurrent   the class that was in progress on the previous tick, used
-//                 by the Arjun frog to detect a genuine upcoming → in-progress
-//                 transition rather than a load/refresh/navigation artifact.
-//   hasRendered   true once render() has run at least once, so the frog is
-//                 only ever considered after the baseline is seeded.
+//   hasRendered   true once render() has run at least once, so the live clock
+//                 only starts after the timetable is on screen.
 //   loadedFor     the year id whose data currently fills `classes`. The clock
 //                 loop is paused while a different year is loading, so it can
 //                 never re-render a stale timetable over a fresh one.
-let prevCurrent = null;
 let hasRendered = false;
 let loadedFor = null;
 
@@ -388,13 +384,13 @@ function render() {
 
     lastFeatureKey = featureKey(ctx);
 
-    // Seed/re-baseline the live clock's "previous current class". Every
-    // structural re-render — first load, day/section/elective/offering change,
-    // data refresh — seals the current state as "already seen", so the Arjun
-    // frog only fires on an *observed* upcoming → in-progress transition while
-    // the user watches the page, never because the app loaded, refreshed, or
-    // re-rendered with his class already running.
-    prevCurrent = ctx.current;
+    // Re-baseline the Arjun frog on every structural re-render — first load,
+    // data refresh, day/section/elective/offering change. Clearing the frog's
+    // per-occurrence state means it only fires on an *observed*
+    // starts-in-1-minute → in-progress transition while the user watches the
+    // page, never because the app loaded, refreshed, or re-rendered with his
+    // class already running or about to start.
+    resetArjunSinghTransition();
     hasRendered = true;
 
     ui.setLastUpdated(lastUpdated || new Date());
@@ -443,18 +439,15 @@ function liveClockTick(now, { suppressFrog = false } = {}) {
     const ctx = ui.computeHighlight(sc, nowMin, day);
     const key = featureKey(ctx);
 
-    // The Arjun frog fires only on an observed upcoming → in-progress
-    // transition. prevCurrent is seeded by render(), so (re)loading the app,
-    // refreshing, or switching day/section during his class can never trigger it.
-    if (!suppressFrog) {
-        checkArjunSinghTransition({
-            classes: sc,
-            nowMin,
-            day,
-            current: ctx.current,
-            next: ctx.next,
-            prevCurrent,
-        });
+    // The Arjun frog fires only on an observed starts-in-1-minute →
+    // in-progress transition. render() clears the frog's tracked state on
+    // every structural change, and a visibility catch-up (suppressFrog) does
+    // the same, so (re)loading the app, refreshing, or switching day/section
+    // during his class can never trigger it.
+    if (suppressFrog) {
+        resetArjunSinghTransition();
+    } else {
+        checkArjunSinghTransition({ classes: sc, nowMin, day });
     }
 
     if (key !== lastFeatureKey) {
@@ -462,7 +455,7 @@ function liveClockTick(now, { suppressFrog = false } = {}) {
         // timeline so statuses, countdown and highlight stay consistent.
         lastFeatureKey = key;
         render();
-        return; // render() re-seeds prevCurrent for the new highlighted class
+        return; // render() re-baselines the frog state for the new highlight
     }
 
     // No structural change — update only the live, time-dependent bits.
@@ -470,8 +463,6 @@ function liveClockTick(now, { suppressFrog = false } = {}) {
     // The game hint follows live state too: it appears the moment a class
     // ends, hides when the next class draws close, never needs a refresh.
     ui.renderGameSuggestion(ctx, nowMin, day);
-
-    prevCurrent = ctx.current;
 }
 
 function onVisibilityChanged() {
