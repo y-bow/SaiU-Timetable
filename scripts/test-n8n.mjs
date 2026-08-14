@@ -6,8 +6,8 @@
  *   buildN8nEvent (event builder)
  *     - maps every smart change-detector record type (room-changed / moved /
  *       added / removed / modified) to the right structured event;
- *     - a moved class that stays on the same weekday with only its time
- *       changed is a time_changed event, a moved day or room is class_moved;
+ *     - any day/time move is a time_changed event (never class_moved); a room
+ *       change is its own room_changed event;
  *     - section / year / school / labGroup come from the app context when the
  *       record does not carry them;
  *     - the payload contains timetable data only — no PII keys (name, email,
@@ -57,6 +57,7 @@ const stripQuery = (src) => src.replace(/\?v=[0-9-]+/g, '');
 
 const MODULES = [
     'js/core/config.js',
+    'js/data/change-detector.js',
     'js/services/n8n.js',
 ];
 
@@ -132,6 +133,7 @@ try {
     const { buildN8nEvent, buildChangeId, sendN8nEvent, dispatchTimetableChanges, setN8nDebug, sendTestEvent } =
         await import(pathToFileURL(join(dir, 'js/services/n8n.js')).href);
     const { CONFIG } = await import(pathToFileURL(join(dir, 'js/core/config.js')).href);
+    const { compareTimetables } = await import(pathToFileURL(join(dir, 'js/data/change-detector.js')).href);
 
     setN8nDebug(false);
     reset();
@@ -174,20 +176,27 @@ try {
         assert.equal(ev.newStartTime, '10:15');
         assert.equal(ev.oldDay, undefined);
     });
-    await check('moved (day change) → class_moved with old/new times', () => {
+    await check('moved (day change) → time_changed with old/new day and times (never class_moved)', () => {
         const change = rec({
             type: 'moved',
             class: { day: 'Wednesday', subject: 'DAA', courseId: 'DAA', faculty: 'Prof A', room: 'AB2-101', section: 3, startTime: '14:00', endTime: '14:55' },
             oldClass: { day: 'Monday', subject: 'DAA', courseId: 'DAA', faculty: 'Prof A', room: 'AB2-101', section: 3, startTime: '09:00', endTime: '09:55' },
-            moved: { oldDay: 'Monday', newDay: 'Wednesday', oldStartTime: '09:00', newStartTime: '14:00' },
+            moved: { oldDay: 'Monday', newDay: 'Wednesday', oldStartTime: '09:00', oldEndTime: '09:55', newStartTime: '14:00', newEndTime: '14:55' },
         });
         const ev = buildN8nEvent(change, ctx);
-        assert.equal(ev.event, 'class_moved');
+        assert.equal(ev.event, 'time_changed');
         assert.equal(ev.oldStartTime, '09:00');
+        assert.equal(ev.oldEndTime, '09:55');
         assert.equal(ev.newStartTime, '14:00');
+        assert.equal(ev.newEndTime, '14:55');
+        assert.equal(ev.oldDay, 'Monday');
+        assert.equal(ev.newDay, 'Wednesday');
         assert.equal(ev.day, 'Wednesday');
     });
-    await check('moved with a room change → class_moved carries old/new room', () => {
+    await check('a moved record is NEVER class_moved, even when it carries roomChanged', () => {
+        // The change detector reports a room change as its OWN room-changed
+        // record; a moved record must never be flattened into a generic
+        // class_moved with the room fields.
         const change = rec({
             type: 'moved',
             roomChanged: true,
@@ -195,12 +204,18 @@ try {
             newRoom: 'AB2-205',
             class: { day: 'Tuesday', subject: 'DAA', courseId: 'DAA', faculty: 'Prof A', room: 'AB2-205', section: 3, startTime: '11:15', endTime: '12:10' },
             oldClass: { day: 'Monday', subject: 'DAA', courseId: 'DAA', faculty: 'Prof A', room: 'AB2-101', section: 3, startTime: '09:00', endTime: '09:55' },
-            moved: { oldDay: 'Monday', newDay: 'Tuesday', oldStartTime: '09:00', newStartTime: '11:15' },
+            moved: { oldDay: 'Monday', newDay: 'Tuesday', oldStartTime: '09:00', oldEndTime: '09:55', newStartTime: '11:15', newEndTime: '12:10' },
         });
         const ev = buildN8nEvent(change, ctx);
-        assert.equal(ev.event, 'class_moved');
-        assert.equal(ev.oldRoom, 'AB2-101');
-        assert.equal(ev.newRoom, 'AB2-205');
+        assert.equal(ev.event, 'time_changed');
+        assert.equal(ev.oldRoom, undefined, 'room fields live on the room-changed record');
+        assert.equal(ev.newRoom, undefined);
+
+        // The room-changed record (as emitted by the detector) carries them.
+        const roomEv = buildN8nEvent(rec({ type: 'room-changed', oldRoom: 'AB2-101', newRoom: 'AB2-205' }), ctx);
+        assert.equal(roomEv.event, 'room_changed');
+        assert.equal(roomEv.oldRoom, 'AB2-101');
+        assert.equal(roomEv.newRoom, 'AB2-205');
     });
     await check('added → class_added with start/end/room', () => {
         const ev = buildN8nEvent(rec(), ctx);
@@ -361,6 +376,113 @@ try {
         await new Promise((r) => setTimeout(r, 10));
         assert.equal(requests.length, 2);
         assert.deepEqual(requests.map((r) => r.body.event).sort(), ['class_added', 'room_changed']);
+    });
+    await check('A end-to-end: AB2 → AB1 Computer Lab POSTs room_changed with old/new room + metadata', async () => {
+        const oldC = { day: 'Monday', subject: 'DAA', courseId: 'DAA', faculty: 'Prof A', room: 'AB2', section: 3, startTime: '09:00', endTime: '09:55' };
+        const { changes } = compareTimetables([oldC], [{ ...oldC, room: 'AB1 Computer Lab' }]);
+        reset();
+        dispatchTimetableChanges(changes, ctx);
+        await new Promise((r) => setTimeout(r, 10));
+        assert.equal(requests.length, 1);
+        const body = requests[0].body;
+        assert.equal(body.event, 'room_changed');
+        assert.equal(body.oldRoom, 'AB2');
+        assert.equal(body.newRoom, 'AB1 Computer Lab');
+        assert.equal(body.course, 'DAA');
+        assert.equal(body.section, 3);
+        assert.equal(body.startTime, '09:00');
+        assert.equal(body.endTime, '09:55');
+    });
+    await check('B end-to-end: 14:00–14:55 → 15:00–15:55 POSTs time_changed with all four times', async () => {
+        const oldC = { day: 'Monday', subject: 'DAA', courseId: 'DAA', faculty: 'Prof A', room: 'AB2-101', section: 3, startTime: '14:00', endTime: '14:55' };
+        const { changes } = compareTimetables([oldC], [{ ...oldC, startTime: '15:00', endTime: '15:55' }]);
+        reset();
+        dispatchTimetableChanges(changes, ctx);
+        await new Promise((r) => setTimeout(r, 10));
+        assert.equal(requests.length, 1);
+        const body = requests[0].body;
+        assert.equal(body.event, 'time_changed');
+        assert.equal(body.oldStartTime, '14:00');
+        assert.equal(body.oldEndTime, '14:55');
+        assert.equal(body.newStartTime, '15:00');
+        assert.equal(body.newEndTime, '15:55');
+    });
+    await check('C end-to-end: a removed class POSTs class_cancelled with the old class info', async () => {
+        const oldC = { day: 'Monday', subject: 'DAA', courseId: 'DAA', faculty: 'Prof A', room: 'AB2-101', section: 3, startTime: '09:00', endTime: '09:55' };
+        const { changes } = compareTimetables([oldC], []);
+        reset();
+        dispatchTimetableChanges(changes, ctx);
+        await new Promise((r) => setTimeout(r, 10));
+        assert.equal(requests.length, 1);
+        const body = requests[0].body;
+        assert.equal(body.event, 'class_cancelled');
+        assert.equal(body.course, 'DAA');
+        assert.equal(body.room, 'AB2-101');
+        assert.equal(body.startTime, '09:00');
+        assert.equal(body.endTime, '09:55');
+    });
+    await check('G: a genuine room_changed reaches sendN8nEvent with oldRoom/newRoom intact', async () => {
+        CONFIG.N8N_WEBHOOK_URL = 'https://n8n.example.test/webhook/tt';
+        globalThis.fetch = async (url, init) => {
+            const body = JSON.parse(init.body);
+            requests.push({ url, body });
+            return { ok: true, status: 200 };
+        };
+        reset();
+        dispatchTimetableChanges([
+            rec({ type: 'room-changed', oldRoom: 'AB2', newRoom: 'AB1 Computer Lab' }),
+        ], ctx);
+        await new Promise((r) => setTimeout(r, 10));
+        assert.equal(requests.length, 1);
+        const body = requests[0].body;
+        assert.equal(body.event, 'room_changed');
+        assert.equal(body.oldRoom, 'AB2');
+        assert.equal(body.newRoom, 'AB1 Computer Lab');
+    });
+    await check('H: a genuine time_changed reaches sendN8nEvent with all four time fields intact', async () => {
+        reset();
+        const change = rec({
+            type: 'moved',
+            class: { day: 'Monday', subject: 'DAA', courseId: 'DAA', faculty: 'Prof A', room: 'AB2-101', section: 3, startTime: '15:00', endTime: '15:55' },
+            oldClass: { day: 'Monday', subject: 'DAA', courseId: 'DAA', faculty: 'Prof A', room: 'AB2-101', section: 3, startTime: '14:00', endTime: '14:55' },
+            moved: { oldDay: 'Monday', newDay: 'Monday', oldStartTime: '14:00', oldEndTime: '14:55', newStartTime: '15:00', newEndTime: '15:55' },
+        });
+        dispatchTimetableChanges([change], ctx);
+        await new Promise((r) => setTimeout(r, 10));
+        assert.equal(requests.length, 1);
+        const body = requests[0].body;
+        assert.equal(body.event, 'time_changed');
+        assert.equal(body.oldStartTime, '14:00');
+        assert.equal(body.oldEndTime, '14:55');
+        assert.equal(body.newStartTime, '15:00');
+        assert.equal(body.newEndTime, '15:55');
+    });
+    await check('a combined room+time change emits room_changed AND time_changed (never class_moved)', async () => {
+        reset();
+        // Exactly what compareTimetables emits for a class whose room AND
+        // time changed together: one room-changed record + one moved record.
+        dispatchTimetableChanges([
+            rec({ type: 'room-changed', oldRoom: 'AB2', newRoom: 'AB1 Computer Lab' }),
+            rec({
+                type: 'moved',
+                class: { day: 'Monday', subject: 'DAA', courseId: 'DAA', faculty: 'Prof A', room: 'AB1 Computer Lab', section: 3, startTime: '15:00', endTime: '15:55' },
+                oldClass: { day: 'Monday', subject: 'DAA', courseId: 'DAA', faculty: 'Prof A', room: 'AB2', section: 3, startTime: '14:00', endTime: '14:55' },
+                moved: { oldDay: 'Monday', newDay: 'Monday', oldStartTime: '14:00', oldEndTime: '14:55', newStartTime: '15:00', newEndTime: '15:55' },
+            }),
+        ], ctx);
+        await new Promise((r) => setTimeout(r, 10));
+        assert.equal(requests.length, 2, 'one event per independent change');
+        const types = requests.map((r) => r.body.event).sort();
+        assert.deepEqual(types, ['room_changed', 'time_changed']);
+        assert.ok(!types.includes('class_moved'));
+        const room = requests.find((r) => r.body.event === 'room_changed').body;
+        assert.equal(room.oldRoom, 'AB2');
+        assert.equal(room.newRoom, 'AB1 Computer Lab');
+        const time = requests.find((r) => r.body.event === 'time_changed').body;
+        assert.equal(time.oldStartTime, '14:00');
+        assert.equal(time.oldEndTime, '14:55');
+        assert.equal(time.newStartTime, '15:00');
+        assert.equal(time.newEndTime, '15:55');
     });
     await check('same change detected again later is NOT re-sent (dedupe)', async () => {
         reset();
