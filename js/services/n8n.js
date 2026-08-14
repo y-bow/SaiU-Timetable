@@ -16,9 +16,12 @@ import { CONFIG } from '../core/config.js?v=2026-08-13-005';
  * Guarantees:
  *   - Empty N8N_WEBHOOK_URL → integration disabled; no network requests and
  *     no errors. The timetable keeps working normally.
- *   - Events are produced ONLY for meaningful changes (room / time / move /
- *     add / cancel / modify). An unchanged timetable never sends anything and
- *     repeated polls of an unchanged timetable never send anything either.
+ *   - Events are produced ONLY for meaningful changes. The n8n contract
+ *     supports EXACTLY three event types: room_changed, time_changed and
+ *     class_cancelled. Room changes always arrive as room_changed, day/time
+ *     moves as time_changed (never a generic "class_moved"), and a removed
+ *     class as class_cancelled. An unchanged timetable never sends anything
+ *     and repeated polls of an unchanged timetable never send anything either.
  *   - Every change gets a deterministic change id derived from the event type
  *     plus the course/date/section and old/new values (NOT the timestamp).
  *     Recently dispatched ids are persisted in localStorage, so the same
@@ -190,33 +193,26 @@ function buildMoved(change, ctx) {
     const oldC = change.oldClass;
     const newC = change.class;
     const m = change.moved || {};
-    const roomChanged = !!change.roomChanged;
 
-    // Same weekday, only the time changed → time_changed. If the day moved or
-    // the room also changed it is a genuine move → class_moved.
-    if (m.oldDay !== m.newDay || roomChanged) {
-        const ev = {
-            ...coreFields(newC, ctx, 'class_moved'),
-            oldStartTime: m.oldStartTime ?? oldC.startTime ?? null,
-            oldEndTime: oldC.endTime ?? null,
-            newStartTime: m.newStartTime ?? newC.startTime ?? null,
-            newEndTime: newC.endTime ?? null,
-        };
-        if (roomChanged) {
-            ev.oldRoom = change.oldRoom ?? null;
-            ev.newRoom = change.newRoom ?? null;
-        }
-        return ev;
-    }
-
-    return {
+    // Any day/time move is a time_changed event. The change detector reports a
+    // room change as its own separate 'room-changed' record (with oldRoom /
+    // newRoom), so a moved record must NEVER be flattened into a generic
+    // class_moved — the supported n8n types are room_changed, time_changed and
+    // class_cancelled only. A moved record never carries the room fields.
+    const ev = {
         ...coreFields(newC, ctx, 'time_changed'),
         oldStartTime: m.oldStartTime ?? oldC.startTime ?? null,
-        oldEndTime: oldC.endTime ?? null,
+        oldEndTime: m.oldEndTime ?? oldC.endTime ?? null,
         newStartTime: m.newStartTime ?? newC.startTime ?? null,
-        newEndTime: newC.endTime ?? null,
+        newEndTime: m.newEndTime ?? newC.endTime ?? null,
         room: newC.room ?? null,
     };
+    // When the class also moved to a different weekday, surface that too.
+    if (m.oldDay !== m.newDay) {
+        ev.oldDay = m.oldDay ?? oldC.day ?? null;
+        ev.newDay = m.newDay ?? newC.day ?? null;
+    }
+    return ev;
 }
 
 function buildAdded(change, ctx) {

@@ -305,6 +305,35 @@ await check('an incomplete side is ignored even when only one time field is miss
     );
     assert.equal(empty.changes.length, 0);
 });
+await check('AB2 → AB1 Computer Lab with a new time emits room-changed AND moved records', () => {
+    const { changes } = compareTimetables(
+        [cls({ subject: 'DAA', room: 'AB2', startTime: '14:00', endTime: '14:55' })],
+        [cls({ subject: 'DAA', room: 'AB1 Computer Lab', startTime: '15:00', endTime: '15:55' })]
+    );
+    assert.equal(changes.length, 2, 'room and time are two independent changes');
+    const room = changes.find((c) => c.type === 'room-changed');
+    const moved = changes.find((c) => c.type === 'moved');
+    assert.ok(room, 'a room change is never flattened into moved');
+    assert.equal(room.oldRoom, 'AB2');
+    assert.equal(room.newRoom, 'AB1 Computer Lab');
+    assert.ok(moved);
+    assert.equal(moved.moved.oldStartTime, '14:00');
+    assert.equal(moved.moved.oldEndTime, '14:55');
+    assert.equal(moved.moved.newStartTime, '15:00');
+    assert.equal(moved.moved.newEndTime, '15:55');
+});
+await check('a lab room+faculty change emits room-changed AND modified (room change not swallowed)', () => {
+    const { changes } = compareTimetables(
+        [lab({ room: 'AB2-101', faculty: 'Prof. Old' })],
+        [lab({ room: 'AB1-205', faculty: 'Prof. New' })]
+    );
+    assert.equal(changes.length, 2);
+    const types = changes.map((c) => c.type).sort();
+    assert.deepEqual(types, ['modified', 'room-changed']);
+    const room = changes.find((c) => c.type === 'room-changed');
+    assert.equal(room.oldRoom, 'AB2-101');
+    assert.equal(room.newRoom, 'AB1-205');
+});
 await check('a genuine time change preserves all four time fields', () => {
     const { changes } = compareTimetables(
         [cls({ subject: 'DAA', startTime: '14:00', endTime: '14:55' })],
@@ -316,7 +345,7 @@ await check('a genuine time change preserves all four time fields', () => {
     assert.equal(m.newStartTime, '15:00');
     assert.equal(m.newEndTime, '15:55');
 });
-await check('a valid day move still reports class_moved (class_moved is not suppressed)', () => {
+await check('a valid day move still reports moved (day/time change survives, becomes time_changed)', () => {
     const { changes } = compareTimetables(
         [cls({ subject: 'DAA', day: 'Monday', startTime: '09:00', endTime: '09:55' })],
         [cls({ subject: 'DAA', day: 'Wednesday', startTime: '09:00', endTime: '09:55' })]

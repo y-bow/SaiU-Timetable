@@ -16,6 +16,12 @@
  *   modified      the same class with some other property changed
  *   no-change     the identical class with identical properties
  *
+ * One class pair can produce MORE than one record when independent properties
+ * change together (room AND time, or room AND lab teacher). Each record is one
+ * independent change, so every meaningful change can reach n8n as its own
+ * supported event (room_changed / time_changed) instead of being flattened
+ * into a generic "moved" / "modified" notification.
+ *
  * Class identity is built ONLY from stable properties: course (subject),
  * elective, section, faculty, source. Mutable properties — day, startTime,
  * endTime, room — never change a class's identity, so a class that moves to
@@ -250,12 +256,15 @@ export function compareTimetables(oldClasses, newClasses) {
             const n = newList[i];
             const o = oldList[i];
             if (o && n) {
-                const rec = classify(o, n);
-                rec.identity = identity;
-                rec.oldClass = o;
-                rec.class = n;
-                if (rec.type !== 'no-change') changes.push(rec);
-                registerRoom(identity, n, o, rec.type === 'room-changed');
+                let roomChanged = false;
+                for (const rec of classify(o, n)) {
+                    rec.identity = identity;
+                    rec.oldClass = o;
+                    rec.class = n;
+                    if (rec.type === 'room-changed') roomChanged = true;
+                    if (rec.type !== 'no-change') changes.push(rec);
+                }
+                registerRoom(identity, n, o, roomChanged);
                 seenNew.add(n);
             } else if (n) {
                 changes.push({ type: 'added', identity, class: n });
@@ -289,6 +298,7 @@ export function compareTimetables(oldClasses, newClasses) {
 }
 
 function classify(oldC, newC) {
+    const records = [];
     const changedProps = [];
     let roomChanged = false;
 
@@ -321,8 +331,10 @@ function classify(oldC, newC) {
     const oldTimesKnown = isKnownTimeRange(oldC);
     const newTimesKnown = isKnownTimeRange(newC);
     const timesComplete = oldTimesKnown && newTimesKnown;
+    let dayOrTimeChanged = false;
     if (dayChanged || timeValuesDiffer) {
         if (timesComplete) {
+            dayOrTimeChanged = true;
             changedProps.push('day', 'time');
         } else if (timeValuesDiffer) {
             debugLog(
@@ -332,23 +344,30 @@ function classify(oldC, newC) {
             );
         }
     }
-    const dayOrTimeChanged = timesComplete && (dayChanged || timeValuesDiffer);
 
     // Emerging Tools Lab: the teacher is a mutable property — swapping the lab
     // instructor is a modified class, never a removed + added pair. Day, time
     // and room are already handled as mutable above.
+    let facultyChanged = false;
     if (isEmergingToolsLab(oldC) || isEmergingToolsLab(newC)) {
-        if (norm(oldC.faculty) !== norm(newC.faculty)) changedProps.push('faculty');
+        if (norm(oldC.faculty) !== norm(newC.faculty)) {
+            facultyChanged = true;
+            changedProps.push('faculty');
+        }
     }
 
-    if (changedProps.length === 0) return { type: 'no-change', changedProps };
-    if (roomChanged && changedProps.length === 1) {
-        return { type: 'room-changed', changedProps, oldRoom: oldC.room, newRoom: newC.room };
+    if (changedProps.length === 0) return [{ type: 'no-change', changedProps: [] }];
+
+    // Each independent change is its own record. A room change stays a
+    // room-changed even when the time also moved or the lab teacher swapped —
+    // it must never be flattened into a generic moved/modified notification.
+    if (roomChanged) {
+        records.push({ type: 'room-changed', changedProps: ['room'], oldRoom: oldC.room, newRoom: newC.room });
     }
     if (dayOrTimeChanged) {
-        return {
+        records.push({
             type: 'moved',
-            changedProps,
+            changedProps: ['day', 'time'],
             roomChanged,
             oldRoom: roomChanged ? oldC.room : null,
             newRoom: roomChanged ? newC.room : null,
@@ -360,11 +379,15 @@ function classify(oldC, newC) {
                 newStartTime: newC.startTime,
                 newEndTime: newC.endTime,
             },
-        };
+        });
     }
-    // Same slot, same room, same identity — defensive catch-all. With day,
-    // time and room already covered above and the remaining identity props
-    // (subject/elective/section/faculty/source) equal by definition, this is
-    // currently unreachable; kept as a fallback classification.
-    return { type: 'modified', changedProps };
+    if (facultyChanged) {
+        records.push({ type: 'modified', changedProps: ['faculty'] });
+    }
+
+    // Defensive catch-all. With room, day/time and faculty already covered
+    // above and the remaining identity props (subject/elective/section/source)
+    // equal by definition, this is currently unreachable; kept as a fallback.
+    if (records.length === 0) return [{ type: 'modified', changedProps }];
+    return records;
 }
