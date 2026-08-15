@@ -15,6 +15,7 @@ import { loadTeacherIndex } from '../services/teacher-fetch.js?v=2026-08-13-005'
 import { CONFIG } from '../core/config.js?v=2026-08-13-005';
 import { initAiAssistant } from '../ui/ai-assistant.js?v=2026-08-13-005';
 import { toMinutes, minutesToLabel, minutesToClock, todayName, WEEKDAYS } from '../core/utils.js?v=2026-08-13-005';
+import { confirmTeacherMerge, dismissTeacherMerge } from '../data/teacher-identity.js?v=2026-08-13-005';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -38,6 +39,7 @@ const state = {
     index: null,
     order: [],
     classes: [],
+    candidates: [],
     selectedKey: null,
     selectedDay: null,
 };
@@ -63,6 +65,7 @@ function renderTeacherList() {
         btn.type = 'button';
         btn.className = 'teacher-list-item' + (key === state.selectedKey ? ' active' : '');
         btn.dataset.key = key;
+        btn.dataset.search = rec.searchText || String(rec.name || '').toLowerCase();
         btn.setAttribute('role', 'option');
         btn.setAttribute('aria-selected', key === state.selectedKey ? 'true' : 'false');
         btn.innerHTML = `<span class="teacher-list-name">${escapeHtml(rec.name)}</span><span class="teacher-list-count">${rec.classes.length}</span>`;
@@ -77,7 +80,10 @@ function applySearch(query) {
     const list = $('#teacher-list');
     let visible = 0;
     for (const btn of list.children) {
-        const show = !needle || btn.dataset.key.includes(needle);
+        // Search matches the canonical id, display name, folded name AND every
+        // alias — "Roopam" finds "Prof. Rupam Sah" via its alias; "Mariya"
+        // finds "Prof. Dr. Mariya" via the folded display name.
+        const show = !needle || (btn.dataset.search || '').includes(needle);
         btn.classList.toggle('hidden', !show);
         if (show) visible++;
     }
@@ -315,6 +321,87 @@ function renderDebug(res) {
     el.classList.remove('hidden');
 }
 
+// ============================================================
+// Ambiguous identity confirmation (?debug).
+//
+// MEDIUM-confidence candidate pairs from the identity resolver ("Prof.
+// Roopam" ↔ "Prof. Rupam Sah") are never auto-merged. In debug mode they are
+// listed with [Yes, merge] / [No, keep separate] actions so an admin can
+// resolve them once; the decision is stored per-browser and re-applied on
+// every future parse (never asked again). The exported snippet is the
+// permanent TEACHER_ALIASES config entry to paste into
+// js/data/teacher-identity.js.
+// ============================================================
+
+function renderConfirmCandidates() {
+    const el = $('#teacher-debug');
+    if (!el || !DEBUG) return;
+    el.querySelector('.teacher-confirm-detail')?.remove();
+    const candidates = state.candidates || [];
+    const items = candidates.map((c) => `
+        <li data-confirm="${escapeHtml(c.idA)}|${escapeHtml(c.idB)}">
+            <span class="confirm-names">“${escapeHtml(c.displayNameA)}” ↔ “${escapeHtml(c.displayNameB)}”</span>
+            <span class="confirm-reason">${escapeHtml(c.reason)}</span>
+            <button class="btn confirm-merge" type="button">Yes, merge</button>
+            <button class="btn confirm-dismiss" type="button">No, keep separate</button>
+        </li>`).join('');
+    el.insertAdjacentHTML('beforeend', `
+        <details class="teacher-confirm-detail"${candidates.length ? ' open' : ''}>
+            <summary>${candidates.length} possible duplicate teacher${candidates.length === 1 ? '' : 's'} (need confirmation)</summary>
+            ${candidates.length ? `<ul class="debug-excluded">${items}</ul>` : '<p>No ambiguous teacher identities detected.</p>'}
+            <details class="confirm-export">
+                <summary>Export confirmed aliases → TEACHER_ALIASES config</summary>
+                <p>Paste the confirmed entries below into the TEACHER_ALIASES array in js/data/teacher-identity.js to make them permanent for every user:</p>
+                <pre class="confirm-export-code">${exportAliasSnippet()}</pre>
+            </details>
+        </details>`);
+    el.querySelectorAll('.teacher-confirm-detail .confirm-merge').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const [idA, idB] = btn.closest('[data-confirm]').dataset.confirm.split('|');
+            const pair = candidates.find((c) => c.idA === idA && c.idB === idB);
+            if (pair) confirmTeacherMerge(pair.displayNameA, pair.displayNameB);
+            showToast('Merged — rebuilding teacher index');
+            load({ silent: true });
+        });
+    });
+    el.querySelectorAll('.teacher-confirm-detail .confirm-dismiss').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const [idA, idB] = btn.closest('[data-confirm]').dataset.confirm.split('|');
+            const pair = candidates.find((c) => c.idA === idA && c.idB === idB);
+            if (pair) dismissTeacherMerge(pair.displayNameA, pair.displayNameB);
+            showToast('Kept separate — rebuilding teacher index');
+            load({ silent: true });
+        });
+    });
+}
+
+function exportAliasSnippet() {
+    const rec = loadTeacherConfirmationsRaw();
+    const lines = (rec.merge || []).map((m) => {
+        const { a, b } = m;
+        // Fold both sides to a stable id; the more complete name wins as the
+        // canonical display name.
+        const fa = String(a).toLowerCase().replace(/\b(?:prof\.?\s*|dr\.?\s*|ms\.?\s*|mr\.?\s*|mrs\.?\s*|miss\s*)\b/g, ' ').replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+        const fb = String(b).toLowerCase().replace(/\b(?:prof\.?\s*|dr\.?\s*|ms\.?\s*|mr\.?\s*|mrs\.?\s*|miss\s*)\b/g, ' ').replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+        const id = (fa.length >= fb.length ? fa : fb).replace(/\s+/g, '-');
+        const display = String(a).replace(/^Prof\.\s+/i, '');
+        return `    { match: /^${escapeRegExp(fa)}$/i, id: '${id}', displayName: '${display}' },`;
+    });
+    return lines.length ? lines.join('\n') : '// no confirmed merges yet';
+}
+
+function loadTeacherConfirmationsRaw() {
+    try {
+        if (typeof localStorage === 'undefined' || !localStorage) return { merge: [] };
+        const raw = localStorage.getItem('tt-teacher-aliases-v1');
+        return raw ? JSON.parse(raw) : { merge: [] };
+    } catch {
+        return { merge: [] };
+    }
+}
+
+const escapeRegExp = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 async function load({ silent = false } = {}) {
     if (!silent) showLoading();
     const res = await loadTeacherIndex();
@@ -326,7 +413,9 @@ async function load({ silent = false } = {}) {
     state.index = res.index;
     state.order = res.order;
     state.classes = res.all || [];
+    state.candidates = res.candidates || [];
     renderDebug(res);
+    renderConfirmCandidates();
 
     const updated = $('#teacher-updated');
     if (updated) {

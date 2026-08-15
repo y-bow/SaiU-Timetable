@@ -793,10 +793,16 @@ export function parseTeacherGrid(text) {
 
             const { subject, faculty, section, hasSection } = splitTeacherCell(cell);
             if (!subject || subject.length < 2) continue;
-            if (!faculty) continue; // no teacher → nothing to index
+            if (!faculty) {
+                // A class cell with no teacher — nothing to index. Logged as a
+                // warning only in diagnostics mode so an admin can spot cells
+                // whose teacher the sheet did not name.
+                teacherDiagLog(`[TEACHER PARSER WARNING] ${currentDay} ${times.start}-${times.end} line ${i + 1} col ${j + 1}: "${cell}" — no teacher parsed`);
+                continue;
+            }
 
             const name = expandSubjectAlias(subject);
-            data.push({
+            const record = {
                 day: currentDay,
                 subject: name,
                 faculty,
@@ -808,8 +814,35 @@ export function parseTeacherGrid(text) {
                 _hasSection: !!hasSection,
                 _line: i + 1,
                 _col: j + 1,
-            });
+            };
+            data.push(record);
+            teacherDiagLog(
+                `[TEACHER PARSER] cell "${cell}" → raw faculty "${faculty}" · course "${name}" · ` +
+                `${currentDay} ${times.start}-${times.end} · room "${record.room}" · sec ${record.section} · ` +
+                `src line ${i + 1} col ${j + 1}`
+            );
         }
     }
     return data;
+}
+
+// ---------------------------------------------------------------------------
+// Development-only teacher parser diagnostics. Off by default — normal
+// operation never logs. Enable from a dev console via
+// enableTeacherParserDiagnostics(true) (or a ?debug harness) to see every
+// parsed teacher occurrence and every cell the parser could not attribute.
+// ---------------------------------------------------------------------------
+
+let TEACHER_DIAG = false;
+
+/** Toggle verbose [TEACHER PARSER] diagnostics (dev only). */
+export function enableTeacherParserDiagnostics(enabled = true) {
+    TEACHER_DIAG = !!enabled;
+}
+
+function teacherDiagLog(message) {
+    if (!TEACHER_DIAG) return;
+    try {
+        if (typeof console !== 'undefined' && console.log) console.log(message);
+    } catch { /* logging must never throw */ }
 }

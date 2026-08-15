@@ -35,7 +35,7 @@ import { parseTeacherGrid } from '../data/parser.js?v=2026-08-13-005';
 import { buildTeacherIndex } from '../data/teacher-index.js?v=2026-08-13-005';
 import { syncYear2Labs } from './lab-fetch.js?v=2026-08-13-005';
 
-export const TEACHER_CACHE_KEY = 'tt-teachers-v2';
+export const TEACHER_CACHE_KEY = 'tt-teachers-v3';
 export const MAIN_SHEET_CACHE_KEY = 'tt-teachers-main-sheet-v1';
 
 const SCHOOL_LABELS = { scds: 'SCDS', soai: 'SOAI', sob: 'SOB' };
@@ -188,7 +188,14 @@ export async function fetchMainSheetText({ useCache = true } = {}) {
 
 function rebuildIndex(cached) {
     const index = new Map();
-    for (const t of cached.teachers || []) index.set(t.key, { name: t.name, classes: t.classes });
+    for (const t of cached.teachers || []) {
+        index.set(t.key, {
+            name: t.name,
+            aliases: t.aliases || [],
+            searchText: t.searchText || String(t.name || '').toLowerCase(),
+            classes: t.classes,
+        });
+    }
     return index;
 }
 
@@ -197,10 +204,12 @@ function rebuildIndex(cached) {
  * throws. Returns null only when there is nothing to show at all.
  *
  * @returns {Promise<{
- *   index: Map<string, {name: string, classes: Array<object>}>,
+ *   index: Map<string, {name: string, aliases: string[], searchText: string,
+ *           classes: Array<object>}>,
  *   order: Array<string>,
  *   all: Array<object>,
  *   stats: object,
+ *   candidates: Array<{idA, displayNameA, idB, displayNameB, reason}>,
  *   statuses: {main: string, labs: Record<string,string>},
  *   savedAt: number|null,
  *   source: 'live'|'cached'
@@ -218,6 +227,7 @@ export async function loadTeacherIndex({ useCache = true } = {}) {
                     all: cached.all || [],
                     stats: cached.stats || {},
                     excluded: cached.excluded || [],
+                    candidates: cached.candidates || [],
                     statuses: cached.statuses || {},
                     savedAt: cached.savedAt || null,
                     source: 'cached',
@@ -236,9 +246,12 @@ export async function loadTeacherIndex({ useCache = true } = {}) {
         stats: built.stats,
         all: built.all,
         excluded: built.excluded,
+        candidates: built.candidates,
         teachers: built.order.map((key) => ({
             key,
             name: built.index.get(key).name,
+            aliases: built.index.get(key).aliases,
+            searchText: built.index.get(key).searchText,
             classes: built.index.get(key).classes,
         })),
         statuses: { main: sheet.status, labs: labStatuses },
@@ -252,6 +265,7 @@ export async function loadTeacherIndex({ useCache = true } = {}) {
         all: built.all,
         stats: built.stats,
         excluded: built.excluded,
+        candidates: built.candidates,
         statuses: payload.statuses,
         savedAt: payload.savedAt,
         source: 'live',

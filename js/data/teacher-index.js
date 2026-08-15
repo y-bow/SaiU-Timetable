@@ -6,13 +6,16 @@
  * display form plus the Dr.K.K.Singh / Dr.Tamilarasi aliases). This module is
  * the single place that turns class records into a teacher-indexed view:
  *
- *     class records → flatten offerings → dedupe → extract teacher(s) → index
+ *     class records → flatten offerings → dedupe → extract teacher(s)
+ *                    → resolve identity (js/data/teacher-identity.js) → index
  *
  * Design rules honored here:
- *   - NO fuzzy merging. A teacher's key is their normalized display name,
- *     compared EXACTLY (case/whitespace-insensitive). "Prof. Arjun" and
- *     "Prof. Arjun Singh" are two different teachers; the sheets' own alias
- *     table is the only sanctioned merge.
+ *   - Identity is resolved by js/data/teacher-identity.js: HIGH-confidence
+ *     variants ("Prof. Mariya" / "Prof. Dr. Mariya", "Dr. Jemima" / "Jemima",
+ *     "Vigneshwaran" / "Vigneswaran") merge into ONE canonical teacher;
+ *     MEDIUM-confidence pairs (first-name-only vs full name, phonetic first
+ *     name variants) stay separate and surface as confirmation candidates;
+ *     LOW pairs stay separate. A teacher's canonical id is the stable key.
  *   - A class may carry MULTIPLE teachers. Combined cells
  *     ("ET - Sec 1 - Arjun, Sonar") split on `,`, `&`, `;`, `/` and " and "
  *     into a `teachers` array; the first name is the primary `teacher`. The
@@ -33,12 +36,18 @@
  *     room scan and the SCDS-3 parse both emit) collapses to ONE entry whose
  *     school/year contexts are merged — while every real meeting survives.
  *
- * Pure module — no window, localStorage, or fetch — so it runs identically
- * in the browser and in the Node test harness.
+ * Pure module — no window or fetch at import time — so it runs identically
+ * in the browser and in the Node test harness. (localStorage reads for the
+ * per-browser confirmations are safely no-ops where storage is unavailable.)
  */
 
 import { normalizeFacultyName } from './parser.js?v=2026-08-13-005';
 import { classIdentity, flattenClasses } from './change-detector.js?v=2026-08-13-005';
+import {
+    buildIdentityResolution,
+    loadTeacherConfirmations,
+    teacherSearchText,
+} from './teacher-identity.js?v=2026-08-13-005';
 
 const TEACHER_SPLIT_RE = /\s*(?:[,;/]|\band\b|&)\s*/gi;
 
@@ -82,12 +91,16 @@ export function splitTeachers(rawFaculty) {
 }
 
 /**
- * Conservative teacher identity key: the normalized display name, compared
- * exactly (case/whitespace-insensitive). Deliberately NOT fuzzy — "Prof.
- * Arjun" and "Prof. Arjun Singh" stay distinct.
+ * Backward-compatible identity key for a display name. The canonical index
+ * key is now the identity id from teacher-identity.js ("mariya", "rupam-sah");
+ * this helper folds any display name the same way for callers that only have
+ * a name.
  */
 export function teacherKey(name) {
-    return String(name ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+    return String(name ?? '')
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, ' ');
 }
 
 /**
@@ -97,26 +110,33 @@ export function teacherKey(name) {
  *   parser output). Each may carry an optional `_ctxLabel` school/year tag
  *   (see gatherAllTimetables) that is merged into the entry's `contexts`.
  * @returns {{
- *   index: Map<string, {name: string, classes: Array<object>}>,
+ *   index: Map<string, {name: string, aliases: string[], searchText: string,
+ *           classes: Array<object>}>,
  *   order: Array<string>,
  *   all: Array<object>,
  *   stats: {total: number, meetings: number, duplicates: number, classes: number,
  *           unassigned: number, teachers: number, entries: number},
- *   excluded: Array<object>
+ *   excluded: Array<object>,
+ *   candidates: Array<{idA, displayNameA, idB, displayNameB, reason}>
  * }}
- *   index  key → { name (display), classes: entries }; entries carry
- *          `teacher`, `teachers`, `originalFaculty`, `contexts` plus the full
- *          class record.
- *   order  sorted keys (search-friendly).
+ *   index  id → { name (preferred display), aliases (every folded spelling),
+ *          searchText (id + name + aliases), classes: entries }. Entries carry
+ *          `teacher`, `teachers`, `originalFaculty`, `contexts`, `aliases`,
+ *          `canonicalId` plus the full class record.
+ *   order  sorted ids (search-friendly).
  *   all    every deduped MEETING (indexed or not) — the full normalized
  *          timetable, useful for AI prompts that must search the whole week.
  *   stats  total = normalized records in, meetings = deduped meetings,
  *          duplicates = collapsed repeats, classes = indexed unique meetings,
  *          unassigned = unique meetings with no teacher, teachers = distinct
- *          keys, entries = total entries.
+ *          canonical identities, entries = total entries.
  *   excluded  one record per normalized input that did NOT become an indexed
  *          entry, with a machine `reason` ('duplicate meeting' | 'no teacher
  *          parsed') — for the teacher page's ?debug panel.
+ *   candidates  MEDIUM-confidence duplicate-teacher pairs that need a human
+ *          to confirm ("Prof. Roopam" ↔ "Prof. Rupam Sah"). Never merged
+ *          automatically; confirmed pairs are applied on the next build via
+ *          the stored confirmations / TEACHER_ALIASES config.
  */
 export function buildTeacherIndex(classes) {
     const stats = { total: 0, meetings: 0, duplicates: 0, classes: 0, unassigned: 0, teachers: 0, entries: 0 };
@@ -154,6 +174,16 @@ export function buildTeacherIndex(classes) {
     }
     stats.meetings = unique.size;
 
+    // Resolve teacher identity across ALL observed names in one pass: titles,
+    // punctuation, case and minor spelling variants collapse to one canonical
+    // identity; ambiguous pairs become confirmation candidates.
+    const observed = [];
+    for (const c of unique.values()) {
+        observed.push(...splitTeachers(c.faculty));
+    }
+    const confirmed = loadTeacherConfirmations().merge || [];
+    const resolution = buildIdentityResolution(observed, confirmed);
+
     const index = new Map();
     for (const c of unique.values()) {
         const teachers = splitTeachers(c.faculty);
@@ -165,17 +195,29 @@ export function buildTeacherIndex(classes) {
         stats.classes++;
         const { _ctxLabel, _ctxLabels, ...rest } = c;
         for (const teacher of teachers) {
+            const ident = resolution.byName.get(teacher) || {
+                id: teacherKey(teacher),
+                displayName: teacher,
+                aliases: [teacher],
+            };
             const entry = {
                 ...rest,
-                teacher,
-                teachers,
+                teacher: ident.displayName,
+                teachers: teachers.map((t) => (resolution.byName.get(t) || { displayName: t }).displayName),
                 originalFaculty: c.faculty,
+                aliases: ident.aliases,
+                canonicalId: ident.id,
                 contexts: [..._ctxLabels],
             };
-            const key = teacherKey(teacher);
+            const key = ident.id;
             let rec = index.get(key);
             if (!rec) {
-                rec = { name: teacher, classes: [] };
+                rec = {
+                    name: ident.displayName,
+                    aliases: ident.aliases,
+                    searchText: teacherSearchText(ident.id, ident.displayName, ident.aliases),
+                    classes: [],
+                };
                 index.set(key, rec);
             }
             rec.classes.push(entry);
@@ -184,8 +226,12 @@ export function buildTeacherIndex(classes) {
     }
 
     stats.teachers = index.size;
-    const order = [...index.keys()].sort();
-    return { index, order, all: [...unique.values()], stats, excluded };
+    const order = [...index.keys()].sort((a, b) => {
+        const na = index.get(a).name.toLowerCase();
+        const nb = index.get(b).name.toLowerCase();
+        return na < nb ? -1 : na > nb ? 1 : a < b ? -1 : a > b ? 1 : 0;
+    });
+    return { index, order, all: [...unique.values()], stats, excluded, candidates: resolution.candidates };
 }
 
 // Compact, JSON-safe view of a normalized record that did not make it into
