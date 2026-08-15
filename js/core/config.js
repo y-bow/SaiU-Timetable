@@ -36,6 +36,11 @@ export const CONFIG = {
     GAME_SUGGEST_MIN: 5,
 
     // n8n timetable-change notifications (see js/services/n8n.js).
+    // Set to false to disable all n8n change-notification requests. The
+    // timetable works exactly as before; no webhook traffic is sent. To
+    // re-enable, flip back to true.
+    N8N_ENABLED: false,
+
     // The n8n "Webhook" node URL. Keep empty to disable the integration: the
     // timetable then works exactly as before and no network requests are made.
     // Set a real URL to enable event delivery (see README for n8n CORS setup).
@@ -67,7 +72,7 @@ export const CONFIG = {
     // service (js/services/timetable-ai.js), webhook and n8n workflow stay
     // fully intact. To restore the AI UI later, flip this single value back
     // to true.
-    AI_UI_ENABLED: true,
+    AI_UI_ENABLED: false,
 
     // The chat panel and its launch buttons are rendered when isAiEnabled()
     // (js/services/timetable-ai.js) returns true, which is:
@@ -76,7 +81,7 @@ export const CONFIG = {
     //     set (development/testing).
     // The webhook below is the production n8n AI webhook. It must never point
     // at the production timetable-change webhook (N8N_WEBHOOK_URL).
-    AI_FEATURE_ENABLED: true,
+    AI_FEATURE_ENABLED: false,
 
     // n8n cloud "SaiU AI" production webhook (POST). The browser talks ONLY
     // to this webhook; AI provider credentials (Gemini/OpenAI/…) stay inside

@@ -292,6 +292,10 @@ export function buildN8nEvent(change, ctx) {
  *   'disabled' (no webhook configured), 'sent', 'failed', 'http_<code>'.
  */
 export async function sendN8nEvent(event) {
+    if (CONFIG.N8N_ENABLED === false) {
+        debugLog(event, 'disabled');
+        return { status: 'disabled' };
+    }
     const url = webhookUrl();
     if (!url) {
         debugLog(event, 'disabled');
