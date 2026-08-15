@@ -78,3 +78,14 @@ export function formatTodayLine() {
 export function formatLastUpdated(date) {
     return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 }
+
+// Display label for a laboratory class card. The underlying course keeps its
+// original name ("Design and Analysis of Algorithms Lab") — only the rendered
+// title drops the trailing "Lab" / "Lab.", because the yellow Lab badge right
+// beside it already says the class is a laboratory. Never applied to non-lab
+// courses (callers gate on `c.lab`), so a real course named "... Lab" that is
+// not flagged as a lab is unaffected.
+export function labSubjectLabel(subject) {
+    const trimmed = String(subject ?? '').trim();
+    return trimmed.replace(/\s+Lab\.?$/i, '') || trimmed;
+}

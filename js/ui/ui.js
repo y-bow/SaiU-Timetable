@@ -1,5 +1,5 @@
 import { CONFIG } from '../core/config.js?v=2026-08-13-005';
-import { toMinutes, minutesToLabel, minutesToClock, todayName, isBeforeToday, WEEKDAYS } from '../core/utils.js?v=2026-08-13-005';
+import { toMinutes, minutesToLabel, minutesToClock, todayName, isBeforeToday, WEEKDAYS, labSubjectLabel } from '../core/utils.js?v=2026-08-13-005';
 import { offeringKey } from '../data/parser.js?v=2026-08-13-005';
 import { rubberband, projectMomentum } from '../core/spring.js?v=2026-08-13-005';
 import { mergeAdjacentForDisplay, displayItemHighlighted } from './display.js?v=2026-08-13-005';
@@ -578,7 +578,7 @@ function buildTimeline(timeline, items, nowMin, skipBreaks, dayStatus = 'today',
             <div class="tl-card">
                 <div class="tl-card-top">
                     <div>
-                        <div class="tl-subject">${escapeHtml(c.subject)}${c.lab ? '<span class="badge badge-lab tl-lab-tag">Lab</span>' : ''}</div>
+                        <div class="tl-subject">${escapeHtml(c.lab ? labSubjectLabel(c.subject) : c.subject)}${c.lab ? '<span class="badge badge-lab tl-lab-tag">Lab</span>' : ''}</div>
                         <div class="tl-meta">
                             ${c.faculty && status !== 'completed' ? `<span class="tl-faculty">${escapeHtml(c.faculty)}</span>` : ''}
                             <span class="tl-room">${ICONS.mapPin}<span>${escapeHtml(c.room || 'Room TBA')}</span></span>

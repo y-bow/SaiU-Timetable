@@ -14,7 +14,7 @@
 import { loadTeacherIndex } from '../services/teacher-fetch.js?v=2026-08-13-005';
 import { CONFIG } from '../core/config.js?v=2026-08-13-005';
 import { initAiAssistant } from '../ui/ai-assistant.js?v=2026-08-13-005';
-import { toMinutes, minutesToLabel, minutesToClock, todayName, WEEKDAYS } from '../core/utils.js?v=2026-08-13-005';
+import { toMinutes, minutesToLabel, minutesToClock, todayName, WEEKDAYS, labSubjectLabel } from '../core/utils.js?v=2026-08-13-005';
 import { confirmTeacherMerge, dismissTeacherMerge } from '../data/teacher-identity.js?v=2026-08-13-005';
 
 const $ = (sel) => document.querySelector(sel);
@@ -243,7 +243,7 @@ function buildItem(c, startMin, endMin) {
         <div class="tl-card">
             <div class="tl-card-top">
                 <div>
-                    <div class="tl-subject">${escapeHtml(c.subject)}</div>
+                    <div class="tl-subject">${escapeHtml(c.lab ? labSubjectLabel(c.subject) : c.subject)}</div>
                     <div class="tl-meta">
                         <span class="tl-faculty">${escapeHtml(c.teacher)}</span>
                         <span class="tl-room">${ICONS.pin}<span>${escapeHtml(c.room || 'Room TBA')}</span></span>
