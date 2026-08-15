@@ -99,6 +99,7 @@ export const SCHOOLS = [
                     { id: 'introduction-to-financial-accounting', label: 'Introduction to Financial Accounting' },
                     { id: 'critical-thinking', label: 'Critical Thinking' },
                     { id: 'forensic-psychology', label: 'Forensic Psychology' },
+                    { id: 'community-psychology', label: 'Community Psychology' },
                 ],
             },
         ],

@@ -91,6 +91,7 @@ const COURSE_DEFINITIONS = [
     { canonical: 'organizational-psychology', display: 'Organizational Psychology', aliases: ['Organizational Psychology - Micro Perspective'] },
     { canonical: 'human-ai-interaction', display: 'Human AI Interaction' },
     { canonical: 'forensic-psychology', display: 'Forensic Psychology' },
+    { canonical: 'community-psychology', display: 'Community Psychology' },
 
     // SOAI Year 2 (sheet: AB1-101 / AB1-104 columns)
     { canonical: 'differential-equations', display: 'Differential Equations' },
