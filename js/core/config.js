@@ -39,7 +39,7 @@ export const CONFIG = {
     // The n8n "Webhook" node URL. Keep empty to disable the integration: the
     // timetable then works exactly as before and no network requests are made.
     // Set a real URL to enable event delivery (see README for n8n CORS setup).
-    N8N_WEBHOOK_URL: 'https://saiutimetable.app.n8n.cloud/webhook/timetable-change',
+    N8N_WEBHOOK_URL: 'https://hivelabs.app.n8n.cloud/webhook/timetable-change',
 
     // Short timeout so a slow or unreachable n8n can never stall the app.
     // Event dispatch is fire-and-forget anyway; this only bounds the request.
@@ -67,7 +67,7 @@ export const CONFIG = {
     // service (js/services/timetable-ai.js), webhook and n8n workflow stay
     // fully intact. To restore the AI UI later, flip this single value back
     // to true.
-    AI_UI_ENABLED: false,
+    AI_UI_ENABLED: true,
 
     // The chat panel and its launch buttons are rendered when isAiEnabled()
     // (js/services/timetable-ai.js) returns true, which is:
@@ -81,7 +81,7 @@ export const CONFIG = {
     // n8n cloud "SaiU AI" production webhook (POST). The browser talks ONLY
     // to this webhook; AI provider credentials (Gemini/OpenAI/…) stay inside
     // n8n.
-    N8N_AI_WEBHOOK_URL: 'https://saiutimetable.app.n8n.cloud/webhook/60e460ce-2b67-424e-bf2e-eec687c8172e',
+    N8N_AI_WEBHOOK_URL: 'https://hivelabs.app.n8n.cloud/webhook/60e460ce-2b67-424e-bf2e-eec687c8172e',
 
     // Bounded request timeout — a slow or unreachable n8n must never hang the
     // chat; the UI shows a friendly error and lets the user retry.
