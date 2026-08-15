@@ -151,7 +151,7 @@ try {
         room: 'AB2-101', section: 3, startTime: '09:00', endTime: '09:55',
     };
     const rec = (o = {}) => ({
-        type: 'room-changed',
+        changeType: 'room-changed',
         oldRoom: 'AB2-101',
         newRoom: 'AB2-205',
         identity: 'x',
@@ -167,7 +167,7 @@ try {
     console.log('--- event builder: exactly three event types ---');
     await check('room-changed → room_changed with old/new room + null time fields', () => {
         const ev = buildN8nEvent(rec(), ctx);
-        assert.equal(ev.type, 'room_changed');
+        assert.equal(ev.changeType, 'room_changed');
         assert.equal(ev.oldRoom, 'AB2-101');
         assert.equal(ev.newRoom, 'AB2-205');
         assert.equal(ev.startTime, '09:00');
@@ -179,13 +179,13 @@ try {
     });
     await check('moved (same weekday, time only) → time_changed with null room fields', () => {
         const change = rec({
-            type: 'moved',
+            changeType: 'moved',
             class: { ...baseClass, startTime: '10:15', endTime: '11:05' },
             oldClass: { ...baseClass },
             moved: { oldDay: 'Monday', newDay: 'Monday', oldStartTime: '09:00', newStartTime: '10:15' },
         });
         const ev = buildN8nEvent(change, ctx);
-        assert.equal(ev.type, 'time_changed');
+        assert.equal(ev.changeType, 'time_changed');
         assert.equal(ev.oldStartTime, '09:00');
         assert.equal(ev.newStartTime, '10:15');
         assert.equal(ev.oldRoom, null, 'a time change never carries the room fields');
@@ -194,13 +194,13 @@ try {
     });
     await check('moved (day change) → time_changed with old/new day and times (never class_moved)', () => {
         const change = rec({
-            type: 'moved',
+            changeType: 'moved',
             class: { ...baseClass, day: 'Wednesday', startTime: '14:00', endTime: '14:55' },
             oldClass: { ...baseClass },
             moved: { oldDay: 'Monday', newDay: 'Wednesday', oldStartTime: '09:00', oldEndTime: '09:55', newStartTime: '14:00', newEndTime: '14:55' },
         });
         const ev = buildN8nEvent(change, ctx);
-        assert.equal(ev.type, 'time_changed');
+        assert.equal(ev.changeType, 'time_changed');
         assert.equal(ev.oldStartTime, '09:00');
         assert.equal(ev.oldEndTime, '09:55');
         assert.equal(ev.newStartTime, '14:00');
@@ -211,7 +211,7 @@ try {
     });
     await check('a moved record is NEVER class_moved, even when it carries roomChanged', () => {
         const change = rec({
-            type: 'moved',
+            changeType: 'moved',
             roomChanged: true,
             oldRoom: 'AB2-101',
             newRoom: 'AB2-205',
@@ -220,22 +220,22 @@ try {
             moved: { oldDay: 'Monday', newDay: 'Tuesday', oldStartTime: '09:00', oldEndTime: '09:55', newStartTime: '11:15', newEndTime: '12:10' },
         });
         const ev = buildN8nEvent(change, ctx);
-        assert.equal(ev.type, 'time_changed');
+        assert.equal(ev.changeType, 'time_changed');
         assert.equal(ev.oldRoom, null, 'room fields live on the room-changed record');
         assert.equal(ev.newRoom, null);
 
         const roomEv = buildN8nEvent(rec({ oldRoom: 'AB2-101', newRoom: 'AB2-205' }), ctx);
-        assert.equal(roomEv.type, 'room_changed');
+        assert.equal(roomEv.changeType, 'room_changed');
         assert.equal(roomEv.oldRoom, 'AB2-101');
         assert.equal(roomEv.newRoom, 'AB2-205');
     });
     await check('added → null (no class_added is ever sent)', () => {
-        assert.equal(buildN8nEvent({ ...rec(), type: 'added' }), null);
+        assert.equal(buildN8nEvent({ ...rec(), changeType: 'added' }), null);
     });
     await check('removed → class_cancelled built from the OLD record', () => {
-        const change = rec({ type: 'removed', class: undefined, oldClass: { ...baseClass } });
+        const change = rec({ changeType: 'removed', class: undefined, oldClass: { ...baseClass } });
         const ev = buildN8nEvent(change, ctx);
-        assert.equal(ev.type, 'class_cancelled');
+        assert.equal(ev.changeType, 'class_cancelled');
         assert.equal(ev.course, 'DAA');
         assert.equal(ev.room, 'AB2-101');
         assert.equal(ev.startTime, '09:00');
@@ -248,13 +248,13 @@ try {
     await check('modified → null (no class_modified is ever sent)', () => {
         assert.equal(buildN8nEvent({
             ...rec(),
-            type: 'modified',
+            changeType: 'modified',
             class: { ...baseClass, faculty: 'Prof. New' },
             oldClass: { ...baseClass, faculty: 'Prof. Old' },
         }), null);
     });
     await check('unknown change type → null', () => {
-        assert.equal(buildN8nEvent(rec({ type: 'no-change' }), ctx), null);
+        assert.equal(buildN8nEvent(rec({ changeType: 'no-change' }), ctx), null);
         assert.equal(buildN8nEvent(null, ctx), null);
         assert.equal(buildN8nEvent({}, ctx), null);
     });
@@ -306,7 +306,7 @@ try {
         const a = buildN8nEvent(rec(), ctx);
         const b = buildN8nEvent(rec({ oldRoom: 'AB2-101', newRoom: 'AB2-999' }), ctx);
         assert.notEqual(buildChangeId(a), buildChangeId(b));
-        const c = buildN8nEvent(rec({ type: 'moved', class: { ...baseClass, startTime: '10:15', endTime: '11:05' }, oldClass: { ...baseClass }, moved: { oldDay: 'Monday', newDay: 'Monday', oldStartTime: '09:00', newStartTime: '10:15' } }), ctx);
+        const c = buildN8nEvent(rec({ changeType: 'moved', class: { ...baseClass, startTime: '10:15', endTime: '11:05' }, oldClass: { ...baseClass }, moved: { oldDay: 'Monday', newDay: 'Monday', oldStartTime: '09:00', newStartTime: '10:15' } }), ctx);
         assert.notEqual(buildChangeId(a), buildChangeId(c));
     });
 
@@ -314,27 +314,27 @@ try {
     await check('no webhook configured → disabled, no network request', async () => {
         CONFIG.N8N_WEBHOOK_URL = '';
         reset();
-        const { status } = await sendN8nEvent({ type: 'test' });
+        const { status } = await sendN8nEvent({ changeType: 'test' });
         assert.equal(status, 'disabled');
         assert.equal(requests.length, 0);
     });
     await check('2xx response → sent', async () => {
         CONFIG.N8N_WEBHOOK_URL = 'https://n8n.example.test/webhook/tt';
         reset();
-        const { status } = await sendN8nEvent({ type: 'test', source: 'saiu-timetable' });
+        const { status } = await sendN8nEvent({ changeType: 'test', source: 'saiu-timetable' });
         assert.equal(status, 'sent');
         assert.equal(requests.length, 1);
         assert.equal(requests[0].url, 'https://n8n.example.test/webhook/tt');
-        assert.equal(requests[0].body.type, 'test');
+        assert.equal(requests[0].body.changeType, 'test');
     });
     await check('non-2xx response → http_<code>, never throws', async () => {
         globalThis.fetch = async () => ({ ok: false, status: 404 });
-        const { status } = await sendN8nEvent({ type: 'test' });
+        const { status } = await sendN8nEvent({ changeType: 'test' });
         assert.equal(status, 'http_404');
     });
     await check('network error → failed, never throws', async () => {
         globalThis.fetch = async () => { throw new Error('boom'); };
-        const { status } = await sendN8nEvent({ type: 'test' });
+        const { status } = await sendN8nEvent({ changeType: 'test' });
         assert.equal(status, 'failed');
     });
 
@@ -354,19 +354,19 @@ try {
         reset();
         setN8nDebug(true);
         const res = await window.testN8nWebhook({
-            type: 'room_changed', course: 'DAA', courseId: 'daa', section: 3,
+            changeType: 'room_changed', course: 'DAA', courseId: 'daa', section: 3,
             day: 'Monday', startTime: '09:00', endTime: '09:55',
             oldRoom: 'AB2-101', newRoom: 'AB2-205',
         });
         assert.equal(res.status, 'sent');
         assert.equal(requests.length, 1);
-        assert.equal(requests[0].body.type, 'room_changed');
+        assert.equal(requests[0].body.changeType, 'room_changed');
         assert.equal(requests[0].body.oldRoom, 'AB2-101');
         assert.ok(requests[0].body.detectedAt, 'a missing detectedAt is filled in');
     });
     await check('unsupported event type is rejected with no request', async () => {
         reset();
-        const res = await window.testN8nWebhook({ type: 'class_added' });
+        const res = await window.testN8nWebhook({ changeType: 'class_added' });
         assert.equal(res.status, 'rejected');
         assert.equal(requests.length, 0);
         setN8nDebug(false); // keep DEBUG off for the dispatch tests below
@@ -391,14 +391,14 @@ try {
         reset();
         const changes = [
             rec(),
-            rec({ type: 'moved', class: { ...baseClass, startTime: '10:15', endTime: '11:05' }, oldClass: { ...baseClass }, moved: { oldDay: 'Monday', newDay: 'Monday', oldStartTime: '09:00', newStartTime: '10:15' } }),
-            rec({ type: 'added' }),      // must produce NO event
-            rec({ type: 'modified' }),   // must produce NO event
+            rec({ changeType: 'moved', class: { ...baseClass, startTime: '10:15', endTime: '11:05' }, oldClass: { ...baseClass }, moved: { oldDay: 'Monday', newDay: 'Monday', oldStartTime: '09:00', newStartTime: '10:15' } }),
+            rec({ changeType: 'added' }),      // must produce NO event
+            rec({ changeType: 'modified' }),   // must produce NO event
         ];
         dispatchTimetableChanges(changes, ctx);
         await new Promise((r) => setTimeout(r, 10));
         assert.equal(requests.length, 2);
-        assert.deepEqual(requests.map((r) => r.body.type).sort(), ['room_changed', 'time_changed']);
+        assert.deepEqual(requests.map((r) => r.body.changeType).sort(), ['room_changed', 'time_changed']);
     });
     await check('A: AB2 → AB1 Computer Lab POSTs ONE room_changed with old/new room + metadata', async () => {
         const oldC = { ...baseClass, room: 'AB2' };
@@ -408,7 +408,7 @@ try {
         await new Promise((r) => setTimeout(r, 10));
         assert.equal(requests.length, 1);
         const body = requests[0].body;
-        assert.equal(body.type, 'room_changed');
+        assert.equal(body.changeType, 'room_changed');
         assert.equal(body.oldRoom, 'AB2');
         assert.equal(body.newRoom, 'AB1 Computer Lab');
         assert.equal(body.course, 'DAA');
@@ -442,7 +442,7 @@ try {
         await new Promise((r) => setTimeout(r, 10));
         assert.equal(requests.length, 1);
         const body = requests[0].body;
-        assert.equal(body.type, 'time_changed');
+        assert.equal(body.changeType, 'time_changed');
         assert.equal(body.oldStartTime, '14:00');
         assert.equal(body.oldEndTime, '14:55');
         assert.equal(body.newStartTime, '15:00');
@@ -473,7 +473,7 @@ try {
         await new Promise((r) => setTimeout(r, 10));
         assert.equal(requests.length, 1);
         const body = requests[0].body;
-        assert.equal(body.type, 'class_cancelled');
+        assert.equal(body.changeType, 'class_cancelled');
         assert.equal(body.course, 'DAA');
         assert.equal(body.room, 'AB2-101');
         assert.equal(body.startTime, '09:00');
@@ -507,7 +507,7 @@ try {
         dispatchTimetableChanges([
             rec({ oldRoom: 'AB2', newRoom: 'AB1 Computer Lab' }),
             rec({
-                type: 'moved',
+                changeType: 'moved',
                 class: { ...baseClass, room: 'AB1 Computer Lab', startTime: '15:00', endTime: '15:55' },
                 oldClass: { ...baseClass, room: 'AB2', startTime: '14:00', endTime: '14:55' },
                 moved: { oldDay: 'Monday', newDay: 'Monday', oldStartTime: '14:00', oldEndTime: '14:55', newStartTime: '15:00', newEndTime: '15:55' },
@@ -515,13 +515,13 @@ try {
         ], ctx);
         await new Promise((r) => setTimeout(r, 10));
         assert.equal(requests.length, 2, 'one event per independent change');
-        const types = requests.map((r) => r.body.type).sort();
+        const types = requests.map((r) => r.body.changeType).sort();
         assert.deepEqual(types, ['room_changed', 'time_changed']);
         assert.ok(!types.includes('class_moved'));
-        const room = requests.find((r) => r.body.type === 'room_changed').body;
+        const room = requests.find((r) => r.body.changeType === 'room_changed').body;
         assert.equal(room.oldRoom, 'AB2');
         assert.equal(room.newRoom, 'AB1 Computer Lab');
-        const time = requests.find((r) => r.body.type === 'time_changed').body;
+        const time = requests.find((r) => r.body.changeType === 'time_changed').body;
         assert.equal(time.oldStartTime, '14:00');
         assert.equal(time.oldEndTime, '14:55');
         assert.equal(time.newStartTime, '15:00');

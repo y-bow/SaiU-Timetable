@@ -136,13 +136,13 @@ console.log('--- compareTimetables: added / removed ---');
 await check('a new class is reported as added', () => {
     const { changes } = compareTimetables([cls({ subject: 'DAA' })], [cls({ subject: 'DAA' }), cls({ subject: 'FDE' })]);
     assert.equal(changes.length, 1);
-    assert.equal(changes[0].type, 'added');
+    assert.equal(changes[0].changeType, 'added');
     assert.equal(changes[0].class.subject, 'FDE');
 });
 await check('a dropped class is reported as removed', () => {
     const { changes } = compareTimetables([cls({ subject: 'DAA' }), cls({ subject: 'FDE' })], [cls({ subject: 'DAA' })]);
     assert.equal(changes.length, 1);
-    assert.equal(changes[0].type, 'removed');
+    assert.equal(changes[0].changeType, 'removed');
     assert.equal(changes[0].oldClass.subject, 'FDE');
 });
 
@@ -153,10 +153,10 @@ await check('a day/time move keeps identity and is reported as moved', () => {
         [cls({ subject: 'DAA', day: 'Wednesday', startTime: '14:00' })]
     );
     assert.equal(changes.length, 1);
-    assert.equal(changes[0].type, 'moved');
+    assert.equal(changes[0].changeType, 'moved');
     assert.equal(changes[0].moved.oldDay, 'Monday');
     assert.equal(changes[0].moved.newStartTime, '14:00');
-    assert.ok(!changes.some((c) => c.type === 'removed' || c.type === 'added'));
+    assert.ok(!changes.some((c) => c.changeType === 'removed' || c.changeType === 'added'));
 });
 await check('a room change is reported as room-changed with old/new rooms', () => {
     const { changes } = compareTimetables(
@@ -164,7 +164,7 @@ await check('a room change is reported as room-changed with old/new rooms', () =
         [cls({ subject: 'DAA', room: 'AB2-205' })]
     );
     assert.equal(changes.length, 1);
-    assert.equal(changes[0].type, 'room-changed');
+    assert.equal(changes[0].changeType, 'room-changed');
     assert.equal(changes[0].oldRoom, 'AB2-101');
     assert.equal(changes[0].newRoom, 'AB2-205');
 });
@@ -176,7 +176,7 @@ await check('a faculty change is a new identity (removed + added), not modified'
         [cls({ subject: 'DAA', faculty: 'Prof Arain' })]
     );
     assert.equal(changes.length, 2);
-    const types = changes.map((c) => c.type).sort();
+    const types = changes.map((c) => c.changeType).sort();
     assert.deepEqual(types, ['added', 'removed']);
 });
 await check('TBA → real room is NOT a room change (incomplete value)', () => {
@@ -192,7 +192,7 @@ await check('a parser-confirmed TBA room change is still reported', () => {
         [cls({ subject: 'DAA', room: 'AB2-101' })]
     );
     assert.equal(changes.length, 1);
-    assert.equal(changes[0].type, 'room-changed');
+    assert.equal(changes[0].changeType, 'room-changed');
     assert.equal(changes[0].oldRoom, 'TBA');
     assert.equal(changes[0].newRoom, 'AB2-101');
 });
@@ -204,7 +204,7 @@ await check('AB2 → AB1 is a real room change', () => {
         [cls({ subject: 'DAA', room: 'AB1' })]
     );
     assert.equal(changes.length, 1);
-    assert.equal(changes[0].type, 'room-changed');
+    assert.equal(changes[0].changeType, 'room-changed');
     assert.equal(changes[0].oldRoom, 'AB2');
     assert.equal(changes[0].newRoom, 'AB1');
 });
@@ -257,7 +257,7 @@ await check('valid room formats stay comparable ("AB1", "AB1 Computer Lab", "CR-
         [cls({ subject: 'DAA', room: 'AB1 Computer Lab' })]
     );
     assert.equal(changes.length, 1);
-    assert.equal(changes[0].type, 'room-changed');
+    assert.equal(changes[0].changeType, 'room-changed');
 });
 await check('a genuine room change preserves oldRoom and newRoom', () => {
     const { changes } = compareTimetables(
@@ -265,7 +265,7 @@ await check('a genuine room change preserves oldRoom and newRoom', () => {
         [cls({ subject: 'DAA', room: 'AB1 Computer Lab' })]
     );
     assert.equal(changes.length, 1);
-    assert.equal(changes[0].type, 'room-changed');
+    assert.equal(changes[0].changeType, 'room-changed');
     assert.equal(changes[0].oldRoom, 'AB2');
     assert.equal(changes[0].newRoom, 'AB1 Computer Lab');
 });
@@ -275,7 +275,7 @@ await check('14:00–14:55 → 15:00–15:55 is a time change (moved, same day)'
         [cls({ subject: 'DAA', startTime: '15:00', endTime: '15:55' })]
     );
     assert.equal(changes.length, 1);
-    assert.equal(changes[0].type, 'moved');
+    assert.equal(changes[0].changeType, 'moved');
     assert.equal(changes[0].moved.oldDay, 'Monday');
     assert.equal(changes[0].moved.newDay, 'Monday');
 });
@@ -311,8 +311,8 @@ await check('AB2 → AB1 Computer Lab with a new time emits room-changed AND mov
         [cls({ subject: 'DAA', room: 'AB1 Computer Lab', startTime: '15:00', endTime: '15:55' })]
     );
     assert.equal(changes.length, 2, 'room and time are two independent changes');
-    const room = changes.find((c) => c.type === 'room-changed');
-    const moved = changes.find((c) => c.type === 'moved');
+    const room = changes.find((c) => c.changeType === 'room-changed');
+    const moved = changes.find((c) => c.changeType === 'moved');
     assert.ok(room, 'a room change is never flattened into moved');
     assert.equal(room.oldRoom, 'AB2');
     assert.equal(room.newRoom, 'AB1 Computer Lab');
@@ -328,9 +328,9 @@ await check('a lab room+faculty change emits room-changed AND modified (room cha
         [lab({ room: 'AB1-205', faculty: 'Prof. New' })]
     );
     assert.equal(changes.length, 2);
-    const types = changes.map((c) => c.type).sort();
+    const types = changes.map((c) => c.changeType).sort();
     assert.deepEqual(types, ['modified', 'room-changed']);
-    const room = changes.find((c) => c.type === 'room-changed');
+    const room = changes.find((c) => c.changeType === 'room-changed');
     assert.equal(room.oldRoom, 'AB2-101');
     assert.equal(room.newRoom, 'AB1-205');
 });
@@ -351,25 +351,25 @@ await check('a valid day move still reports moved (day/time change survives, bec
         [cls({ subject: 'DAA', day: 'Wednesday', startTime: '09:00', endTime: '09:55' })]
     );
     assert.equal(changes.length, 1);
-    assert.equal(changes[0].type, 'moved');
+    assert.equal(changes[0].changeType, 'moved');
     assert.equal(changes[0].moved.oldDay, 'Monday');
     assert.equal(changes[0].moved.newDay, 'Wednesday');
 });
 await check('added / removed / modified are not suppressed by missing room/time', () => {
     const added = compareTimetables([], [cls({ subject: 'DAA', room: undefined, startTime: undefined, endTime: undefined })]);
     assert.equal(added.changes.length, 1);
-    assert.equal(added.changes[0].type, 'added');
+    assert.equal(added.changes[0].changeType, 'added');
 
     const removed = compareTimetables([cls({ subject: 'DAA', room: undefined, startTime: undefined, endTime: undefined })], []);
     assert.equal(removed.changes.length, 1);
-    assert.equal(removed.changes[0].type, 'removed');
+    assert.equal(removed.changes[0].changeType, 'removed');
 
     const modified = compareTimetables(
         [cls({ subject: 'Emerging Tools Lab', source: 'emerging-tools-lab', faculty: 'Prof. Old', room: undefined, startTime: undefined, endTime: undefined })],
         [cls({ subject: 'Emerging Tools Lab', source: 'emerging-tools-lab', faculty: 'Prof. New', room: undefined, startTime: undefined, endTime: undefined })]
     );
     assert.equal(modified.changes.length, 1);
-    assert.equal(modified.changes[0].type, 'modified');
+    assert.equal(modified.changes[0].changeType, 'modified');
 });
 await check('ignored comparisons are silent unless debug mode is on', () => {
     const orig = console.log;
@@ -416,7 +416,7 @@ await check('a lab teacher change is modified, never removed + added', () => {
         [lab({ faculty: 'Prof. Aravind' })]
     );
     assert.equal(changes.length, 1);
-    assert.equal(changes[0].type, 'modified');
+    assert.equal(changes[0].changeType, 'modified');
     assert.deepEqual(changes[0].changedProps, ['faculty']);
 });
 await check('a lab section change is a genuine offering change (removed + added)', () => {
@@ -425,18 +425,18 @@ await check('a lab section change is a genuine offering change (removed + added)
         [lab({ section: 2 })]
     );
     assert.equal(changes.length, 2);
-    const types = changes.map((c) => c.type).sort();
+    const types = changes.map((c) => c.changeType).sort();
     assert.deepEqual(types, ['added', 'removed']);
 });
 await check('lab room/time changes stay the same offering', () => {
     const room = compareTimetables([lab({ room: 'AB2-101' })], [lab({ room: 'AB2-205' })]);
     assert.equal(room.changes.length, 1);
-    assert.equal(room.changes[0].type, 'room-changed');
+    assert.equal(room.changes[0].changeType, 'room-changed');
     assert.equal(room.changes[0].newRoom, 'AB2-205');
 
     const moved = compareTimetables([lab({ startTime: '15:00' })], [lab({ startTime: '16:00' })]);
     assert.equal(moved.changes.length, 1);
-    assert.equal(moved.changes[0].type, 'moved');
+    assert.equal(moved.changes[0].changeType, 'moved');
     assert.equal(moved.changes[0].moved.newStartTime, '16:00');
 });
 await check('identical lab records produce no changes', () => {
@@ -496,7 +496,7 @@ await check('a resolved offering whose room changed is detected on its own ident
     // Raw events (not pre-flattened): compareTimetables flattens internally.
     const { changes } = compareTimetables([event], [moved]);
     assert.equal(changes.length, 1);
-    assert.equal(changes[0].type, 'room-changed');
+    assert.equal(changes[0].changeType, 'room-changed');
     assert.equal(changes[0].newRoom, 'AB1-201');
 });
 

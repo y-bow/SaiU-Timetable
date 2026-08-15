@@ -103,7 +103,7 @@ function printResult(label, snapshotA, snapshotB, changes, event, changeId, disp
         console.log('snapshot A (old):', snapshotA);
         console.log('snapshot B (new):', snapshotB);
         console.log('detected changes:', changes);
-        console.log('event type:', event ? event.type : '(none — no n8n event)');
+        console.log('event type:', event ? event.changeType : '(none — no n8n event)');
         console.log('event payload (EXACTLY what is POSTed to n8n):');
         console.log(event
             ? JSON.stringify(event, null, 2)

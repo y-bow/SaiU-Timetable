@@ -95,7 +95,7 @@ function hashString(str) {
  */
 export function buildChangeId(event) {
     const parts = [
-        event.type,
+        event.changeType,
         event.courseId,
         event.course,
         event.section,
@@ -156,7 +156,7 @@ function debugLog(event, status) {
             if (v !== undefined && v !== null && v !== '') console.log(`${k}:\n${v}`);
         };
         console.log('N8N EVENT');
-        line('type', event.type);
+        line('changeType', event.changeType);
         line('changeId', event.changeId);
         line('course', event.course);
         line('section', event.section);
@@ -177,16 +177,16 @@ function debugLog(event, status) {
  * describes; `ctx` carries the app's current navigation context (school,
  * year, section, lab group) for records that do not carry it themselves.
  *
- * The event type field is `type` and the dispatch timestamp is `detectedAt`,
- * so the webhook contract stays exactly:
- *   { changeId, type, course, school, section, date, day, startTime, endTime,
- *     oldRoom, newRoom, oldStartTime, oldEndTime, newStartTime, newEndTime,
- *     detectedAt, ... }
+ * The event type field is `changeType` and the dispatch timestamp is
+ * `detectedAt`, so the webhook contract stays exactly:
+ *   { changeId, changeType, course, school, section, date, day, startTime,
+ *     endTime, oldRoom, newRoom, oldStartTime, oldEndTime, newStartTime,
+ *     newEndTime, detectedAt, ... }
  */
-function coreFields(c, ctx, type) {
+function coreFields(c, ctx, changeType) {
     ctx = ctx || {};
     const out = {
-        type,
+        changeType,
         detectedAt: new Date().toISOString(),
         date: dateForWeekday(c.day),
         day: c.day ?? null,
@@ -275,8 +275,8 @@ function buildRemoved(change, ctx) {
  * to the notification workflow and never become events.
  */
 export function buildN8nEvent(change, ctx) {
-    if (!change || !change.type) return null;
-    switch (change.type) {
+    if (!change || !change.changeType) return null;
+    switch (change.changeType) {
         case 'room-changed': return buildRoomChanged(change, ctx);
         case 'moved': return buildMoved(change, ctx);
         case 'removed': return buildRemoved(change, ctx);
@@ -396,11 +396,11 @@ export function setN8nDebug(enabled) {
  * { status } as sendN8nEvent().
  */
 export function sendTestEvent(event) {
-    const type = event && event.type;
-    if (!TEST_EVENT_TYPES.has(type)) {
+    const changeType = event && event.changeType;
+    if (!TEST_EVENT_TYPES.has(changeType)) {
         return Promise.resolve({
             status: 'rejected',
-            reason: `testN8nWebhook expects an event object with type one of: ${Array.from(TEST_EVENT_TYPES).join(', ')}`,
+            reason: `testN8nWebhook expects an event object with changeType one of: ${Array.from(TEST_EVENT_TYPES).join(', ')}`,
         });
     }
     return sendN8nEvent({

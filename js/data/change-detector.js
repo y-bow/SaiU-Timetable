@@ -211,7 +211,7 @@ function stableSort(list) {
  *   roomMap: Record<string, {room: string, originalRoom: string|null}>
  * }}
  *   changes: one record per matched/pair/added/removed class with
- *     { type, identity, oldClass?, class?, oldRoom?, newRoom?, moved? }
+ *     { changeType, identity, oldClass?, class?, oldRoom?, newRoom?, moved? }
  *   roomMap: identity → the latest room + the room it was changed from
  *     (originalRoom null when the room is unchanged or brand new).
  *     Consumed by the app to badge resolved elective offerings.
@@ -261,17 +261,17 @@ export function compareTimetables(oldClasses, newClasses) {
                     rec.identity = identity;
                     rec.oldClass = o;
                     rec.class = n;
-                    if (rec.type === 'room-changed') roomChanged = true;
-                    if (rec.type !== 'no-change') changes.push(rec);
+                    if (rec.changeType === 'room-changed') roomChanged = true;
+                    if (rec.changeType !== 'no-change') changes.push(rec);
                 }
                 registerRoom(identity, n, o, roomChanged);
                 seenNew.add(n);
             } else if (n) {
-                changes.push({ type: 'added', identity, class: n });
+                changes.push({ changeType: 'added', identity, class: n });
                 registerRoom(identity, n, null, false);
                 seenNew.add(n);
             } else {
-                changes.push({ type: 'removed', identity, oldClass: o });
+                changes.push({ changeType: 'removed', identity, oldClass: o });
             }
         }
     }
@@ -281,7 +281,7 @@ export function compareTimetables(oldClasses, newClasses) {
         if (oldById.has(identity)) continue;
         for (const n of newList) {
             if (seenNew.has(n)) continue;
-            changes.push({ type: 'added', identity, class: n });
+            changes.push({ changeType: 'added', identity, class: n });
             registerRoom(identity, n, null, false);
         }
     }
@@ -290,7 +290,7 @@ export function compareTimetables(oldClasses, newClasses) {
     for (const [identity, oldList] of oldById) {
         if (newById.has(identity)) continue;
         for (const o of oldList) {
-            changes.push({ type: 'removed', identity, oldClass: o });
+            changes.push({ changeType: 'removed', identity, oldClass: o });
         }
     }
 
@@ -356,17 +356,17 @@ function classify(oldC, newC) {
         }
     }
 
-    if (changedProps.length === 0) return [{ type: 'no-change', changedProps: [] }];
+    if (changedProps.length === 0) return [{ changeType: 'no-change', changedProps: [] }];
 
     // Each independent change is its own record. A room change stays a
     // room-changed even when the time also moved or the lab teacher swapped —
     // it must never be flattened into a generic moved/modified notification.
     if (roomChanged) {
-        records.push({ type: 'room-changed', changedProps: ['room'], oldRoom: oldC.room, newRoom: newC.room });
+        records.push({ changeType: 'room-changed', changedProps: ['room'], oldRoom: oldC.room, newRoom: newC.room });
     }
     if (dayOrTimeChanged) {
         records.push({
-            type: 'moved',
+            changeType: 'moved',
             changedProps: ['day', 'time'],
             roomChanged,
             oldRoom: roomChanged ? oldC.room : null,
@@ -382,12 +382,12 @@ function classify(oldC, newC) {
         });
     }
     if (facultyChanged) {
-        records.push({ type: 'modified', changedProps: ['faculty'] });
+        records.push({ changeType: 'modified', changedProps: ['faculty'] });
     }
 
     // Defensive catch-all. With room, day/time and faculty already covered
     // above and the remaining identity props (subject/elective/section/source)
     // equal by definition, this is currently unreachable; kept as a fallback.
-    if (records.length === 0) return [{ type: 'modified', changedProps }];
+    if (records.length === 0) return [{ changeType: 'modified', changedProps }];
     return records;
 }
