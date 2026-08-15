@@ -18,15 +18,23 @@ import { CONFIG } from '../core/config.js?v=2026-08-13-005';
  *     no errors. The timetable keeps working normally.
  *   - Events are produced ONLY for meaningful changes. The n8n contract
  *     supports EXACTLY three event types: room_changed, time_changed and
- *     class_cancelled. Room changes always arrive as room_changed, day/time
- *     moves as time_changed (never a generic "class_moved"), and a removed
- *     class as class_cancelled. An unchanged timetable never sends anything
- *     and repeated polls of an unchanged timetable never send anything either.
+ *     class_cancelled — nothing else is ever sent (no class_added,
+ *     class_modified, class_moved or other custom types). Room changes always
+ *     arrive as room_changed, day/time moves as time_changed (never a generic
+ *     "class_moved"), and a removed class as class_cancelled. An unchanged
+ *     timetable never sends anything and repeated polls of an unchanged
+ *     timetable never send anything either.
+ *   - The webhook is called ONLY as a consequence of a genuine detected
+ *     timetable change: not on app start, not on a cache load, not on a
+ *     refresh of an unchanged timetable, not when the user opens the page or
+ *     changes year/section. Detection happens exactly where the app compares
+ *     the previous cached timetable against the freshly fetched one
+ *     (js/core/app.js → compareTimetables → dispatchTimetableChanges).
  *   - Every change gets a deterministic change id derived from the event type
- *     plus the course/date/section and old/new values (NOT the timestamp).
- *     Recently dispatched ids are persisted in localStorage, so the same
- *     change is never POSTed twice, even if the sheet still shows it on the
- *     next sync.
+ *     plus the course/day/section/school and old/new values (NOT the
+ *     timestamp). Recently dispatched ids are persisted in localStorage, so
+ *     the same change is never POSTed twice, even if the sheet still shows it
+ *     on the next sync.
  *   - Sending is non-blocking, uses a short timeout, and is fully wrapped in
  *     try/catch — an offline / slow / broken n8n can never break timetable
  *     rendering or synchronization.
@@ -82,13 +90,16 @@ function hashString(str) {
  * Deterministic change id for an event. Built from stable identity fields
  * only — the event timestamp is deliberately excluded so re-detecting the same
  * change on a later sync produces the same id and is skipped as a duplicate.
+ * The weekday name (not the rolling calendar date) anchors the id, so the
+ * identical change detected again on any later day hashes to the same id.
  */
 export function buildChangeId(event) {
     const parts = [
-        event.event,
-        event.date,
+        event.type,
         event.courseId,
+        event.course,
         event.section,
+        event.school,
         event.day,
         event.oldStartTime, event.oldEndTime, event.newStartTime, event.newEndTime,
         event.startTime, event.endTime,
@@ -137,8 +148,8 @@ function debugLog(event, status) {
             if (v !== undefined && v !== null && v !== '') console.log(`${k}:\n${v}`);
         };
         console.log('N8N EVENT');
-        line('event', event.event);
-        line('eventId', event.eventId);
+        line('type', event.type);
+        line('changeId', event.changeId);
         line('course', event.course);
         line('section', event.section);
         line('oldStartTime', event.oldStartTime);
@@ -157,12 +168,18 @@ function debugLog(event, status) {
  * Fields common to every timetable event. `c` is the class record the event
  * describes; `ctx` carries the app's current navigation context (school,
  * year, section, lab group) for records that do not carry it themselves.
+ *
+ * The event type field is `type` and the dispatch timestamp is `detectedAt`,
+ * so the webhook contract stays exactly:
+ *   { changeId, type, course, school, section, date, day, startTime, endTime,
+ *     oldRoom, newRoom, oldStartTime, oldEndTime, newStartTime, newEndTime,
+ *     detectedAt, ... }
  */
-function coreFields(c, ctx, event) {
+function coreFields(c, ctx, type) {
     ctx = ctx || {};
     const out = {
-        event,
-        timestamp: new Date().toISOString(),
+        type,
+        detectedAt: new Date().toISOString(),
         date: dateForWeekday(c.day),
         day: c.day ?? null,
         course: c.subject ?? null,
@@ -186,6 +203,10 @@ function buildRoomChanged(change, ctx) {
         endTime: c.endTime ?? null,
         oldRoom: change.oldRoom ?? null,
         newRoom: change.newRoom ?? null,
+        oldStartTime: null,
+        oldEndTime: null,
+        newStartTime: null,
+        newEndTime: null,
     };
 }
 
@@ -201,6 +222,10 @@ function buildMoved(change, ctx) {
     // class_cancelled only. A moved record never carries the room fields.
     const ev = {
         ...coreFields(newC, ctx, 'time_changed'),
+        startTime: newC.startTime ?? null,
+        endTime: newC.endTime ?? null,
+        oldRoom: null,
+        newRoom: null,
         oldStartTime: m.oldStartTime ?? oldC.startTime ?? null,
         oldEndTime: m.oldEndTime ?? oldC.endTime ?? null,
         newStartTime: m.newStartTime ?? newC.startTime ?? null,
@@ -215,16 +240,6 @@ function buildMoved(change, ctx) {
     return ev;
 }
 
-function buildAdded(change, ctx) {
-    const c = change.class;
-    return {
-        ...coreFields(c, ctx, 'class_added'),
-        startTime: c.startTime ?? null,
-        endTime: c.endTime ?? null,
-        room: c.room ?? null,
-    };
-}
-
 function buildRemoved(change, ctx) {
     // The new timetable no longer contains this class — the OLD record is the
     // only information we still have, so the event is built from it.
@@ -233,35 +248,30 @@ function buildRemoved(change, ctx) {
         ...coreFields(c, ctx, 'class_cancelled'),
         startTime: c.startTime ?? null,
         endTime: c.endTime ?? null,
+        oldRoom: null,
+        newRoom: null,
+        oldStartTime: null,
+        oldEndTime: null,
+        newStartTime: null,
+        newEndTime: null,
         room: c.room ?? null,
     };
-}
-
-function buildModified(change, ctx) {
-    const c = change.class;
-    const oldC = change.oldClass;
-    const ev = {
-        ...coreFields(c, ctx, 'class_modified'),
-        startTime: c.startTime ?? null,
-        endTime: c.endTime ?? null,
-        room: c.room ?? null,
-    };
-    if (oldC && oldC.faculty !== c.faculty) ev.oldFaculty = oldC.faculty ?? null;
-    return ev;
 }
 
 /**
  * Map a smart change-detector record to a structured n8n event.
  * Returns null for changes that are not meaningful (nothing to notify).
+ *
+ * ONLY three event types are ever produced — room_changed, time_changed and
+ * class_cancelled. 'added' classes and 'modified' classes are NOT meaningful
+ * to the notification workflow and never become events.
  */
 export function buildN8nEvent(change, ctx) {
     if (!change || !change.type) return null;
     switch (change.type) {
         case 'room-changed': return buildRoomChanged(change, ctx);
         case 'moved': return buildMoved(change, ctx);
-        case 'added': return buildAdded(change, ctx);
         case 'removed': return buildRemoved(change, ctx);
-        case 'modified': return buildModified(change, ctx);
         default: return null;
     }
 }
@@ -327,7 +337,7 @@ export function dispatchTimetableChanges(changes, ctx) {
             // never re-sent on the next sync (guarantees a single request per
             // distinct change).
             markSent(changeId);
-            event.eventId = changeId;
+            event.changeId = changeId;
             sendN8nEvent(event); // fire-and-forget
         } catch {
             // A broken event must never break the timetable load.
@@ -362,21 +372,22 @@ export function setN8nDebug(enabled) {
 /**
  * Dev-only manual test: send ONE timetable-change event through the real
  * sendN8nEvent() pipeline. The event object is passed through as-is (a
- * timestamp is added when missing). Only `room_changed`, `time_changed` and
- * `class_cancelled` are allowed — any other type is rejected without a
- * request, so the helper can never fabricate a payload shape the production
- * pipeline would not produce. Returns the same { status } as sendN8nEvent().
+ * `detectedAt` timestamp is added when missing). Only `room_changed`,
+ * `time_changed` and `class_cancelled` are allowed — any other type is
+ * rejected without a request, so the helper can never fabricate a payload
+ * shape the production pipeline would not produce. Returns the same
+ * { status } as sendN8nEvent().
  */
 export function sendTestEvent(event) {
-    const type = event && event.event;
+    const type = event && event.type;
     if (!TEST_EVENT_TYPES.has(type)) {
         return Promise.resolve({
             status: 'rejected',
-            reason: `testN8nWebhook expects an event object with event one of: ${Array.from(TEST_EVENT_TYPES).join(', ')}`,
+            reason: `testN8nWebhook expects an event object with type one of: ${Array.from(TEST_EVENT_TYPES).join(', ')}`,
         });
     }
     return sendN8nEvent({
         ...event,
-        timestamp: event.timestamp || new Date().toISOString(),
+        detectedAt: event.detectedAt || new Date().toISOString(),
     });
 }

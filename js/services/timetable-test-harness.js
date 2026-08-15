@@ -17,8 +17,9 @@
  * is imported — and ONLY on localhost / dev hosts. Production (GitHub Pages
  * and any non-local host) never sees them, and the gate needs no config flag:
  *
- *   window.testRoomChangeNotification()   AB2 → AB1 Computer Lab (room change)
- *   window.testTimeChangeNotification()   15:00–15:55 → 16:00–16:55 (time change)
+ *   window.testRoomChangeNotification()    AB2 → AB1 Computer Lab (room change)
+ *   window.testTimeChangeNotification()    15:00–15:55 → 16:00–16:55 (time change)
+ *   window.testCancellationNotification()  class removed from the timetable (cancelled)
  *   window.testInvalidRoomChange()        AB2 → undefined (ignored, no n8n event)
  *
  * Attachment happens at module evaluation (see installTimetableTestHarness
@@ -102,7 +103,7 @@ function printResult(label, snapshotA, snapshotB, changes, event, changeId, disp
         console.log('snapshot A (old):', snapshotA);
         console.log('snapshot B (new):', snapshotB);
         console.log('detected changes:', changes);
-        console.log('event type:', event ? event.event : '(none — no n8n event)');
+        console.log('event type:', event ? event.type : '(none — no n8n event)');
         console.log('event payload (EXACTLY what is POSTed to n8n):');
         console.log(event
             ? JSON.stringify(event, null, 2)
@@ -120,8 +121,11 @@ function printResult(label, snapshotA, snapshotB, changes, event, changeId, disp
 
 function runComparison(label, verdict, snapshotA, snapshotB) {
     try {
-        // 1. The existing change detector.
-        const { changes } = compareTimetables([snapshotA], [snapshotB]);
+        // 1. The existing change detector. Each snapshot may be a single class
+        // record or an array of records (an empty array = cancelled class).
+        const oldList = Array.isArray(snapshotA) ? snapshotA : [snapshotA];
+        const newList = Array.isArray(snapshotB) ? snapshotB : [snapshotB];
+        const { changes } = compareTimetables(oldList, newList);
 
         // 2. Build the event with the existing event builder. If there is no
         // detected change (e.g. AB2 → undefined), no event exists and nothing
@@ -143,7 +147,7 @@ function runComparison(label, verdict, snapshotA, snapshotB) {
         let changeId = null;
         if (event) {
             changeId = uniqueDevChangeId();
-            event.eventId = changeId;
+            event.changeId = changeId;
             sendN8nEvent(event); // fire-and-forget, fully wrapped, never throws
         }
 
@@ -178,6 +182,19 @@ export function testTimeChangeNotification() {
 }
 
 /**
+ * Simulate a class cancellation: the class existed in the previous timetable
+ * and is gone from the new one. Produces a class_cancelled event.
+ */
+export function testCancellationNotification() {
+    return runComparison(
+        'class cancelled (removed from the timetable)',
+        'confirmed class cancellation',
+        SNAPSHOT_A,
+        [] // the new timetable no longer contains the class
+    );
+}
+
+/**
  * Simulate an incomplete room comparison: AB2 → undefined. The change
  * detector ignores it (first safety layer), so NO n8n notification is
  * produced and nothing is dispatched.
@@ -204,10 +221,12 @@ export function installTimetableTestHarness() {
         if (isLocalhost()) {
             window.testRoomChangeNotification = testRoomChangeNotification;
             window.testTimeChangeNotification = testTimeChangeNotification;
+            window.testCancellationNotification = testCancellationNotification;
             window.testInvalidRoomChange = testInvalidRoomChange;
         } else {
             delete window.testRoomChangeNotification;
             delete window.testTimeChangeNotification;
+            delete window.testCancellationNotification;
             delete window.testInvalidRoomChange;
         }
     } catch {
