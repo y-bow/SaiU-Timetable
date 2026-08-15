@@ -114,6 +114,11 @@ export function buildChangeId(event) {
 
 // --- Dispatched-change persistence (localStorage, defensive) -----------------
 
+// Per-session dedupe set. It backs the localStorage store so a change is never
+// re-sent twice within one page lifetime, even if storage becomes unavailable
+// or is cleared mid-session (storage writes silently fail, reads return []).
+const sessionSent = new Set();
+
 function readSent() {
     try {
         const raw = localStorage.getItem(SENT_KEY);
@@ -125,17 +130,20 @@ function readSent() {
 }
 
 function hasSent(id) {
+    if (sessionSent.has(id)) return true;
     return readSent().includes(id);
 }
 
 function markSent(id) {
+    sessionSent.add(id);
     try {
         const arr = readSent();
         if (!arr.includes(id)) arr.push(id);
         if (arr.length > MAX_SENT) arr.splice(0, arr.length - MAX_SENT);
         localStorage.setItem(SENT_KEY, JSON.stringify(arr));
     } catch {
-        // Storage full / unavailable — dedupe simply degrades to per-session.
+        // Storage full / unavailable — the session set still dedupes for the
+        // rest of this page lifetime.
     }
 }
 
@@ -346,6 +354,15 @@ export function dispatchTimetableChanges(changes, ctx) {
 }
 
 // --- Development helpers -----------------------------------------------------
+
+/**
+ * Test-only: clear the per-session dedupe set (the persistent localStorage
+ * store is untouched). The dispatch test harness calls this before each case
+ * so a change id dispatched by an earlier case can never suppress a later one.
+ */
+export function resetN8nDedupe() {
+    sessionSent.clear();
+}
 
 // Event types a manual test event may carry. The helper exists to exercise the
 // REAL sender path with realistic data, so only the meaningful change types are

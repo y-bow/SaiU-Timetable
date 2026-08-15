@@ -2,6 +2,7 @@ import { CONFIG } from '../core/config.js?v=2026-08-13-005';
 import { parseCSV } from '../data/parser.js?v=2026-08-13-005';
 import * as nav from '../ui/navigation.js?v=2026-08-13-005';
 import { toMinutes, minutesToClock, todayName, WEEKDAYS } from '../core/utils.js?v=2026-08-13-005';
+import { loadMergedYear2Timetable } from './lab-fetch.js?v=2026-08-13-005';
 
 /**
  * Background timetable sync for the Breakout game page (game.html).
@@ -38,11 +39,24 @@ async function syncTimetable() {
         const parsed = parseCSV(text, nav.getParserType(), nav.getMandatoryCourses(), nav.getElectives(), nav.getRooms());
         if (!parsed.length) throw new Error('No classes parsed');
 
+        // Produce the SAME snapshot the main app writes (js/core/app.js): for
+        // SCDS Year 2 the separate lab timetables are merged under the main
+        // sheet classes. The shared tt-cache-<year> key is the change-detector's
+        // previous-state baseline, so writing anything but the app's exact
+        // snapshot here would reset the baseline and let the detector re-derive
+        // already-notified changes. No notification is ever dispatched from this
+        // module — the single notification path stays in app.js.
+        const year = nav.getYear();
+        const classes = year && year.id === 'scds-2'
+            ? (await loadMergedYear2Timetable(parsed)).classes
+            : parsed;
+        if (!classes.length) throw new Error('No classes parsed');
+
         try {
-            localStorage.setItem(cacheKeyFor(nav.getYear()), JSON.stringify({ savedAt: Date.now(), classes: parsed }));
+            localStorage.setItem(cacheKeyFor(year), JSON.stringify({ savedAt: Date.now(), classes }));
         } catch { /* storage full — ignore */ }
 
-        renderContext(parsed);
+        renderContext(classes);
     } catch {
         // Offline or transient failure — the game is unaffected.
     }

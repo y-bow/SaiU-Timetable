@@ -111,7 +111,8 @@ globalThis.fetch = async (url, init) => {
     return { ok: true, status: 200 };
 };
 
-const reset = () => { store.clear(); requests = []; };
+const reset = () => { _resetN8nDedupe(); store.clear(); requests = []; };
+let _resetN8nDedupe = () => {};
 
 // ---------------------------------------------------------------------------
 // Import the copied source modules.
@@ -134,8 +135,9 @@ try {
         writeFileSync(dest, src);
     }
 
-    const { buildN8nEvent, buildChangeId, sendN8nEvent, dispatchTimetableChanges, setN8nDebug, sendTestEvent } =
+    const { buildN8nEvent, buildChangeId, sendN8nEvent, dispatchTimetableChanges, setN8nDebug, sendTestEvent, resetN8nDedupe } =
         await import(pathToFileURL(join(dir, 'js/services/n8n.js')).href);
+    _resetN8nDedupe = resetN8nDedupe;
     const { CONFIG } = await import(pathToFileURL(join(dir, 'js/core/config.js')).href);
     const { compareTimetables } = await import(pathToFileURL(join(dir, 'js/data/change-detector.js')).href);
 
@@ -448,6 +450,21 @@ try {
         assert.equal(body.oldRoom, null);
         assert.equal(body.newRoom, null);
     });
+    await check('B2: the SAME time change detected again → identical changeId, no duplicate POST', async () => {
+        const oldC = { ...baseClass, startTime: '14:00', endTime: '14:55' };
+        const newC = { ...oldC, startTime: '15:00', endTime: '15:55' };
+        const { changes } = compareTimetables([oldC], [newC]);
+        const expectedId = buildChangeId(buildN8nEvent(changes[0], ctx));
+        reset();
+        dispatchTimetableChanges(changes, ctx);
+        await new Promise((r) => setTimeout(r, 10));
+        assert.equal(requests.length, 1);
+        assert.equal(requests[0].body.changeId, expectedId, 'changeId is deterministic');
+        const { changes: again } = compareTimetables([oldC], [newC]);
+        dispatchTimetableChanges(again, ctx);
+        await new Promise((r) => setTimeout(r, 10));
+        assert.equal(requests.length, 1, 'the identical time change must not be POSTed twice');
+    });
     await check('C: a removed class POSTs ONE class_cancelled with the old class info', async () => {
         const oldC = { ...baseClass };
         const { changes } = compareTimetables([oldC], []);
@@ -461,6 +478,20 @@ try {
         assert.equal(body.room, 'AB2-101');
         assert.equal(body.startTime, '09:00');
         assert.equal(body.endTime, '09:55');
+    });
+    await check('C2: the SAME removed class detected again → identical changeId, no duplicate POST', async () => {
+        const oldC = { ...baseClass };
+        const { changes } = compareTimetables([oldC], []);
+        const expectedId = buildChangeId(buildN8nEvent(changes[0], ctx));
+        reset();
+        dispatchTimetableChanges(changes, ctx);
+        await new Promise((r) => setTimeout(r, 10));
+        assert.equal(requests.length, 1);
+        assert.equal(requests[0].body.changeId, expectedId, 'changeId is deterministic');
+        const { changes: again } = compareTimetables([oldC], []);
+        dispatchTimetableChanges(again, ctx);
+        await new Promise((r) => setTimeout(r, 10));
+        assert.equal(requests.length, 1, 'the identical cancellation must not be POSTed twice');
     });
     await check('no timetable change at all → zero requests', async () => {
         const c = { ...baseClass };
