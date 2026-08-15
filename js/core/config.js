@@ -60,6 +60,15 @@ export const CONFIG = {
     // ---------------------------------------------------------------------
     // Generative-AI timetable assistant ("Ask SaiU AI").
     //
+    // TEMPORARY UI KILL-SWITCH. Set to false to hide EVERY "Ask SaiU AI" UI
+    // entry point across the whole site (student + teacher): the mobile top
+    // bar button, the sidebar "Ask AI" button, the teacher page top bar
+    // button, and the chat panel itself. Nothing AI-related is deleted — the
+    // service (js/services/timetable-ai.js), webhook and n8n workflow stay
+    // fully intact. To restore the AI UI later, flip this single value back
+    // to true.
+    AI_UI_ENABLED: false,
+
     // The chat panel and its launch buttons are rendered when isAiEnabled()
     // (js/services/timetable-ai.js) returns true, which is:
     //   - anywhere once AI_FEATURE_ENABLED is true (live in production), OR

@@ -29,11 +29,14 @@ import { dateForWeekday } from './n8n.js?v=2026-08-13-005';
  * ever live in the frontend; they stay inside n8n.
  *
  * Enablement (production-safe):
- *   - isAiEnabled() is true whenever N8N_AI_WEBHOOK_URL is set AND either the
- *     page runs on a localhost host (dev/testing) or CONFIG.AI_FEATURE_ENABLED
- *     is true (the later switch for going live). On GitHub Pages with the
- *     feature still flagged off, the panel never renders and no request is
- *     ever made — the production build stays untouched.
+ *   - isAiEnabled() returns false whenever CONFIG.AI_UI_ENABLED is false (the
+ *     master UI kill-switch), hiding every AI entry point site-wide — even on
+ *     localhost. To restore the AI UI, set AI_UI_ENABLED back to true.
+ *   - With AI_UI_ENABLED true, the feature is on whenever N8N_AI_WEBHOOK_URL
+ *     is set AND either the page runs on a localhost host (dev/testing) or
+ *     CONFIG.AI_FEATURE_ENABLED is true (the later switch for going live). On
+ *     GitHub Pages with the feature still flagged off, the panel never renders
+ *     and no request is ever made — the production build stays untouched.
  */
 
 const DEV_HOSTS = ['localhost', '127.0.0.1', '::1', '0.0.0.0'];
@@ -44,6 +47,7 @@ function isDevHost() {
 }
 
 export function isAiEnabled() {
+    if (!CONFIG.AI_UI_ENABLED) return false;
     const url = String(CONFIG.N8N_AI_WEBHOOK_URL || '').trim();
     if (!url) return false;
     return !!CONFIG.AI_FEATURE_ENABLED || isDevHost();
