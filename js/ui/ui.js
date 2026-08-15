@@ -578,7 +578,7 @@ function buildTimeline(timeline, items, nowMin, skipBreaks, dayStatus = 'today',
             <div class="tl-card">
                 <div class="tl-card-top">
                     <div>
-                        <div class="tl-subject">${escapeHtml(c.subject)}</div>
+                        <div class="tl-subject">${escapeHtml(c.subject)}${c.lab ? '<span class="badge badge-lab tl-lab-tag">Lab</span>' : ''}</div>
                         <div class="tl-meta">
                             ${c.faculty && status !== 'completed' ? `<span class="tl-faculty">${escapeHtml(c.faculty)}</span>` : ''}
                             <span class="tl-room">${ICONS.mapPin}<span>${escapeHtml(c.room || 'Room TBA')}</span></span>

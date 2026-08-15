@@ -76,6 +76,8 @@ html {
     scroll-behavior: smooth;
     font: 100%/1.5 system-ui, -apple-system, 'Segoe UI', sans-serif;
     font-optical-sizing: auto;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
 }
 
 body {
@@ -152,15 +154,27 @@ input { font-family: inherit; }
     position: fixed;
     top: 0; left: 0; right: 0;
     z-index: 200;
+    /* Notched phones: push the bar below the status area and let the height
+       grow with it, so the brand/buttons never sit under the notch. */
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-left: max(12px, env(safe-area-inset-left, 0px));
+    padding-right: max(12px, env(safe-area-inset-right, 0px));
+    height: calc(var(--topbar-h) + env(safe-area-inset-top, 0px));
 }
 .mobile-title {
     flex: 1;
+    min-width: 0;
     font-size: var(--font-caption);
     font-weight: 600;
     letter-spacing: -0.01em;
     display: flex;
     align-items: center;
     gap: 8px;
+}
+.mobile-title span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 .brand-logo {
     width: 26px;
@@ -219,6 +233,7 @@ input { font-family: inherit; }
 .sidebar-header {
     display: flex; align-items: center; justify-content: space-between;
     padding: 14px 14px 10px;
+    padding-top: calc(14px + env(safe-area-inset-top, 0px));
     border-bottom: 1px solid var(--border-bright);
     flex-shrink: 0;
 }
@@ -478,6 +493,7 @@ input { font-family: inherit; }
 .sidebar-footer {
     position: relative;
     padding: 12px 14px 10px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
@@ -526,6 +542,9 @@ input { font-family: inherit; }
     z-index: 50;
     pointer-events: auto;
     white-space: nowrap;
+    max-width: calc(100vw - 16px);
+    overflow: hidden;
+    text-overflow: ellipsis;
     padding: 9px 24px;
     border-radius: 999px;
     font-size: 0.66rem;
@@ -597,6 +616,7 @@ input { font-family: inherit; }
     align-items: baseline;
     justify-content: space-between;
     gap: 12px;
+    flex-wrap: wrap;
     margin-bottom: 20px;
 }
 .main-title {
@@ -606,6 +626,7 @@ input { font-family: inherit; }
     line-height: 1.15;
     color: var(--text);
     font-optical-sizing: auto;
+    min-width: 0;
 }
 .main-stats {
     font-size: 0.75rem;
@@ -701,6 +722,7 @@ input { font-family: inherit; }
     justify-content: space-between;
     gap: 12px;
 }
+.tl-card-top > div { min-width: 0; overflow-wrap: break-word; }
 .tl-card-top > .status-badge { align-self: flex-start; }
 
 .tl-subject {
@@ -709,6 +731,11 @@ input { font-family: inherit; }
     line-height: 1.4;
     letter-spacing: -0.01em;
     color: var(--text);
+    overflow-wrap: break-word;
+}
+.tl-subject .tl-lab-tag {
+    margin-left: 6px;
+    vertical-align: middle;
 }
 .tl-meta {
     margin-top: 3px;
@@ -987,6 +1014,10 @@ input { font-family: inherit; }
     position: relative;
     width: 100%; max-width: 440px;
     margin: 0 16px;
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     background: var(--material-sheet);
     backdrop-filter: blur(32px) saturate(180%);
@@ -1046,7 +1077,7 @@ input { font-family: inherit; }
     position: absolute;
     left: 0; right: 0; bottom: 0;
     width: 100%;
-    max-height: 88vh;
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px));
     display: flex;
     flex-direction: column;
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
@@ -1353,65 +1384,6 @@ input { font-family: inherit; }
 }
 
 /* ============================================================
-   MOBILE (< 768px)
-   Drawer sidebar, top bar visible, full-width content.
-   ============================================================ */
-@media (max-width: 767px) {
-    body { flex-direction: column; }
-
-    .sidebar {
-        transform: translateX(-100%);
-        top: 0; bottom: 0;
-        z-index: 310;
-    }
-    .sidebar.open { transform: translateX(0); }
-    .sidebar-close-btn { display: grid; }
-
-    /* The floating credit pill must never cover the open drawer. */
-    #sidebar.open ~ .main-content .main-footer {
-        display: none;
-    }
-
-    .main-content {
-        margin-left: 0;
-    }
-
-    .content-container {
-        padding: calc(var(--topbar-h) + 14px) 14px 96px;
-    }
-
-    /* Fixed day-selector layout: rows never shift when the selected day
-       changes. Monday–Wednesday always on row 1, Thursday–Friday always on
-       row 2, centered as a group. Row 2 is sized to exactly two 1fr columns
-       + gap so its buttons match row 1's cell width (equal everywhere). */
-    .days-filter {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 8px;
-    }
-    .days-row {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 8px;
-        width: 100%;
-    }
-    .days-row:last-child {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 8px;
-        width: calc((100% - 16px) * 2 / 3 + 8px);
-    }
-    .day-filter-btn {
-        min-width: 0;
-        padding: 7px 6px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-}
-
-/* ============================================================
    Pull-to-refresh indicator
    ============================================================ */
 .pull-indicator {
@@ -1452,8 +1424,9 @@ input { font-family: inherit; }
 .teacher-topbar {
     position: sticky; top: 0; z-index: 20;
     display: flex; align-items: center; gap: 12px;
-    height: var(--topbar-h);
+    min-height: var(--topbar-h);
     padding: 0 18px;
+    padding-top: env(safe-area-inset-top, 0px);
     background: var(--material-topbar);
     backdrop-filter: blur(20px) saturate(180%);
     -webkit-backdrop-filter: blur(20px) saturate(180%);
@@ -1462,13 +1435,19 @@ input { font-family: inherit; }
 
 .teacher-title {
     flex: 1; margin: 0;
+    min-width: 0;
     display: flex; align-items: center; gap: 8px;
     font-size: 1.05rem; font-weight: 700;
     letter-spacing: -0.01em;
 }
 
-.teacher-topbar-actions { display: flex; align-items: center; gap: 10px; }
-.teacher-updated { font-size: 0.75rem; color: var(--text-tertiary); white-space: nowrap; }
+.teacher-topbar-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.teacher-updated {
+    font-size: 0.75rem; color: var(--text-tertiary); white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+    max-width: 100%;
+    flex-shrink: 1;
+}
 
 .teacher-main {
     flex: 1;
@@ -1591,4 +1570,93 @@ input { font-family: inherit; }
     margin-top: 5px;
     font-size: 0.8rem;
     color: var(--text-tertiary);
+}
+
+/* ============================================================
+   MOBILE (< 768px)
+   Drawer sidebar, top bar visible, full-width content.
+   Kept at the very end so mobile overrides beat every base rule
+   of equal specificity defined above.
+   ============================================================ */
+@media (max-width: 767px) {
+    body { flex-direction: column; }
+
+    .sidebar {
+        transform: translateX(-100%);
+        top: 0; bottom: 0;
+        z-index: 310;
+    }
+    .sidebar.open { transform: translateX(0); }
+    .sidebar-close-btn { display: grid; }
+
+    /* The floating credit pill must never cover the open drawer. */
+    #sidebar.open ~ .main-content .main-footer {
+        display: none;
+    }
+
+    .main-content {
+        margin-left: 0;
+    }
+
+    .content-container {
+        padding: calc(var(--topbar-h) + env(safe-area-inset-top, 0px) + 14px)
+                 max(14px, env(safe-area-inset-left, 0px))
+                 96px
+                 max(14px, env(safe-area-inset-right, 0px));
+    }
+
+    /* Comfortable touch targets on phones (min ~44px). */
+    .mobile-topbar { gap: 4px; }
+    .icon-btn { width: 44px; height: 44px; }
+    .sidebar-item { min-height: 44px; }
+    .day-filter-btn { min-height: 44px; }
+    .section-option { min-height: 44px; }
+    .ai-send-btn { width: 44px; height: 44px; }
+    .ai-input { min-height: 44px; }
+    .retry-btn, .btn { min-height: 44px; }
+    .sidebar-install-btn { min-height: 44px; }
+    .ai-launch-btn { min-height: 44px; }
+    .game-cta-btn { min-height: 44px; }
+    .sidebar-elective-select { min-height: 44px; padding: 9px 10px; }
+    .tl-offering { min-height: 34px; padding: 6px 10px; }
+    .ai-chip { min-height: 38px; }
+
+    /* Teacher page touch targets + safe-area gutters. */
+    .teacher-main {
+        padding: 18px max(14px, env(safe-area-inset-left, 0px)) 96px max(14px, env(safe-area-inset-right, 0px));
+    }
+    .teacher-search-wrap input { height: 44px; }
+    .teacher-list-item { min-height: 44px; }
+    .teacher-title { white-space: normal; overflow: visible; font-size: 0.98rem; line-height: 1.2; }
+    .teacher-updated { max-width: 26vw; }
+
+    /* Fixed day-selector layout: rows never shift when the selected day
+       changes. Monday–Wednesday always on row 1, Thursday–Friday always on
+       row 2, centered as a group. Row 2 is sized to exactly two 1fr columns
+       + gap so its buttons match row 1's cell width (equal everywhere). */
+    .days-filter {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+    }
+    .days-row {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+        width: 100%;
+    }
+    .days-row:last-child {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        width: calc((100% - 16px) * 2 / 3 + 8px);
+    }
+    .day-filter-btn {
+        min-width: 0;
+        padding: 7px 6px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
 }
