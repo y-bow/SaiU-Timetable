@@ -54,6 +54,7 @@ function sectionClasses() {
 
     const hasSections = yearConfig.sections && yearConfig.sections.length > 1;
     const selectedElectives = new Set(nav.getSelectedElectives());
+    const sectionCourses = yearConfig.sectionCourses || null;
 
     return classes.flatMap((c) => {
         // Electives are individual choices — show only the ones selected,
@@ -69,7 +70,22 @@ function sectionClasses() {
         // against it only for the "same" choice.
         if (c.lab) return c.section === labSection.getResolvedLabSection(selectedSection) ? [c] : [];
         // Mandatory sectioned classes depend on the selected section.
-        if (hasSections) return selectedSection != null && c.section === selectedSection ? [c] : [];
+        if (hasSections) {
+            if (selectedSection == null) return [];
+            // Section courses: filter by course list (e.g. SOB BBA/B.Com).
+            if (sectionCourses) {
+                const courses = sectionCourses[selectedSection];
+                if (!courses) return [];
+                const subjLower = (c.subject || '').trim().toLowerCase();
+                const match = courses.some(t => {
+                    const tLower = t.trim().toLowerCase();
+                    return subjLower === tLower || subjLower.startsWith(tLower) || tLower.startsWith(subjLower);
+                });
+                return match ? [c] : [];
+            }
+            // Numeric sections: filter by section number (e.g. SCDS).
+            return c.section === selectedSection ? [c] : [];
+        }
         // Single-section / mandatory-course years show everything else.
         return [c];
     });
@@ -518,6 +534,10 @@ function initActions() {
     const refresh = () => load({ silent: true });
     $('#refresh-btn-mobile')?.addEventListener('click', refresh);
     $('.retry-btn')?.addEventListener('click', () => load());
+
+    $('#feedback-btn')?.addEventListener('click', () => {
+        trackEvent('feedback_click');
+    });
 
     const handleInstall = async () => {
         if (deferredPrompt) {

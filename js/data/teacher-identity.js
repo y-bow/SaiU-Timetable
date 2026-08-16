@@ -185,6 +185,10 @@ export const TEACHER_ALIASES = [
     // the same person (Environmental / Fundamentals of Biotechnology,
     // Basic Chemical Engineering, Introduction to Ecology).
     { match: /^vigneswaran$/i, id: 'vigneshwaran', displayName: 'Prof. Dr.Vigneshwaran' },
+    // Surya Krish is an older sheet spelling for Surya C (Financial Reporting
+    // and Analysis, SOB Year 2). Both names resolve to the same canonical
+    // teacher so the timetable shows ONE consistent identity.
+    { match: /^surya\s+(?:krish|c)$/i, id: 'surya-c', displayName: 'Surya C' },
 ];
 
 // ---------------------------------------------------------------------------

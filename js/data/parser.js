@@ -59,6 +59,9 @@ const FACULTY_ALIASES = [
     // timetable shows ONE consistent teacher instead of two near-duplicates.
     { match: /^sanjay\s+bang$/i, name: 'Dr.Sanjay Bang' },
     { match: /^mridula$/i, name: 'Dr.Mridula' },
+    // Surya Krish is an older sheet spelling for Surya C (Financial Reporting
+    // and Analysis, SOB Year 2). Normalize to the current canonical name.
+    { match: /^surya\s+krish$/i, name: 'Surya C' },
 ];
 
 export function normalizeFacultyName(faculty) {

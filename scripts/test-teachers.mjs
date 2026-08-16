@@ -227,6 +227,21 @@ try {
         assert.ok(t.includes('rupam sah'));
         assert.ok(t.includes('roopam'), '"Roopam" finds the teacher via its alias');
     });
+    await check('alias: Surya Krish and Surya C resolve to the same canonical teacher', () => {
+        const res = identity.buildIdentityResolution(['Prof. Surya Krish', 'Prof. Surya C'], []);
+        assert.equal(res.byId.size, 1, 'both names must merge into ONE identity');
+        assert.ok(res.byId.has('surya-c'), 'canonical id is surya-c');
+        const aliases = res.byId.get('surya-c').aliases;
+        assert.ok(aliases.includes('Prof. Surya Krish'), 'Surya Krish is an alias');
+        assert.ok(aliases.includes('Prof. Surya C'), 'Surya C is an alias');
+        // The normalizeFacultyName layer adds "Prof. " later; the identity
+        // displayName is the raw name without title prefix.
+        assert.ok(res.byId.get('surya-c').displayName.includes('Surya C'), 'display name contains Surya C');
+    });
+    await check('normalizeFacultyName: "Surya Krish" normalizes to "Prof. Surya C"', () => {
+        const result = parser.normalizeFacultyName('Surya Krish');
+        assert.equal(result, 'Prof. Surya C');
+    });
 
     console.log('--- buildTeacherIndex ---');
     await check('basic indexing keeps teacher/teachers/originalFaculty/contexts/aliases', () => {

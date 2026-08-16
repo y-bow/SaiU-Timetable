@@ -262,9 +262,11 @@ function groupsLabel(groups) {
     const labels = groups.map((g) => {
         const school = g.school ? escapeHtml(String(g.school).toUpperCase()) : null;
         const section = g.section != null ? escapeHtml(String(g.section)) : null;
-        if (school && section != null) return `${school} Section ${section}`;
+        // Numeric sections show as "Section N"; string sections as-is (e.g. "BBA").
+        const sectionLabel = section != null && !isNaN(g.section) ? `Section ${section}` : section;
+        if (school && sectionLabel != null) return `${school} ${sectionLabel}`;
         if (school) return school;
-        if (section != null) return `Section ${section}`;
+        if (sectionLabel != null) return sectionLabel;
         return null;
     }).filter(Boolean);
     if (!labels.length) return '';

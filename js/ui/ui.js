@@ -113,13 +113,17 @@ function renderSidebarSectionList(containerId, sections, selectedId) {
     const container = $(`#${containerId}`);
     if (!container) return;
 
-    const sorted = [...new Set(sections)].sort((a, b) => a - b);
+    const sorted = [...new Set(sections)].sort((a, b) => {
+        if (typeof a === 'number' && typeof b === 'number') return a - b;
+        return String(a).localeCompare(String(b));
+    });
     const sig = sorted.join(',');
     if (container.dataset.sig === sig) {
         for (const btn of container.children) {
-            const s = Number(btn.dataset.section);
-            btn.classList.toggle('active', s === selectedId);
-            btn.setAttribute('aria-checked', s === selectedId ? 'true' : 'false');
+            const s = btn.dataset.section;
+            const val = isNaN(s) ? s : Number(s);
+            btn.classList.toggle('active', val === selectedId);
+            btn.setAttribute('aria-checked', val === selectedId ? 'true' : 'false');
         }
         return;
     }
@@ -133,8 +137,10 @@ function renderSidebarSectionList(containerId, sections, selectedId) {
         btn.dataset.section = s;
         btn.setAttribute('role', 'radio');
         btn.setAttribute('aria-checked', s === selectedId ? 'true' : 'false');
-        btn.setAttribute('aria-label', `Section ${s}`);
-        btn.innerHTML = `<span class="sidebar-item-radio"></span><span class="sidebar-item-label">Section ${s}</span>`;
+        // Show numeric sections as "Section N"; string sections as-is (e.g. "BBA").
+        const label = typeof s === 'number' ? `Section ${s}` : String(s);
+        btn.setAttribute('aria-label', label);
+        btn.innerHTML = `<span class="sidebar-item-radio"></span><span class="sidebar-item-label">${label}</span>`;
         btn.addEventListener('click', () => {
             window.dispatchEvent(new CustomEvent('sectionchange', { detail: { section: s } }));
         });
@@ -750,11 +756,16 @@ export function showSectionModal(sections, onSelect) {
     if (!modal) return;
     const options = $('#section-modal-options');
     options.innerHTML = '';
-    const sorted = [...new Set(sections)].sort((a, b) => a - b);
+    const sorted = [...new Set(sections)].sort((a, b) => {
+        // Numeric sections sort by number; string sections sort alphabetically.
+        if (typeof a === 'number' && typeof b === 'number') return a - b;
+        return String(a).localeCompare(String(b));
+    });
     for (const s of sorted) {
         const btn = document.createElement('button');
         btn.className = 'section-option';
-        btn.textContent = `Section ${s}`;
+        // Show numeric sections as "Section N"; string sections as-is (e.g. "BBA").
+        btn.textContent = typeof s === 'number' ? `Section ${s}` : String(s);
         btn.addEventListener('click', () => { hideSectionModal(); onSelect(s); });
         options.appendChild(btn);
     }

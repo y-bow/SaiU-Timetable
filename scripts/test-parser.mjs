@@ -40,7 +40,7 @@ import assert from 'node:assert/strict';
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const stripQuery = (src) => src.replace(/\?v=[0-9-]+/g, '');
 
-const MODULES = ['js/data/parser.js', 'js/data/course-normalizer.js'];
+const MODULES = ['js/data/parser.js', 'js/data/course-normalizer.js', 'js/data/schools.js'];
 
 const dir = mkdtempSync(join(tmpdir(), 'tt-parser-'));
 for (const rel of MODULES) {
@@ -50,6 +50,8 @@ for (const rel of MODULES) {
 }
 
 const { splitSubjectFaculty, parseCSV } = await import(pathToFileURL(join(dir, 'js/data/parser.js')).href);
+const { buildYearCourseContext } = await import(pathToFileURL(join(dir, 'js/data/course-normalizer.js')).href);
+const { SCHOOLS } = await import(pathToFileURL(join(dir, 'js/data/schools.js')).href);
 
 let passed = 0;
 let failed = 0;
@@ -318,6 +320,51 @@ await check('SCDS-3 newly added elective (minor) is parsed with its teacher', ()
     assert.equal(c.courseId, 'forensic-psychology');
     assert.equal(c.faculty, 'Prof. Dr.Mridula');
     assert.equal(c.section, 1);
+});
+
+console.log('--- SOB Year 2 config: BBA / B.Com split ---');
+
+await check('SOB Year 2 has BBA and B.Com sections', () => {
+    const sob = SCHOOLS.find(s => s.id === 'sob');
+    assert.ok(sob, 'SOB school exists');
+    const year2 = sob.programs[0].years[0];
+    assert.deepStrictEqual(year2.sections, ['BBA', 'B.Com']);
+});
+
+await check('SOB Year 2 BBA courses are correct', () => {
+    const sob = SCHOOLS.find(s => s.id === 'sob');
+    const year2 = sob.programs[0].years[0];
+    const bba = year2.sectionCourses['BBA'];
+    assert.ok(bba.includes('Corporate and Business Law'), 'BBA has Corporate and Business Law');
+    assert.ok(bba.includes('Operations Research'), 'BBA has Operations Research');
+    assert.ok(bba.includes('Human Resource Management'), 'BBA has Human Resource Management');
+    assert.ok(bba.includes('Principles in Financial Management'), 'BBA has Principles in Financial Management');
+    assert.ok(bba.includes('Principles of Financial Management'), 'BBA has Principles of Financial Management');
+    assert.ok(!bba.includes('Financial Reporting and Analysis'), 'BBA does NOT have Financial Reporting and Analysis');
+});
+
+await check('SOB Year 2 B.Com courses are correct', () => {
+    const sob = SCHOOLS.find(s => s.id === 'sob');
+    const year2 = sob.programs[0].years[0];
+    const bcom = year2.sectionCourses['B.Com'];
+    assert.ok(bcom.includes('Corporate and Business Law'), 'B.Com has Corporate and Business Law');
+    assert.ok(bcom.includes('Human Resource Management'), 'B.Com has Human Resource Management');
+    assert.ok(bcom.includes('Principles in Financial Management'), 'B.Com has Principles in Financial Management');
+    assert.ok(bcom.includes('Principles of Financial Management'), 'B.Com has Principles of Financial Management');
+    assert.ok(bcom.includes('Financial Reporting and Analysis'), 'B.Com has Financial Reporting and Analysis');
+    assert.ok(!bcom.includes('Operations Research'), 'B.Com does NOT have Operations Research');
+});
+
+await check('shared courses appear in both BBA and B.Com', () => {
+    const sob = SCHOOLS.find(s => s.id === 'sob');
+    const year2 = sob.programs[0].years[0];
+    const bba = year2.sectionCourses['BBA'];
+    const bcom = year2.sectionCourses['B.Com'];
+    const shared = ['Corporate and Business Law', 'Human Resource Management', 'Principles in Financial Management'];
+    for (const c of shared) {
+        assert.ok(bba.includes(c), `BBA has shared course: ${c}`);
+        assert.ok(bcom.includes(c), `B.Com has shared course: ${c}`);
+    }
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

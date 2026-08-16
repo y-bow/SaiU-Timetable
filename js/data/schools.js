@@ -140,14 +140,14 @@ export const SCHOOLS = [
         shortName: 'SOB',
         programs: [
             {
-                id: 'bba',
-                label: 'BBA',
+                id: 'sob-year2',
+                label: 'Year 2',
                 years: [
                     {
-                        id: 'sob-bba-2',
+                        id: 'sob-year2',
                         label: 'Year 2',
                         level: 2,
-                        sections: null,
+                        sections: ['BBA', 'B.Com'],
                         sheetId: '1Jk3KCLqHHzi-jxigIcPpcXZestcxb8Y0BeQLjhiezb8',
                         gid: '0',
                         parser: 'grid',
@@ -156,8 +156,25 @@ export const SCHOOLS = [
                             'Operations Research',
                             'Human Resource Management',
                             'Principles in Financial Management',
+                            'Principles of Financial Management',
                             'Financial Reporting and Analysis',
                         ],
+                        sectionCourses: {
+                            'BBA': [
+                                'Corporate and Business Law',
+                                'Operations Research',
+                                'Human Resource Management',
+                                'Principles in Financial Management',
+                                'Principles of Financial Management',
+                            ],
+                            'B.Com': [
+                                'Corporate and Business Law',
+                                'Human Resource Management',
+                                'Principles in Financial Management',
+                                'Principles of Financial Management',
+                                'Financial Reporting and Analysis',
+                            ],
+                        },
                         electives: null,
                     },
                 ],
