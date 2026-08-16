@@ -41,13 +41,13 @@
  * per-browser confirmations are safely no-ops where storage is unavailable.)
  */
 
-import { normalizeFacultyName } from './parser.js?v=2026-08-17-001';
-import { classIdentity, flattenClasses } from './change-detector.js?v=2026-08-17-001';
+import { normalizeFacultyName } from './parser.js?v=2026-08-17-002';
+import { classIdentity, flattenClasses } from './change-detector.js?v=2026-08-17-002';
 import {
     buildIdentityResolution,
     loadTeacherConfirmations,
     teacherSearchText,
-} from './teacher-identity.js?v=2026-08-17-001';
+} from './teacher-identity.js?v=2026-08-17-002';
 
 const TEACHER_SPLIT_RE = /\s*(?:[,;/]|\band\b|&)\s*/gi;
 
