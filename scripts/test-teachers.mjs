@@ -486,7 +486,7 @@ try {
     await check('a course absent from every student list still lands in the teacher index', () => {
         const text = [
             'MONDAY,09:15 AM - 10:10 AM,Deep Learning - Sem 5 - Dr. KK',
-            ',10:15 AM - 11:10 AM,Forensic Psychology         Meera',
+            ',10:15 AM - 11:10 AM,Forensic Psychology - Dr. Mridula',
         ].join('\n');
         const all = teacherFetch.gatherAllTimetables(text, []);
         const fp = all.find((c) => c.subject === 'Forensic Psychology');
@@ -497,10 +497,10 @@ try {
         assert.equal(fp.year, 3);
         const { index, stats } = teacherIndex.buildTeacherIndex(all);
         assert.equal(stats.classes, 2, 'DL + Forensic Psychology both indexed');
-        assert.ok(index.has('meera'), 'the added course teacher appears automatically, no config change');
-        const entry = index.get('meera').classes[0];
+        assert.ok(index.has('mridula'), 'the added course teacher appears automatically, no config change');
+        const entry = index.get('mridula').classes[0];
         assert.equal(entry.subject, 'Forensic Psychology');
-        assert.deepEqual(entry.contexts, ['SCDS · Year 3'], 'a configured elective still gets its year context');
+        assert.deepEqual(entry.contexts, ['SCDS · Year 3', 'SOAI · Year 2'], 'a configured elective still gets its year context');
     });
     await check('lab classes merge in with a lab context label', () => {
         const lab = cls({ school: 'SCDS', year: 2, lab: true });

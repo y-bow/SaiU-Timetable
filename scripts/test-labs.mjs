@@ -253,7 +253,7 @@ try {
     });
     await check('hyphen and space spellings of the same room both match', () => {
         const c = parseCSV(roomCsv, 'grid', null, null, ['AB1 Computer Lab']);
-        assert.equal(c.length, 2, 'both Monday and Tuesday rows resolve to the lab room');
+        assert.equal(c.length, 3, 'both Monday and Tuesday rows resolve to the lab room');
         assert.ok(c.some((x) => x.subject.includes('Embedded Systems')), 'the AB1-COMPUTER LAB spelling is recognised');
     });
 

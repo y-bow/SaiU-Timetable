@@ -36,11 +36,13 @@ export const SCHOOLS = [
                 sheetId: '1Jk3KCLqHHzi-jxigIcPpcXZestcxb8Y0BeQLjhiezb8',
                 gid: '0',
                 parser: 'grid',
-                // Year 2 SCDS classrooms. These are SEARCH LOCATIONS: any SCDS
-                // section may currently be taught in any of them, and classes may
-                // move between rooms (or columns) without changing identity. The
-                // parser scans only these rooms, never the whole sheet. Names are
-                // normalized (spacing/casing) before comparing with the sheet.
+                // Year 2 SCDS known classrooms. These are METADATA / search
+                // location hints — the parser scans the ENTIRE timetable source
+                // range, not just these rooms. Any class in any room is parsed
+                // regardless of whether it appears in this list. The list helps
+                // the UI display known-room information and supports features
+                // like "Free Rooms". Names are normalized (spacing/casing)
+                // before comparing with the sheet.
                 rooms: [
                     'AB2-101',
                     'AB2-202',
@@ -74,6 +76,8 @@ export const SCHOOLS = [
                             { id: 'aravind', label: 'Section 3', name: 'Aravind', faculty: 'Aravind', section: 3 },
                         ],
                     },
+                    { id: 'fundamentals-of-business-organization-and-management', label: 'Fundamentals of Business Organization & Management' },
+                    { id: 'forensic-psychology', label: 'Forensic Psychology' },
                 ],
             },
             {
@@ -126,6 +130,7 @@ export const SCHOOLS = [
                 ],
                 electives: [
                     { id: 'intelligent-embedded-systems', label: 'Intelligent Embedded Systems' },
+                    { id: 'forensic-psychology', label: 'Forensic Psychology' },
                 ],
             },
         ],
@@ -151,6 +156,7 @@ export const SCHOOLS = [
                             'Operations Research',
                             'Human Resource Management',
                             'Principles in Financial Management',
+                            'Financial Reporting and Analysis',
                         ],
                         electives: null,
                     },

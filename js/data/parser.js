@@ -92,10 +92,13 @@ export function normalizeFacultyName(faculty) {
  * @param {string} [parserType='grid'] - 'grid' or 'list'
  * @param {string[]} [mandatoryCourses] - optional mandatory course names
  * @param {Array<{id: string, label: string}>} [electives] - optional elective configs
- * @param {string[]} [rooms] - optional classroom names to scan (Year 2 SCDS).
- *   When provided the grid parser inspects ONLY the cells under these room
- *   headers instead of every non-empty cell. Classes are located by their own
- *   data (section/course/faculty) wherever they currently sit.
+ * @param {string[]} [rooms] - optional known classroom names (Year 2 SCDS).
+ *   When provided the grid parser uses the room-declaration rows to locate
+ *   classes by their current room. This list is metadata/known-room
+ *   information only — it does NOT restrict which columns are parsed. Every
+ *   non-empty column in the room declaration row is inspected, and any class
+ *   cell with a section marker or matching elective is emitted regardless of
+ *   whether its room is in this list.
  */
 export function parseCSV(text, parserType = 'grid', mandatoryCourses = null, electives = null, rooms = null) {
     const raw = parserType === 'list'
@@ -339,12 +342,21 @@ function parseGridCSV(text, mandatoryCourses = null, electives = null, rooms = n
 // ============================================================
 // Room-scoped grid parser (Year 2 SCDS Smart Timetable).
 //
-// Scans ONLY the configured SCDS classroom columns (see `rooms` on the
-// scds-2 year config). The first cell directly below a class row names the
-// current room of each column for that slot — a room is a SEARCH LOCATION,
-// never a class identity. A class may change room and column freely between
-// refreshes. Each parsed class therefore carries the room of the column it
-// was found in, and section/subject/faculty read from its own cell text.
+// Scans the ENTIRE timetable source range. The first cell directly below a
+// class row names the current room of each column for that slot — a room is
+// a SEARCH LOCATION, never a class identity. A class may change room and
+// column freely between refreshes.
+//
+// The configured `rooms` array (see schools.js) is used ONLY as a metadata
+// hint for known room labels — it does NOT filter which columns are parsed.
+// Every non-empty column in the room declaration row is inspected, and any
+// class cell with a section marker or matching elective is emitted
+// regardless of whether its room is in the configured list. This ensures
+// new rooms and courses added to the source timetable are automatically
+// discovered without config changes.
+//
+// A dedup set prevents the same class from being emitted twice when the
+// same physical slot is reachable through multiple room columns.
 // ============================================================
 
 const SUBJECT_ALIASES = [
@@ -359,6 +371,8 @@ const SUBJECT_ALIASES = [
     { match: /^COA$/i, name: 'Computer Organization and Architecture' },
     { match: /^IFA$/i, name: 'Introduction to Financial Accounting' },
     { match: /^CT$/i, name: 'Critical Thinking' },
+    { match: /^FBO|FOB$/i, name: 'Fundamentals of Business Organization & Management' },
+    { match: /^FP$/i, name: 'Forensic Psychology' },
 ];
 
 // Normalize room names for comparison: uppercase, hyphens equivalent to
@@ -413,6 +427,25 @@ function splitClassCell(cell) {
         subject = parts[0] || '';
         faculty = parts.slice(1).join(' ');
     }
+
+    // Single-space-separated teacher: when neither a dash nor a space-run
+    // isolated a teacher, the trailing word(s) may be the teacher glued to the
+    // course name (e.g. "Forensic Psychology Dr Mridula").  Try progressively
+    // shorter prefixes of the subject to see if any is a known course — the
+    // remainder is the teacher.
+    if (!faculty && subject) {
+        const words = subject.split(/\s+/);
+        for (let len = words.length - 1; len >= 2; len--) {
+            const prefix = words.slice(0, len).join(' ');
+            const res = resolveCourse(prefix);
+            if (res && res.matched) {
+                faculty = words.slice(len).join(' ');
+                subject = prefix;
+                break;
+            }
+        }
+    }
+
     return { subject, faculty: normalizeFacultyName(faculty), section };
 }
 
@@ -428,10 +461,18 @@ function parseGridCSVRooms(text, electives = null, rooms = null) {
             const name = e.label.trim().toLowerCase();
             if (subject === name || subject.startsWith(name)) return e;
         }
+        const words = subject.split(/\s+/);
+        if (words.length >= 3) {
+            for (let len = words.length - 1; len >= 2; len--) {
+                const prefix = words.slice(0, len).join(' ');
+                for (const e of electiveList) {
+                    const name = e.label.trim().toLowerCase();
+                    if (prefix === name || prefix.startsWith(name)) return e;
+                }
+            }
+        }
         return null;
     };
-
-    const targetRooms = new Set((rooms || []).map(normalizeRoom));
 
     for (let i = 0; i < lines.length; i++) {
         if (!lines[i].trim()) continue;
@@ -448,8 +489,6 @@ function parseGridCSVRooms(text, electives = null, rooms = null) {
         const times = parseTimeRange(timeText);
         if (!times) continue;
 
-        // The next non-empty line under a class row declares which room each
-        // column currently holds for this slot.
         let roomRow = null;
         for (let k = i + 1; k < lines.length; k++) {
             if (!lines[k].trim()) continue;
@@ -458,41 +497,39 @@ function parseGridCSVRooms(text, electives = null, rooms = null) {
         }
         if (!roomRow) continue;
 
-        // Columns that currently hold one of the target rooms for this slot.
-        const roomSlots = new Map(); // roomKey -> [{ col, label }]
+        const slotDedup = new Set();
         for (let j = 0; j < roomRow.length; j++) {
-            const key = normalizeRoom(roomRow[j]);
-            if (!targetRooms.has(key)) continue;
-            if (!roomSlots.has(key)) roomSlots.set(key, []);
-            roomSlots.get(key).push({ col: j, label: String(roomRow[j]).replace(/\s+/g, ' ') });
-        }
+            const roomVal = roomRow[j];
+            if (!roomVal) continue;
+            const roomKey = normalizeRoom(roomVal);
+            if (!roomKey) continue;
 
-        for (const [roomKey, slots] of roomSlots) {
-            for (const slot of slots) {
-                const cell = row[slot.col];
-                if (!cell) continue;
+            const cell = row[j];
+            if (!cell) continue;
 
-                const { subject, faculty, section } = splitClassCell(cell);
-                const name = expandSubjectAlias(subject);
-                // Classes from other years/theory etc. carry no section, but a
-                // configured elective may still be taught section-less.
-                const elective = matchElective(name.toLowerCase());
-                if (section == null && !elective) continue;
-                if (!name) continue;
+            const { subject, faculty, section } = splitClassCell(cell);
+            const name = expandSubjectAlias(subject);
+            const elective = matchElective(name.toLowerCase());
+            if (section == null && !elective) continue;
+            if (!name) continue;
 
-                data.push({
-                    day: currentDay,
-                    subject: name,
-                    faculty: faculty || '',
-                    room: slot.label,
-                    section: section ?? 1,
-                    startTime: times.start,
-                    endTime: times.end,
-                    courseId: elective ? elective.id : resolveCourseId(name),
-                    ...(elective ? { elective: elective.id } : {}),
-                });
-                break; // one class per room per slot
-            }
+            const dedupKey = `${roomKey}|${name}|${faculty}|${section ?? 1}|${times.start}`;
+            if (slotDedup.has(dedupKey)) continue;
+            slotDedup.add(dedupKey);
+
+            const roomLabel = String(roomVal).replace(/\s+/g, ' ');
+
+            data.push({
+                day: currentDay,
+                subject: name,
+                faculty: faculty || '',
+                room: roomLabel,
+                section: section ?? 1,
+                startTime: times.start,
+                endTime: times.end,
+                courseId: elective ? elective.id : resolveCourseId(name),
+                ...(elective ? { elective: elective.id } : {}),
+            });
         }
     }
     return data;
@@ -565,6 +602,24 @@ export function splitSubjectFaculty(cell) {
     // Defensive: a marker strip can leave a stray leading dash on the faculty
     // (e.g. "ET - (Sec 5) - Salim"). A dash is never part of a name.
     faculty = faculty.replace(/^-\s*/, '').trim();
+
+    // Single-space-separated teacher: when neither a space-run nor a dash
+    // isolated a teacher, the trailing word(s) may be the teacher glued to the
+    // course name (e.g. "Forensic Psychology Dr Mridula").  Try progressively
+    // shorter prefixes of the subject to see if any is a known course — the
+    // remainder is the teacher.
+    if (!faculty && subject) {
+        const words = subject.split(/\s+/);
+        for (let len = words.length - 1; len >= 2; len--) {
+            const prefix = words.slice(0, len).join(' ');
+            const res = resolveCourse(prefix);
+            if (res && res.matched) {
+                faculty = words.slice(len).join(' ');
+                subject = prefix;
+                break;
+            }
+        }
+    }
 
     return { subject, faculty: normalizeFacultyName(faculty) };
 }
@@ -752,6 +807,23 @@ function splitTeacherCell(cell) {
     // a dash left glued to the subject ("Law of Insurance -  Sanjay Bang").
     faculty = faculty.replace(/^-\s*/, '').trim();
     subject = subject.replace(/\s*-\s*$/, '').trim();
+
+    // Single-space-separated teacher: when neither a space-run, dash, nor
+    // parenthesized teacher isolated a faculty, the trailing word(s) may be
+    // the teacher glued to the course name.  Try progressively shorter
+    // prefixes of the subject to see if any is a known course.
+    if (!faculty && subject) {
+        const words = subject.split(/\s+/);
+        for (let len = words.length - 1; len >= 2; len--) {
+            const prefix = words.slice(0, len).join(' ');
+            const res = resolveCourse(prefix);
+            if (res && res.matched) {
+                faculty = words.slice(len).join(' ');
+                subject = prefix;
+                break;
+            }
+        }
+    }
 
     return { subject, faculty: normalizeFacultyName(faculty), section, hasSection };
 }

@@ -197,12 +197,93 @@ await check('a sectionless non-elective cell is skipped', () => {
     assert.ok(!out.some((x) => x.subject === 'Computer Networks'), 'other-year class not emitted');
 });
 
+console.log('--- parseCSV (grid): SCDS room-scoped — rooms NOT in configured list ---');
+const UNCONFIGURED_ROOMS_GRID = [
+    'MONDAY,09:15 AM - 10:10 AM,ET - Sec 5 - Salim,FP - Sec 2 - Dr. Mridula',
+    ',,B62-B201,B62-B206',
+    'TUESDAY,11:15 AM - 12:10 PM,Forensic Psychology - Sec 3 - Dr. Mridula,CN - Sec 1 - Arjun',
+    ',,AB2-101,B62-B201',
+].join('\n');
+const UNCONFIGURED_ELECTIVES = [
+    { id: 'emerging-tools-and-applications', label: 'Emerging Tools and Applications' },
+    { id: 'forensic-psychology', label: 'Forensic Psychology' },
+    { id: 'computer-networks', label: 'Computer Networks' },
+];
+const UNCONFIGURED_KNOWN_ROOMS = ['AB2-101'];
+
+await check('class in unconfigured room B62-B201 is parsed', () => {
+    const out = parseCSV(UNCONFIGURED_ROOMS_GRID, 'grid', null, UNCONFIGURED_ELECTIVES, UNCONFIGURED_KNOWN_ROOMS);
+    const c = out.find(x => x.subject === 'Emerging Tools and Applications' && x.day === 'Monday');
+    assert.ok(c, 'ET class in B62-B201 parsed despite room not being in configured list');
+    assert.equal(c.room, 'B62-B201');
+    assert.equal(c.section, 5);
+    assert.equal(c.faculty, 'Prof. Salim');
+});
+
+await check('class in unconfigured room B62-B206 is parsed', () => {
+    const out = parseCSV(UNCONFIGURED_ROOMS_GRID, 'grid', null, UNCONFIGURED_ELECTIVES, UNCONFIGURED_KNOWN_ROOMS);
+    const c = out.find(x => x.subject === 'Forensic Psychology' && x.day === 'Monday');
+    assert.ok(c, 'FP class in B62-B206 parsed');
+    assert.equal(c.room, 'B62-B206');
+    assert.equal(c.section, 2);
+});
+
+await check('Forensic Psychology in unconfigured room is parsed', () => {
+    const out = parseCSV(UNCONFIGURED_ROOMS_GRID, 'grid', null, UNCONFIGURED_ELECTIVES, UNCONFIGURED_KNOWN_ROOMS);
+    const c = out.find(x => x.elective === 'forensic-psychology' && x.day === 'Tuesday');
+    assert.ok(c, 'Forensic Psychology in AB2-101 parsed');
+    assert.equal(c.room, 'AB2-101');
+    assert.equal(c.section, 3);
+    assert.equal(c.faculty, 'Prof. Dr.Mridula');
+});
+
+await check('class in configured room is still parsed', () => {
+    const out = parseCSV(UNCONFIGURED_ROOMS_GRID, 'grid', null, UNCONFIGURED_ELECTIVES, UNCONFIGURED_KNOWN_ROOMS);
+    const c = out.find(x => x.elective === 'computer-networks');
+    assert.ok(c, 'CN class in B62-B201 (unconfigured room) parsed');
+    assert.equal(c.room, 'B62-B201');
+});
+
+await check('no duplicate classes when same room/class in multiple columns', () => {
+    const DUP_GRID = [
+        'MONDAY,09:15 AM - 10:10 AM,ET - Sec 5 - Salim,ET - Sec 5 - Salim',
+        ',,AB2-101,AB2-101',
+    ].join('\n');
+    const out = parseCSV(DUP_GRID, 'grid', null, UNCONFIGURED_ELECTIVES, ['AB2-101']);
+    const etClasses = out.filter(x => x.elective === 'emerging-tools-and-applications');
+    assert.equal(etClasses.length, 1, 'same class in same room should not be duplicated');
+});
+
+await check('total class count includes all rooms (configured + unconfigured)', () => {
+    const out = parseCSV(UNCONFIGURED_ROOMS_GRID, 'grid', null, UNCONFIGURED_ELECTIVES, UNCONFIGURED_KNOWN_ROOMS);
+    const monday = out.filter(x => x.day === 'Monday');
+    assert.equal(monday.length, 2, 'Monday has 2 classes across configured and unconfigured rooms');
+    const tuesday = out.filter(x => x.day === 'Tuesday');
+    assert.equal(tuesday.length, 2, 'Tuesday has 2 classes across configured and unconfigured rooms');
+});
+
+console.log('--- parseCSV (grid): single-space-separated teacher (no dash) ---');
+const SINGLE_SPACE_GRID = [
+    'MONDAY,09:15 AM - 10:10 AM,Forensic Psychology Dr. Mridula',
+    ',,AB2-101',
+].join('\n');
+const SINGLE_SPACE_ELECTIVES = [
+    { id: 'forensic-psychology', label: 'Forensic Psychology' },
+];
+await check('single-space-glued teacher is extracted via course name detection', () => {
+    const out = parseCSV(SINGLE_SPACE_GRID, 'grid', null, SINGLE_SPACE_ELECTIVES, ['AB2-101']);
+    const c = out.find(x => x.elective === 'forensic-psychology');
+    assert.ok(c, 'Forensic Psychology parsed from single-space cell');
+    assert.equal(c.subject, 'Forensic Psychology');
+    assert.equal(c.faculty, 'Prof. Dr.Mridula');
+});
+
 console.log('--- parseCSV (grid): SCDS-3 non-room path (Sem markers) ---');
 const SCDS3_GRID = [
     'MONDAY,09:15 AM - 10:10 AM,DL - Sem 5 - Dr. KK',
     ',10:15 AM - 11:10 AM,Financial Reporting and Analysis         Surya C',
     ',11:15 AM - 12:10 PM,Computer Networks',
-    ',12:15 PM - 1:10 PM,Forensic Psychology         Meera',
+    ',12:15 PM - 1:10 PM,Forensic Psychology - Dr. Mridula',
 ].join('\n');
 const SCDS3_MANDATORY = ['Deep Learning', 'Theory of Computation'];
 const SCDS3_ELECTIVES = [
@@ -235,7 +316,7 @@ await check('SCDS-3 newly added elective (minor) is parsed with its teacher', ()
     assert.ok(c, 'class parsed');
     assert.equal(c.elective, 'forensic-psychology');
     assert.equal(c.courseId, 'forensic-psychology');
-    assert.equal(c.faculty, 'Prof. Meera');
+    assert.equal(c.faculty, 'Prof. Dr.Mridula');
     assert.equal(c.section, 1);
 });
 
