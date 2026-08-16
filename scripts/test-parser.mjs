@@ -327,13 +327,13 @@ console.log('--- SOB Year 2 config: BBA / B.Com split ---');
 await check('SOB Year 2 has BBA and B.Com sections', () => {
     const sob = SCHOOLS.find(s => s.id === 'sob');
     assert.ok(sob, 'SOB school exists');
-    const year2 = sob.programs[0].years[0];
+    const year2 = sob.years[0];
     assert.deepStrictEqual(year2.sections, ['BBA', 'B.Com']);
 });
 
 await check('SOB Year 2 BBA courses are correct', () => {
     const sob = SCHOOLS.find(s => s.id === 'sob');
-    const year2 = sob.programs[0].years[0];
+    const year2 = sob.years[0];
     const bba = year2.sectionCourses['BBA'];
     assert.ok(bba.includes('Corporate and Business Law'), 'BBA has Corporate and Business Law');
     assert.ok(bba.includes('Operations Research'), 'BBA has Operations Research');
@@ -345,7 +345,7 @@ await check('SOB Year 2 BBA courses are correct', () => {
 
 await check('SOB Year 2 B.Com courses are correct', () => {
     const sob = SCHOOLS.find(s => s.id === 'sob');
-    const year2 = sob.programs[0].years[0];
+    const year2 = sob.years[0];
     const bcom = year2.sectionCourses['B.Com'];
     assert.ok(bcom.includes('Corporate and Business Law'), 'B.Com has Corporate and Business Law');
     assert.ok(bcom.includes('Human Resource Management'), 'B.Com has Human Resource Management');
@@ -357,7 +357,7 @@ await check('SOB Year 2 B.Com courses are correct', () => {
 
 await check('shared courses appear in both BBA and B.Com', () => {
     const sob = SCHOOLS.find(s => s.id === 'sob');
-    const year2 = sob.programs[0].years[0];
+    const year2 = sob.years[0];
     const bba = year2.sectionCourses['BBA'];
     const bcom = year2.sectionCourses['B.Com'];
     const shared = ['Corporate and Business Law', 'Human Resource Management', 'Principles in Financial Management'];
