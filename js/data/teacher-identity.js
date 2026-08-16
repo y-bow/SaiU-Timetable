@@ -188,7 +188,7 @@ export const TEACHER_ALIASES = [
     // Surya Krish is an older sheet spelling for Surya C (Financial Reporting
     // and Analysis, SOB Year 2). Both names resolve to the same canonical
     // teacher so the timetable shows ONE consistent identity.
-    { match: /^surya\s+(?:krish|c)$/i, id: 'surya-c', displayName: 'Surya C' },
+    { match: /^surya\s+(?:krish|c)$/i, id: 'surya-c', displayName: 'Prof. Surya C' },
 ];
 
 // ---------------------------------------------------------------------------

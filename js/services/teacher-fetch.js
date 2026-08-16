@@ -93,19 +93,23 @@ function belongsToYear(c, year) {
     const mandatory = (year.mandatoryCourses || []).map((m) => m.trim());
     const electives = year.electives || [];
 
+    // Electives match regardless of room — a course like Forensic Psychology
+    // offered by SCDS Year 2 should tag the class even when it sits in a room
+    // outside the configured list (e.g. a shared classroom).
+    if (electives.some((e) => matchesElectiveLabel(c.subject, e.label))) return true;
+
     // Room-scoped year (SCDS-2): a sectioned class sitting in one of the
-    // configured classrooms, or a configured elective. Unsectioned non-elective
-    // cells in those rooms (e.g. "EFA - Sem1" from another program) are NOT
-    // this year — same exclusion as the room-scoped student parser.
+    // configured classrooms. Unsectioned non-elective cells in those rooms
+    // (e.g. "EFA - Sem1" from another program) are NOT this year — same
+    // exclusion as the room-scoped student parser.
     if (year.rooms && year.rooms.length) {
         const inRoom = year.rooms.some((r) => normRoom(c.room) === normRoom(r));
         if (!inRoom) return false;
         if (c._hasSection) return true;
-        return electives.some((e) => matchesElectiveLabel(c.subject, e.label));
+        return false;
     }
 
-    if (mandatory.some((m) => matchesMandatory(c.subject, m))) return true;
-    return electives.some((e) => matchesElectiveLabel(c.subject, e.label));
+    return mandatory.some((m) => matchesMandatory(c.subject, m));
 }
 
 /**

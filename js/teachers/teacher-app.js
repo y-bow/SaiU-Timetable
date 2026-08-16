@@ -224,7 +224,13 @@ function buildItem(c, startMin, endMin) {
     li.className = 'tl-item upcoming';
 
     const badges = [];
-    const sectionText = c.section != null ? `Section ${c.section}` : '';
+    // Only show section badge when the sheet had an explicit "Sec N" marker
+    // AND the class belongs to a single school. Multiple schools (e.g. SCDS
+    // Year 2 + SOAI Year 2) or years without sections (e.g. SCDS Year 3)
+    // should not display a section badge.
+    const schools = new Set((c.contexts || []).map((ctx) => ctx.split(' · ')[0]).filter(Boolean));
+    const showSection = c._hasSection && schools.size <= 1;
+    const sectionText = showSection ? `Section ${c.section}` : '';
     if (sectionText) badges.push(`<span class="badge">${escapeHtml(sectionText)}</span>`);
     if (c.lab) badges.push('<span class="badge badge-lab">Lab</span>');
     if (c.course && c.course !== c.subject) {

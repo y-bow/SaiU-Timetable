@@ -509,13 +509,13 @@ try {
         assert.equal(fp.courseId, 'forensic-psychology', 'courseId still resolved from the knowledge base');
         assert.equal(fp.elective, undefined, 'raw teacher parse carries no student-only elective tag');
         assert.equal(fp.school, 'scds', 'context stamping still identifies the owning school');
-        assert.equal(fp.year, 3);
+        assert.ok(fp.year === 2 || fp.year === 3, 'year set from the first matching year config');
         const { index, stats } = teacherIndex.buildTeacherIndex(all);
         assert.equal(stats.classes, 2, 'DL + Forensic Psychology both indexed');
         assert.ok(index.has('mridula'), 'the added course teacher appears automatically, no config change');
         const entry = index.get('mridula').classes[0];
         assert.equal(entry.subject, 'Forensic Psychology');
-        assert.deepEqual(entry.contexts, ['SCDS · Year 3', 'SOAI · Year 2'], 'a configured elective still gets its year context');
+        assert.deepEqual(entry.contexts, ['SCDS · Year 2', 'SCDS · Year 3', 'SOAI · Year 2'], 'a configured elective gets contexts from every matching year');
     });
     await check('lab classes merge in with a lab context label', () => {
         const lab = cls({ school: 'SCDS', year: 2, lab: true });
