@@ -32,7 +32,7 @@ const isDevHost = DEV_HOSTS.includes(self.location.hostname);
 
 // Replaced by scripts/build.mjs on every build — the file's bytes change every
 // deployment so the Service Worker update is always detected.
-const BUILD_ID = '2026-08-17-001';
+const BUILD_ID = '2026-08-17-002';
 
 const CACHE_NAME = 'saiu-timetable-v' + BUILD_ID;
 const SHEET_CACHE = 'timetable-sheet-v1';
@@ -122,9 +122,9 @@ async function cacheFirst(request, cacheName) {
   return response;
 }
 
-async function networkFirst(request, cacheName, fallback) {
+async function networkFirst(request, cacheName, fallback, fetchOptions) {
   try {
-    const response = await fetch(request);
+    const response = await fetch(request, fetchOptions);
     if (cacheable(response)) {
       const copy = response.clone();
       const cache = await caches.open(cacheName);
@@ -209,8 +209,10 @@ self.addEventListener('fetch', (event) => {
 
   // HTML navigations: network-first so a deployed update is never hidden
   // behind a stale cached page. The cache copy is only an offline fallback.
+  // cache: 'no-store' ensures the browser's own HTTP cache cannot serve a
+  // stale HTML page with outdated ?v= asset references on mobile devices.
   if (request.mode === 'navigate') {
-    event.respondWith(networkFirst(request, CACHE_NAME, 'index.html'));
+    event.respondWith(networkFirst(request, CACHE_NAME, 'index.html', { cache: 'no-store' }));
     return;
   }
 
