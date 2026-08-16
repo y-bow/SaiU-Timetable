@@ -125,7 +125,7 @@ function ensureLaunchButtons() {
         topbar.insertBefore(btn, document.querySelector('#refresh-btn-mobile') || null);
     }
 
-    const footer = document.querySelector('.sidebar-footer');
+    const footer = document.querySelector('.sidebar-actions-card');
     if (footer && !document.querySelector('#ai-launch-sidebar')) {
         const btn = document.createElement('button');
         btn.type = 'button';

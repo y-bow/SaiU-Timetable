@@ -488,9 +488,18 @@ input { font-family: inherit; }
     margin: 6px 14px;
 }
 
-.sidebar-feedback {
-    padding: 0 14px;
+/* Unified action card at the bottom of the sidebar: Feedback, Install App,
+   and timestamp live inside one dark rounded container. */
+.sidebar-actions-card {
+    margin: 0 14px;
+    padding: 10px;
     flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: #141414;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
 }
 .sidebar-feedback-link {
     display: flex; align-items: center; justify-content: center; gap: 8px;
@@ -501,35 +510,12 @@ input { font-family: inherit; }
     font-weight: 500;
     color: #e0e0e0;
     background: #1e1e1e;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
     text-decoration: none;
     transition: background var(--fast), transform 100ms ease-out;
 }
 .sidebar-feedback-link:hover { background: #2a2a2a; }
 .sidebar-feedback-link:active { transform: scale(0.98); }
 
-/* Sidebar footer — fixed panel visually lifted above the scrolling body.
-   A gradient hairline + soft shadow marks the boundary. */
-.sidebar-footer {
-    position: relative;
-    padding: 12px 14px 10px;
-    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
-    flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 70%);
-    box-shadow: 0 -12px 28px -18px rgba(0, 0, 0, 0.6);
-}
-.sidebar-footer::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22) 20%, rgba(255, 255, 255, 0.22) 80%, transparent);
-    pointer-events: none;
-}
 .sidebar-install-btn {
     display: flex; align-items: center; justify-content: center; gap: 8px;
     width: 100%; height: 44px;
