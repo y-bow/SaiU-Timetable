@@ -1,8 +1,8 @@
-import { CONFIG } from '../core/config.js?v=2026-08-13-005';
-import { toMinutes, minutesToLabel, minutesToClock, todayName, isBeforeToday, WEEKDAYS, labSubjectLabel } from '../core/utils.js?v=2026-08-13-005';
-import { offeringKey } from '../data/parser.js?v=2026-08-13-005';
-import { rubberband, projectMomentum } from '../core/spring.js?v=2026-08-13-005';
-import { mergeAdjacentForDisplay, displayItemHighlighted } from './display.js?v=2026-08-13-005';
+import { CONFIG } from '../core/config.js?v=2026-08-17-001';
+import { toMinutes, minutesToLabel, minutesToClock, todayName, isBeforeToday, WEEKDAYS, labSubjectLabel } from '../core/utils.js?v=2026-08-17-001';
+import { offeringKey } from '../data/parser.js?v=2026-08-17-001';
+import { rubberband, projectMomentum } from '../core/spring.js?v=2026-08-17-001';
+import { mergeAdjacentForDisplay, displayItemHighlighted } from './display.js?v=2026-08-17-001';
 
 /**
  * DOM rendering — sidebar filters + timeline.
@@ -293,49 +293,66 @@ function startDrawerDragTracking() {
     if (!window.matchMedia('(max-width: 767px)').matches) return;
 
     let startX = null;
+    let startY = null;
     let history = [];
+    let isDragging = false;
 
     sidebar.addEventListener('pointerdown', (e) => {
         startX = e.clientX;
+        startY = e.clientY;
         history = [{ x: e.clientX, t: performance.now() }];
-        if (sidebar.setPointerCapture) {
-            try { sidebar.setPointerCapture(e.pointerId); } catch { /* unsupported */ }
-        }
+        isDragging = false;
     });
 
     sidebar.addEventListener('pointermove', (e) => {
         if (startX == null) return;
         const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        // Only start drag tracking if the user has moved enough to distinguish
+        // a tap from a drag. This prevents interference with overlay clicks.
+        if (!isDragging && Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+        isDragging = true;
         history.push({ x: e.clientX, t: performance.now() });
         if (history.length > 8) history.shift();
-        // 1:1 tracking with rubber-band resistance past the open position.
-        // Inline transform takes over from the CSS spring mid-gesture.
-        const overshoot = dx - 0; // sidebar fully open sits at x=0
+        const overshoot = dx;
         const resisted = overshoot > 0
             ? rubberband(overshoot, sidebar.offsetWidth, 0.55)
             : overshoot;
         sidebar.style.transform = `translateX(${resisted}px)`;
     });
 
-    sidebar.addEventListener('pointerup', (e) => {
+    function onPointerUp(e) {
         if (startX == null) return;
         const dx = e.clientX - startX;
-        let velocity = 0;
-        if (history.length > 1) {
-            const last = history[history.length - 1];
-            const prev = history[Math.max(0, history.length - 3)];
-            const dt = (last.t - prev.t) / 1000;
-            if (dt > 0) velocity = (last.x - prev.x) / dt;
+        if (isDragging) {
+            let velocity = 0;
+            if (history.length > 1) {
+                const last = history[history.length - 1];
+                const prev = history[Math.max(0, history.length - 3)];
+                const dt = (last.t - prev.t) / 1000;
+                if (dt > 0) velocity = (last.x - prev.x) / dt;
+            }
+            const projected = dx + projectMomentum(velocity);
+            const open = projected > -40;
+            sidebar.style.transform = '';
+            sidebar.classList.toggle('open', open);
+            overlayVisible(open);
         }
-        // Momentum projection: a leftward flick projects past the threshold
-        const projected = dx + projectMomentum(velocity);
-        const open = projected > -40;
-        sidebar.style.transform = '';
-        sidebar.classList.toggle('open', open);
-        overlayVisible(open);
+        // If not dragging, it was a tap — do nothing here.
+        // The overlay click handler or sidebar close button handles closing.
         startX = null;
+        startY = null;
         history = [];
-    });
+        isDragging = false;
+    }
+
+    sidebar.addEventListener('pointerup', onPointerUp);
+    sidebar.addEventListener('pointercancel', onPointerUp);
+    // Use document for pointerup so a drag that ends outside the sidebar
+    // is still properly resolved. Without setPointerCapture, events fire
+    // on the element actually under the pointer.
+    document.addEventListener('pointerup', onPointerUp);
+    document.addEventListener('pointercancel', onPointerUp);
 }
 
 function overlayVisible(show) {

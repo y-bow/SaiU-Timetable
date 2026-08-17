@@ -1297,6 +1297,121 @@ input { font-family: inherit; }
 }
 
 /* ============================================================
+   Free Rooms panel — reuses AI panel design language
+   ============================================================ */
+.free-rooms-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 16px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.free-rooms-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    text-align: center;
+    padding: 48px 16px;
+    color: var(--text-secondary);
+    font-size: 0.88rem;
+    animation: fade-in 350ms both;
+}
+.free-rooms-empty-icon { display: grid; place-items: center; color: var(--text-tertiary); margin-bottom: 4px; }
+.free-rooms-empty strong { color: var(--text); font-size: 1rem; font-weight: 600; }
+.free-rooms-empty span { color: var(--text-tertiary); font-size: 0.82rem; }
+
+.fr-period {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 12px 14px;
+    animation: rise 350ms cubic-bezier(0.15, 0.5, 0.3, 1.05) backwards;
+}
+.fr-period-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+.fr-period-time {
+    font-size: 0.88rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+}
+.fr-period-count {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--success);
+    margin-bottom: 8px;
+}
+.fr-period-count-none {
+    color: var(--text-tertiary);
+    font-style: italic;
+}
+
+.fr-rooms-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.fr-room {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 8px;
+    border-radius: var(--radius-xs);
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    background: var(--surface-3);
+    border: 1px solid var(--border);
+}
+.fr-room svg {
+    flex-shrink: 0;
+    color: var(--success);
+}
+
+.fr-topbar-btn { color: var(--text-secondary); }
+
+.fr-launch-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--success);
+    background: var(--success-soft);
+    border: 1px solid transparent;
+    transition: border-color var(--fast), filter var(--fast), transform 100ms ease-out;
+}
+.fr-launch-btn:hover { border-color: var(--success); filter: brightness(1.1); }
+.fr-launch-btn:active { transform: scale(0.97); }
+
+@media (min-width: 768px) {
+    .free-rooms-sheet {
+        top: 0; bottom: 0; left: auto;
+        width: 400px;
+        max-width: min(92vw, 400px);
+        max-height: none;
+        border-radius: 0;
+        border: 1px solid var(--border-bright);
+        border-right: none;
+        transform: translateX(100%);
+    }
+    .ai-panel.open .free-rooms-sheet { transform: translateX(0); }
+}
+
+/* ============================================================
    Animations — spring-like curves
    ============================================================ */
 @keyframes rise {
@@ -1325,7 +1440,7 @@ input { font-family: inherit; }
 
 /* Reduced transparency — frostier, near-solid surfaces */
 @media (prefers-reduced-transparency: reduce) {
-    .mobile-topbar, .sidebar, .section-modal-sheet, .toast, .ai-sheet {
+    .mobile-topbar, .sidebar, .section-modal-sheet, .toast, .ai-sheet, .free-rooms-sheet {
         background: #1E1E22 !important;
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
@@ -1334,7 +1449,7 @@ input { font-family: inherit; }
 
 /* High contrast — near-solid backgrounds, defined borders */
 @media (prefers-contrast: more) {
-    .mobile-topbar, .sidebar, .section-modal-sheet, .toast, .ai-sheet {
+    .mobile-topbar, .sidebar, .section-modal-sheet, .toast, .ai-sheet, .free-rooms-sheet {
         background: #111111 !important;
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
@@ -1616,6 +1731,7 @@ input { font-family: inherit; }
     .retry-btn, .btn { min-height: 44px; }
     .sidebar-install-btn { min-height: 44px; }
     .ai-launch-btn { min-height: 44px; }
+    .fr-launch-btn { min-height: 44px; }
     .game-cta-btn { min-height: 44px; }
     .sidebar-elective-select { min-height: 44px; padding: 9px 10px; }
     .tl-offering { min-height: 34px; padding: 6px 10px; }
