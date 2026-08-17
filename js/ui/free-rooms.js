@@ -1,5 +1,5 @@
-import { toMinutes, minutesToClock } from '../core/utils.js?v=2026-08-17-001';
-import { trackEvent } from '../services/analytics.js?v=2026-08-17-001';
+import { toMinutes, minutesToClock } from '../core/utils.js?v=2026-08-17-002';
+import { trackEvent } from '../services/analytics.js?v=2026-08-17-002';
 
 /**
  * Free Rooms — shows which rooms are available during each period
@@ -339,7 +339,7 @@ function ensureLaunchButtons() {
         topbar.insertBefore(btn, document.querySelector('#refresh-btn-mobile') || null);
     }
 
-    const footer = document.querySelector('.sidebar-footer');
+    const footer = document.querySelector('.sidebar-actions-card') || document.querySelector('.sidebar-footer');
     if (footer && !document.querySelector('#fr-launch-sidebar')) {
         const btn = document.createElement('button');
         btn.type = 'button';
