@@ -302,24 +302,33 @@ function startDrawerDragTracking() {
     let startY = null;
     let history = [];
     let isDragging = false;
+    let verticalLock = false;
 
     sidebar.addEventListener('pointerdown', (e) => {
         startX = e.clientX;
         startY = e.clientY;
         history = [{ x: e.clientX, t: performance.now() }];
         isDragging = false;
+        verticalLock = false;
     });
 
     sidebar.addEventListener('pointermove', (e) => {
         if (startX == null) return;
+        if (verticalLock) return;
         const dx = e.clientX - startX;
         const dy = e.clientY - startY;
         // Only start drag tracking if the user has moved enough to distinguish
         // a tap from a drag. This prevents interference with overlay clicks.
         if (!isDragging && Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
         // If vertical movement dominates the gesture, the user is scrolling
-        // inside the sidebar — abort drag tracking so the sidebar stays open.
-        if (!isDragging && Math.abs(dy) > Math.abs(dx)) {
+        // inside the sidebar — permanently lock out drag for this gesture.
+        // This check runs both before and after isDragging is set, so a
+        // scroll that starts after the 8px horizontal threshold is still
+        // caught and the sidebar stays open.
+        if (Math.abs(dy) >= Math.abs(dx)) {
+            verticalLock = true;
+            isDragging = false;
+            sidebar.style.transform = '';
             startX = null;
             startY = null;
             history = [];

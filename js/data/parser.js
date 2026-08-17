@@ -374,8 +374,8 @@ const SUBJECT_ALIASES = [
     { match: /^COA$/i, name: 'Computer Organization and Architecture' },
     { match: /^IFA$/i, name: 'Introduction to Financial Accounting' },
     { match: /^CT$/i, name: 'Critical Thinking' },
-    { match: /^FBO|FOB$/i, name: 'Fundamentals of Business Organization & Management' },
-    { match: /^PFM|PIFM$/i, name: 'Principles in Financial Management' },
+    { match: /^(?:FBO|FOB|Fundamentals of Business Organization and Management)$/i, name: 'Fundamentals of Business Organization & Management' },
+    { match: /^(?:PFM|PIFM|Principles of Financial Management)$/i, name: 'Principles in Financial Management' },
     { match: /^FP$/i, name: 'Forensic Psychology' },
 ];
 

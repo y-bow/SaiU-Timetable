@@ -367,6 +367,165 @@ await check('shared courses appear in both BBA and B.Com', () => {
     }
 });
 
+console.log('--- parseCSV (grid): SCDS-3 ALL electives parsing ---');
+const SCDS3_ALL_ELECTIVES = [
+    { id: 'quantum-machine-learning', label: 'Quantum Machine Learning' },
+    { id: 'cyber-security', label: 'Cybersecurity: Fundamental Concepts and Management' },
+    { id: 'computer-networks', label: 'Computer Networks' },
+    { id: 'financial-reporting-and-analysis', label: 'Financial Reporting and Analysis' },
+    { id: 'organizational-psychology', label: 'Organizational Psychology' },
+    { id: 'computer-organization-and-architecture', label: 'Computer Organization and Architecture' },
+    { id: 'human-ai-interaction', label: 'Human AI Interaction' },
+    { id: 'introduction-to-financial-accounting', label: 'Introduction to Financial Accounting' },
+    { id: 'critical-thinking', label: 'Critical Thinking' },
+    { id: 'forensic-psychology', label: 'Forensic Psychology' },
+    { id: 'community-psychology', label: 'Community Psychology' },
+    { id: 'fundamentals-of-business-organization-and-management', label: 'Fundamentals of Business Organization & Management' },
+    { id: 'principles-in-financial-management', label: 'Principles in Financial Management' },
+];
+const SCDS3_MANDATORY_COURSES = ['Deep Learning', 'Theory of Computation'];
+
+const SCDS3_ALL_GRID = [
+    'MONDAY,09:15 AM - 10:10 AM,DL - Sem 5 - Dr. KK,QML - Sem 5 - Dr. Sharma',
+    ',10:15 AM - 11:10 AM,CN - Sec 3 - Arjun,Financial Reporting and Analysis         Surya C',
+    ',11:15 AM - 12:10 PM,COA - Sec 5 - Ashok,CYBER - Sec 2 - Salim',
+    ',12:15 PM - 1:10 PM,Organizational Psychology - Micro Perspective         Dr. Maya,Human AI Interaction',
+    ',1:30 PM - 2:25 PM,PFM - Sec 6 - Dr. Mehta,FBO         Dr. Reddy',
+    'TUESDAY,09:15 AM - 10:10 AM,TOC - Sem 5 - Sonar,IFA - Sec 1 - Dr. Priya',
+    ',10:15 AM - 11:10 AM,CT - Sec 4 - Nasma,Forensic Psychology - Dr. Mridula',
+    ',11:15 AM - 12:10 PM,Community Psychology         Dr. Arun,Principles of Financial Management - Dr. Singh',
+    ',12:15 PM - 1:10 PM,Fundamentals of Business Organization and Management         Dr. Reddy,QML - Sem 5 - Dr. Sharma',
+].join('\n');
+
+await check('SCDS-3: Quantum Machine Learning is parsed as elective', () => {
+    const out = parseCSV(SCDS3_ALL_GRID, 'grid', SCDS3_MANDATORY_COURSES, SCDS3_ALL_ELECTIVES, null);
+    const c = out.find(x => x.elective === 'quantum-machine-learning');
+    assert.ok(c, 'QML parsed');
+    assert.equal(c.subject, 'Quantum Machine Learning');
+    assert.equal(c.faculty, 'Prof. Dr.Sharma');
+});
+
+await check('SCDS-3: Computer Networks is parsed as elective', () => {
+    const out = parseCSV(SCDS3_ALL_GRID, 'grid', SCDS3_MANDATORY_COURSES, SCDS3_ALL_ELECTIVES, null);
+    const c = out.find(x => x.elective === 'computer-networks');
+    assert.ok(c, 'CN parsed');
+    assert.equal(c.faculty, 'Prof. Arjun');
+});
+
+await check('SCDS-3: Financial Reporting and Analysis is parsed as elective', () => {
+    const out = parseCSV(SCDS3_ALL_GRID, 'grid', SCDS3_MANDATORY_COURSES, SCDS3_ALL_ELECTIVES, null);
+    const c = out.find(x => x.elective === 'financial-reporting-and-analysis');
+    assert.ok(c, 'FRA parsed');
+    assert.equal(c.faculty, 'Prof. Surya C');
+});
+
+await check('SCDS-3: COA is parsed via alias', () => {
+    const out = parseCSV(SCDS3_ALL_GRID, 'grid', SCDS3_MANDATORY_COURSES, SCDS3_ALL_ELECTIVES, null);
+    const c = out.find(x => x.elective === 'computer-organization-and-architecture');
+    assert.ok(c, 'COA parsed');
+    assert.equal(c.subject, 'Computer Organization and Architecture');
+});
+
+await check('SCDS-3: CYBER is parsed via alias', () => {
+    const out = parseCSV(SCDS3_ALL_GRID, 'grid', SCDS3_MANDATORY_COURSES, SCDS3_ALL_ELECTIVES, null);
+    const c = out.find(x => x.elective === 'cyber-security');
+    assert.ok(c, 'CYBER parsed');
+    assert.equal(c.subject, 'Cybersecurity: Fundamental Concepts and Management');
+});
+
+await check('SCDS-3: Organizational Psychology with suffix is parsed', () => {
+    const out = parseCSV(SCDS3_ALL_GRID, 'grid', SCDS3_MANDATORY_COURSES, SCDS3_ALL_ELECTIVES, null);
+    const c = out.find(x => x.elective === 'organizational-psychology');
+    assert.ok(c, 'OP parsed');
+    assert.equal(c.faculty, 'Prof. Dr.Maya');
+});
+
+await check('SCDS-3: Human AI Interaction is parsed as unsectioned elective', () => {
+    const out = parseCSV(SCDS3_ALL_GRID, 'grid', SCDS3_MANDATORY_COURSES, SCDS3_ALL_ELECTIVES, null);
+    const c = out.find(x => x.elective === 'human-ai-interaction');
+    assert.ok(c, 'HAI parsed');
+});
+
+await check('SCDS-3: IFA is parsed via alias', () => {
+    const out = parseCSV(SCDS3_ALL_GRID, 'grid', SCDS3_MANDATORY_COURSES, SCDS3_ALL_ELECTIVES, null);
+    const c = out.find(x => x.elective === 'introduction-to-financial-accounting');
+    assert.ok(c, 'IFA parsed');
+    assert.equal(c.subject, 'Introduction to Financial Accounting');
+});
+
+await check('SCDS-3: CT is parsed via alias', () => {
+    const out = parseCSV(SCDS3_ALL_GRID, 'grid', SCDS3_MANDATORY_COURSES, SCDS3_ALL_ELECTIVES, null);
+    const c = out.find(x => x.elective === 'critical-thinking');
+    assert.ok(c, 'CT parsed');
+    assert.equal(c.subject, 'Critical Thinking');
+});
+
+await check('SCDS-3: Forensic Psychology is parsed as elective', () => {
+    const out = parseCSV(SCDS3_ALL_GRID, 'grid', SCDS3_MANDATORY_COURSES, SCDS3_ALL_ELECTIVES, null);
+    const c = out.find(x => x.elective === 'forensic-psychology');
+    assert.ok(c, 'FP parsed');
+    assert.equal(c.faculty, 'Prof. Dr.Mridula');
+});
+
+await check('SCDS-3: Community Psychology is parsed as unsectioned elective', () => {
+    const out = parseCSV(SCDS3_ALL_GRID, 'grid', SCDS3_MANDATORY_COURSES, SCDS3_ALL_ELECTIVES, null);
+    const c = out.find(x => x.elective === 'community-psychology');
+    assert.ok(c, 'CommP parsed');
+});
+
+await check('SCDS-3: PFM abbreviation is expanded and matched', () => {
+    const out = parseCSV(SCDS3_ALL_GRID, 'grid', SCDS3_MANDATORY_COURSES, SCDS3_ALL_ELECTIVES, null);
+    const c = out.find(x => x.elective === 'principles-in-financial-management' && x.day === 'Monday');
+    assert.ok(c, 'PFM parsed');
+    assert.equal(c.subject, 'Principles in Financial Management');
+    assert.equal(c.faculty, 'Prof. Dr.Mehta');
+});
+
+await check('SCDS-3: FBO abbreviation is expanded and matched', () => {
+    const out = parseCSV(SCDS3_ALL_GRID, 'grid', SCDS3_MANDATORY_COURSES, SCDS3_ALL_ELECTIVES, null);
+    const c = out.find(x => x.elective === 'fundamentals-of-business-organization-and-management' && x.day === 'Monday');
+    assert.ok(c, 'FBO parsed');
+    assert.equal(c.subject, 'Fundamentals of Business Organization & Management');
+});
+
+await check('SCDS-3: "Principles of Financial Management" (with "of") is matched via alias', () => {
+    const out = parseCSV(SCDS3_ALL_GRID, 'grid', SCDS3_MANDATORY_COURSES, SCDS3_ALL_ELECTIVES, null);
+    const c = out.find(x => x.elective === 'principles-in-financial-management' && x.day === 'Tuesday');
+    assert.ok(c, '"Principles of Financial Management" matched');
+    assert.equal(c.subject, 'Principles in Financial Management');
+    assert.equal(c.faculty, 'Prof. Dr.Singh');
+});
+
+await check('SCDS-3: "Fundamentals of Business Organization and Management" (with "and") is matched via alias', () => {
+    const out = parseCSV(SCDS3_ALL_GRID, 'grid', SCDS3_MANDATORY_COURSES, SCDS3_ALL_ELECTIVES, null);
+    const c = out.find(x => x.elective === 'fundamentals-of-business-organization-and-management' && x.day === 'Tuesday');
+    assert.ok(c, '"Fundamentals...and Management" matched');
+    assert.equal(c.subject, 'Fundamentals of Business Organization & Management');
+});
+
+await check('SCDS-3: mandatory courses are still parsed alongside electives', () => {
+    const out = parseCSV(SCDS3_ALL_GRID, 'grid', SCDS3_MANDATORY_COURSES, SCDS3_ALL_ELECTIVES, null);
+    const dl = out.find(x => x.subject === 'Deep Learning');
+    assert.ok(dl, 'Deep Learning parsed');
+    assert.equal(dl.elective, undefined, 'mandatory is not tagged as elective');
+    const toc = out.find(x => x.subject === 'Theory of Computation');
+    assert.ok(toc, 'TOC parsed');
+});
+
+await check('SCDS-3: 18 total classes (2 mandatory + 16 elective slots for 13 unique electives)', () => {
+    const out = parseCSV(SCDS3_ALL_GRID, 'grid', SCDS3_MANDATORY_COURSES, SCDS3_ALL_ELECTIVES, null);
+    assert.equal(out.length, 18, `expected 18 classes, got ${out.length}`);
+});
+
+await check('SCDS-3: 16 elective classes all have elective id set', () => {
+    const out = parseCSV(SCDS3_ALL_GRID, 'grid', SCDS3_MANDATORY_COURSES, SCDS3_ALL_ELECTIVES, null);
+    const electives = out.filter(x => x.elective);
+    assert.equal(electives.length, 16, `expected 16 elective classes, got ${electives.length}`);
+    for (const c of electives) {
+        assert.ok(c.elective, `${c.subject} has elective id`);
+    }
+});
+
 console.log(`\n${passed} passed, ${failed} failed`);
 rmSync(dir, { recursive: true, force: true });
 if (failed) process.exit(1);

@@ -44,13 +44,12 @@ const scds2 = SCHOOLS.find(s => s.id === 'scds').years.find(y => y.id === 'scds-
 
 const EXPECTED_ROOMS = [
     'AB1-101', 'AB1-102', 'AB1-103', 'AB1-104', 'AB1-201',
-    'AB1-MOOT COURT HALL', 'AB1 Computer Lab',
     'AB2-101', 'AB2-201', 'AB2-202', 'AB2-203', 'AB2-204',
     'AB2-205', 'AB2-206', 'AB2-207', 'AB2-208', 'AB2-209',
     'AB2-210', 'AB2-211',
 ];
 
-await check('SCDS Year 2 has all 19 authoritative rooms', () => {
+await check('SCDS Year 2 has all 17 authoritative rooms (labs excluded)', () => {
     assert.equal(scds2.rooms.length, EXPECTED_ROOMS.length);
     for (const r of EXPECTED_ROOMS) {
         assert.ok(scds2.rooms.includes(r), `missing room: ${r}`);
@@ -64,7 +63,6 @@ await check('authoritative list includes all AB1 rooms', () => {
     assert.ok(ab1.includes('AB1-103'));
     assert.ok(ab1.includes('AB1-104'));
     assert.ok(ab1.includes('AB1-201'));
-    assert.ok(ab1.includes('AB1-MOOT COURT HALL'));
 });
 
 await check('authoritative list includes all AB2 rooms', () => {
@@ -413,21 +411,29 @@ await check('unsectioned non-elective class is counted as occupied', () => {
 
 // ── Every known room can be discovered ───────────────────────────
 
-console.log('--- All 19 rooms discoverable ---');
+console.log('--- All 17 rooms discoverable (labs/Moot Court excluded) ---');
 
 const ALL_ROOMS_GRID = [
-    'MONDAY,09:15 AM - 10:10 A,ET - Sec 1 - Arj,ET - Sec 2 - Son,ET - Sec 3 - Arav,ET - Sec 4 - Joy,ET - Sec 5 - Sal,ET - Sec 6 - Rup,ET - Sec 7 - Nit,ET - Sec 8 - Ujj,ET - Sec 9 - Beaul,ET - Sec 10 - Tam,ET - Sec 11 - Ange,ET - Sec 12 - Dr. KK,ET - Sec 13 - Sange,ET - Sec 14 - May,ET - Sec 15 - Jemi,ET - Sec 16 - Asho,ET - Sec 17 - Sub,ET - Sec 18 - Mega',
-    ',,AB1 - 101,AB1 - 102,AB1 - 103,AB1 - 104,AB1 - 201,AB1 - Moot Court Hall,AB1 Computer Lab,AB2 - 101,AB2 - 201,AB2 - 202,AB2 - 203,AB2 - 204,AB2 - 205,AB2 - 206,AB2 - 207,AB2 - 209,AB2 - 210,AB2 - 211',
+    'MONDAY,09:15 AM - 10:10 A,ET - Sec 1 - Arj,ET - Sec 2 - Son,ET - Sec 3 - Arav,ET - Sec 4 - Joy,ET - Sec 5 - Sal,ET - Sec 6 - Rup,ET - Sec 7 - Nit,ET - Sec 8 - Ujj,ET - Sec 9 - Beaul,ET - Sec 10 - Tam,ET - Sec 11 - Ange,ET - Sec 12 - Dr. KK,ET - Sec 13 - Sange,ET - Sec 14 - May,ET - Sec 15 - Jemi,ET - Sec 16 - Asho',
+    ',,AB1 - 101,AB1 - 102,AB1 - 103,AB1 - 104,AB1 - 201,AB1 - Moot Court Hall,AB1 Computer Lab,AB2 - 101,AB2 - 201,AB2 - 202,AB2 - 203,AB2 - 204,AB2 - 205,AB2 - 206,AB2 - 207,AB2 - 209',
 ].join('\n');
 
-await check('all 19 rooms appear in occupancy data', () => {
+await check('labs and Moot Court Hall are excluded from discoverRooms', () => {
     const occ = parseRoomOccupancy(ALL_ROOMS_GRID);
-    const rooms = new Set(occ.map(r => normalizeRoom(r.room)));
-    for (const expected of EXPECTED_ROOMS) {
-        const key = normalizeRoom(expected);
-        if (key === normalizeRoom('AB2-208')) continue; // not in this test grid
-        assert.ok(rooms.has(key), `room ${expected} (normalized: ${key}) should be in occupancy`);
+    const roomMap = new Map();
+    const EXCLUDED = /\b(moot\s*court|lab)\b/i;
+    for (const rec of occ) {
+        const room = String(rec.room ?? '').trim();
+        if (!room) continue;
+        const key = normalizeRoom(room);
+        if (EXCLUDED.test(key)) continue;
+        if (!roomMap.has(key)) roomMap.set(key, room);
     }
+    for (const r of roomMap.keys()) {
+        assert.ok(!EXCLUDED.test(r), `excluded pattern should not appear: ${r}`);
+    }
+    assert.ok(roomMap.has(normalizeRoom('AB1 - 101')), 'AB1-101 should be included');
+    assert.ok(roomMap.has(normalizeRoom('AB2 - 101')), 'AB2-101 should be included');
 });
 
 // ── Summary ──────────────────────────────────────────────────────

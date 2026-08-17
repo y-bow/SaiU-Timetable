@@ -594,9 +594,13 @@ function initHamburger() {
     $('#hamburger-btn')?.addEventListener('click', () => {
         if (ui.isDrawerOpen()) ui.closeDrawer(); else ui.openDrawer();
     });
-    $('#drawer-overlay')?.addEventListener('click', () => ui.closeDrawer());
+    $('#drawer-overlay')?.addEventListener('click', (e) => {
+        if (e.target === $('#drawer-overlay')) ui.closeDrawer();
+    });
     $('#sidebar-close-btn')?.addEventListener('click', () => ui.closeDrawer());
-    $('.section-modal-backdrop')?.addEventListener('click', () => ui.hideSectionModal());
+    $('.section-modal-backdrop')?.addEventListener('click', (e) => {
+        if (e.target === $('.section-modal-backdrop')) ui.hideSectionModal();
+    });
 }
 
 // ============================================================

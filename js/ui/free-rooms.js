@@ -102,6 +102,7 @@ function discoverRooms(occupancy, yearConfig) {
     buildCanonicalMap(knownRooms);
     for (const raw of knownRooms) {
         const key = normalizeRoom(raw);
+        if (EXCLUDED_ROOM_PATTERNS.test(key)) continue;
         if (!roomMap.has(key)) roomMap.set(key, displayRoom(raw));
     }
 
