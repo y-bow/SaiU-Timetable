@@ -104,7 +104,7 @@ const COURSE_DEFINITIONS = [
     { canonical: 'corporate-and-business-law', display: 'Corporate and Business Law' },
     { canonical: 'operations-research', display: 'Operations Research' },
     { canonical: 'human-resource-management', display: 'Human Resource Management' },
-    { canonical: 'principles-in-financial-management', display: 'Principles in Financial Management' },
+    { canonical: 'principles-in-financial-management', display: 'Principles in Financial Management', aliases: ['PFM', 'PIFM'] },
 ];
 
 // ---------------------------------------------------------------------------

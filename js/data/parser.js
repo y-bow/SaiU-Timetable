@@ -372,6 +372,7 @@ const SUBJECT_ALIASES = [
     { match: /^IFA$/i, name: 'Introduction to Financial Accounting' },
     { match: /^CT$/i, name: 'Critical Thinking' },
     { match: /^FBO|FOB$/i, name: 'Fundamentals of Business Organization & Management' },
+    { match: /^PFM|PIFM$/i, name: 'Principles in Financial Management' },
     { match: /^FP$/i, name: 'Forensic Psychology' },
 ];
 
@@ -529,6 +530,71 @@ function parseGridCSVRooms(text, electives = null, rooms = null) {
                 endTime: times.end,
                 courseId: elective ? elective.id : resolveCourseId(name),
                 ...(elective ? { elective: elective.id } : {}),
+            });
+        }
+    }
+    return data;
+}
+
+// ============================================================
+// Room-occupancy parser — emits ALL classes with rooms.
+//
+// Unlike parseGridCSVRooms (which only emits sectioned/elective
+// classes for the student timetable), this function emits every
+// non-empty class cell that sits in a room-declaration column.
+// The Free Rooms feature uses this to correctly determine which
+// rooms are occupied during each period.
+// ============================================================
+
+export function parseRoomOccupancy(text) {
+    const lines = text.split(/\r?\n/);
+    const data = [];
+    let currentDay = null;
+
+    for (let i = 0; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
+        const row = splitCSVLine(lines[i]);
+        if (row.length < 3) continue;
+
+        const col0 = row[0].toUpperCase();
+        if (DAYS.includes(col0)) currentDay = col0.charAt(0) + col0.slice(1).toLowerCase();
+        if (!currentDay) continue;
+
+        const timeText = row[1];
+        if (!timeText || /LUNCH|OPEN BLOCK/i.test(timeText)) continue;
+        const times = parseTimeRange(timeText);
+        if (!times) continue;
+
+        let roomRow = null;
+        for (let k = i + 1; k < lines.length; k++) {
+            if (!lines[k].trim()) continue;
+            roomRow = splitCSVLine(lines[k]);
+            break;
+        }
+        if (!roomRow) continue;
+
+        for (let j = 0; j < roomRow.length; j++) {
+            const roomVal = roomRow[j];
+            if (!roomVal) continue;
+            const roomKey = normalizeRoom(roomVal);
+            if (!roomKey) continue;
+
+            const cell = row[j];
+            if (!cell) continue;
+
+            const { subject, faculty, section } = splitClassCell(cell);
+            const name = expandSubjectAlias(subject);
+            if (!name) continue;
+
+            const roomLabel = String(roomVal).replace(/\s+/g, ' ');
+            data.push({
+                day: currentDay,
+                subject: name,
+                faculty: faculty || '',
+                room: roomLabel,
+                section: section ?? 1,
+                startTime: times.start,
+                endTime: times.end,
             });
         }
     }

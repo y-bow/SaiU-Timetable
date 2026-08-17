@@ -1,5 +1,5 @@
 import { CONFIG } from '../core/config.js?v=2026-08-17-001';
-import { parseCSV } from '../data/parser.js?v=2026-08-17-001';
+import { parseCSV, parseRoomOccupancy } from '../data/parser.js?v=2026-08-17-001';
 import * as nav from '../ui/navigation.js?v=2026-08-17-001';
 import { toMinutes, minutesToClock, todayName, WEEKDAYS } from '../core/utils.js?v=2026-08-17-001';
 import { loadMergedYear2Timetable } from './lab-fetch.js?v=2026-08-17-001';
@@ -39,6 +39,9 @@ async function syncTimetable() {
         const parsed = parseCSV(text, nav.getParserType(), nav.getMandatoryCourses(), nav.getElectives(), nav.getRooms());
         if (!parsed.length) throw new Error('No classes parsed');
 
+        // Room occupancy for Free Rooms: ALL classes in ALL rooms.
+        const roomClasses = parseRoomOccupancy(text);
+
         // Produce the SAME snapshot the main app writes (js/core/app.js): for
         // SCDS Year 2 the separate lab timetables are merged under the main
         // sheet classes. The shared tt-cache-<year> key is the change-detector's
@@ -53,7 +56,7 @@ async function syncTimetable() {
         if (!classes.length) throw new Error('No classes parsed');
 
         try {
-            localStorage.setItem(cacheKeyFor(year), JSON.stringify({ savedAt: Date.now(), classes }));
+            localStorage.setItem(cacheKeyFor(year), JSON.stringify({ savedAt: Date.now(), classes, roomClasses }));
         } catch { /* storage full — ignore */ }
 
         renderContext(classes);

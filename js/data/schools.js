@@ -51,8 +51,6 @@ export const SCHOOLS = [
                     'AB2-207',
                     'AB1-104',
                     'AB1-101',
-                    'AB1-MOOT COURT HALL',
-                    'AB1 Computer Lab',
                 ],
                 mandatoryCourses: null,
                 electives: [
@@ -104,6 +102,8 @@ export const SCHOOLS = [
                     { id: 'critical-thinking', label: 'Critical Thinking' },
                     { id: 'forensic-psychology', label: 'Forensic Psychology' },
                     { id: 'community-psychology', label: 'Community Psychology' },
+                    { id: 'fundamentals-of-business-organization-and-management', label: 'Fundamentals of Business Organization & Management' },
+                    { id: 'principles-in-financial-management', label: 'Principles in Financial Management' },
                 ],
             },
         ],

@@ -1,5 +1,5 @@
 import { CONFIG } from './config.js?v=2026-08-17-001';
-import { parseCSV, offeringKey } from '../data/parser.js?v=2026-08-17-001';
+import { parseCSV, offeringKey, parseRoomOccupancy } from '../data/parser.js?v=2026-08-17-001';
 import { compareTimetables, classIdentity, setChangeDetectorDebug } from '../data/change-detector.js?v=2026-08-17-001';
 import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen } from '../services/storage.js?v=2026-08-17-001';
 import * as nav from '../ui/navigation.js?v=2026-08-17-001';
@@ -25,6 +25,7 @@ import { initFreeRooms } from '../ui/free-rooms.js?v=2026-08-17-001';
  */
 
 let classes = [];
+let roomClasses = [];
 let sections = [];
 let selectedSection = null;
 let lastUpdated = null;
@@ -253,6 +254,7 @@ async function load({ silent = false, background = false } = {}) {
     const cached = readCache(cacheKey);
     if (cached && cached.classes) {
         classes = cached.classes;
+        roomClasses = cached.roomClasses || [];
         loadedFor = nav.getYear()?.id ?? null;
         if (cached.savedAt) lastUpdated = new Date(cached.savedAt);
         syncSections();
@@ -271,6 +273,10 @@ async function load({ silent = false, background = false } = {}) {
         const parsed = parseCSV(text, nav.getParserType(), nav.getMandatoryCourses(), nav.getElectives(), nav.getRooms());
         if (!parsed.length) throw new Error('No classes parsed');
 
+        // Room occupancy for Free Rooms: ALL classes in ALL rooms,
+        // regardless of section/elective filtering.
+        roomClasses = parseRoomOccupancy(text);
+
         // SCDS Year 2: merge the separate lab timetables (DAA/FDE/Emg Lab)
         // under the main sheet classes so labs appear on the same timeline.
         const year = nav.getYear();
@@ -280,7 +286,7 @@ async function load({ silent = false, background = false } = {}) {
 
         loadedFor = year?.id ?? null;
         lastUpdated = new Date();
-        writeCache(cacheKey, classes);
+        writeCache(cacheKey, classes, roomClasses);
         // Smart change detection: compare the previous fetch against this one.
         // Classes are compared, not spreadsheet cells — a class that moved to
         // another cell/room/time/day keeps its identity and is reported as
@@ -307,8 +313,8 @@ function readCache(key) {
     catch { return null; }
 }
 
-function writeCache(key, data) {
-    try { localStorage.setItem(key, JSON.stringify({ savedAt: Date.now(), classes: data })); }
+function writeCache(key, data, roomData) {
+    try { localStorage.setItem(key, JSON.stringify({ savedAt: Date.now(), classes: data, roomClasses: roomData || [] })); }
     catch { /* full */ }
 }
 
@@ -560,9 +566,13 @@ function initHamburger() {
     $('#hamburger-btn')?.addEventListener('click', () => {
         if (ui.isDrawerOpen()) ui.closeDrawer(); else ui.openDrawer();
     });
-    $('#drawer-overlay')?.addEventListener('click', () => ui.closeDrawer());
+    $('#drawer-overlay')?.addEventListener('click', (e) => {
+        if (e.target === $('#drawer-overlay')) ui.closeDrawer();
+    });
     $('#sidebar-close-btn')?.addEventListener('click', () => ui.closeDrawer());
-    $('.section-modal-backdrop')?.addEventListener('click', () => ui.hideSectionModal());
+    $('.section-modal-backdrop')?.addEventListener('click', (e) => {
+        if (e.target === $('.section-modal-backdrop')) ui.hideSectionModal();
+    });
 }
 
 // ============================================================
@@ -847,6 +857,7 @@ function init() {
     initAiAssistant({ getClasses: () => classes, getContext: n8nContext });
     initFreeRooms({
         getClasses: () => classes,
+        getRoomClasses: () => roomClasses,
         getSelectedDay: () => selectedDay || contextDay(),
     });
 

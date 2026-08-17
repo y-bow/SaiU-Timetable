@@ -32,6 +32,7 @@ let focusTrapCleanup = null;
 let lastFocused = null;
 
 let getClasses = () => [];
+let getRoomClasses = () => [];
 let getSelectedDay = () => null;
 
 // ============================================================
@@ -64,8 +65,15 @@ function displayRoom(room) {
 // ============================================================
 
 /**
+ * Rooms to exclude from the free-rooms list: labs and the Moot Court Hall
+ * are special-purpose spaces, not bookable classrooms.
+ */
+const EXCLUDED_ROOM_PATTERNS = /\b(moot\s*court|lab)\b/i;
+
+/**
  * Discover all unique rooms from the parsed timetable classes.
  * Returns a Map of normalizedRoom → displayRoom.
+ * Labs and Moot Court Hall are excluded.
  */
 function discoverRooms(classes) {
     const roomMap = new Map();
@@ -73,6 +81,7 @@ function discoverRooms(classes) {
         const room = String(c.room ?? '').trim();
         if (!room) continue;
         const key = normalizeRoom(room);
+        if (EXCLUDED_ROOM_PATTERNS.test(key)) continue;
         if (!roomMap.has(key)) {
             roomMap.set(key, displayRoom(room));
         }
@@ -242,7 +251,9 @@ function trapFocus(container, onEscape) {
 function renderContent() {
     if (!contentEl) return;
     const day = getSelectedDay();
-    const classes = getClasses();
+    // Use roomClasses (ALL classes in ALL rooms) for Free Rooms,
+    // not the filtered student timetable classes.
+    const classes = getRoomClasses();
 
     // Update day label
     const dayLabel = $('#fr-day-label');
@@ -315,11 +326,14 @@ function renderContent() {
 /**
  * Wire Free Rooms into the app. Creates the panel DOM and launch buttons.
  *
- * @param {{getClasses?: () => Array<object>, getSelectedDay?: () => string}} opts
+ * @param {{getClasses?: () => Array<object>, getRoomClasses?: () => Array<object>, getSelectedDay?: () => string}} opts
  *   Live accessors for the currently parsed timetable and selected day.
+ *   `getRoomClasses` returns ALL classes in ALL rooms (unfiltered by
+ *   section/elective) for accurate room occupancy calculation.
  */
 export function initFreeRooms(opts = {}) {
     getClasses = opts.getClasses || getClasses;
+    getRoomClasses = opts.getRoomClasses || getRoomClasses;
     getSelectedDay = opts.getSelectedDay || getSelectedDay;
     ensureDom();
     ensureLaunchButtons();
