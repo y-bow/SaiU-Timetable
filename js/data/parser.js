@@ -375,6 +375,7 @@ const SUBJECT_ALIASES = [
     { match: /^IFA$/i, name: 'Introduction to Financial Accounting' },
     { match: /^CT$/i, name: 'Critical Thinking' },
     { match: /^FBO|FOB$/i, name: 'Fundamentals of Business Organization & Management' },
+    { match: /^PFM|PIFM$/i, name: 'Principles in Financial Management' },
     { match: /^FP$/i, name: 'Forensic Psychology' },
 ];
 

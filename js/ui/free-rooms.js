@@ -36,6 +36,7 @@ let focusTrapCleanup = null;
 let lastFocused = null;
 
 let getClasses = () => [];
+let getRoomClasses = () => [];
 let getSelectedDay = () => null;
 let getRoomOccupancy = () => [];
 let getYearConfig = () => null;
@@ -80,12 +81,18 @@ function displayRoom(raw) {
 // ============================================================
 
 /**
+ * Rooms to exclude from the free-rooms list: labs and the Moot Court Hall
+ * are special-purpose spaces, not bookable classrooms.
+ */
+const EXCLUDED_ROOM_PATTERNS = /\b(moot\s*court|lab)\b/i;
+
+/**
  * Build the complete room inventory from:
  *   1. The authoritative room list in the year config (schools.js).
  *   2. Any extra rooms found in the occupancy data that are not in
  *      the authoritative list.
  *
- * Returns a Map of normalizedRoom → displayRoom.
+ * Labs and Moot Court Hall are excluded.
  */
 function discoverRooms(occupancy, yearConfig) {
     const roomMap = new Map();
@@ -103,6 +110,7 @@ function discoverRooms(occupancy, yearConfig) {
         const room = String(rec.room ?? '').trim();
         if (!room) continue;
         const key = normalizeRoom(room);
+        if (EXCLUDED_ROOM_PATTERNS.test(key)) continue;
         if (!roomMap.has(key)) roomMap.set(key, displayRoom(room));
     }
 
@@ -362,6 +370,7 @@ function renderContent() {
  */
 export function initFreeRooms(opts = {}) {
     getClasses = opts.getClasses || getClasses;
+    getRoomClasses = opts.getRoomClasses || getRoomClasses;
     getSelectedDay = opts.getSelectedDay || getSelectedDay;
     getRoomOccupancy = opts.getRoomOccupancy || getRoomOccupancy;
     getYearConfig = opts.getYearConfig || getYearConfig;

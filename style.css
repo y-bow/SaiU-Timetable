@@ -257,6 +257,7 @@ input { font-family: inherit; }
     padding: 6px 0;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
 }
 
 .sidebar-section { padding: 2px 0; }

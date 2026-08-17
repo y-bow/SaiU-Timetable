@@ -317,6 +317,14 @@ function startDrawerDragTracking() {
         // Only start drag tracking if the user has moved enough to distinguish
         // a tap from a drag. This prevents interference with overlay clicks.
         if (!isDragging && Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+        // If vertical movement dominates the gesture, the user is scrolling
+        // inside the sidebar — abort drag tracking so the sidebar stays open.
+        if (!isDragging && Math.abs(dy) > Math.abs(dx)) {
+            startX = null;
+            startY = null;
+            history = [];
+            return;
+        }
         isDragging = true;
         history.push({ x: e.clientX, t: performance.now() });
         if (history.length > 8) history.shift();
