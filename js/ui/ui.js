@@ -305,6 +305,7 @@ function startDrawerDragTracking() {
     let verticalLock = false;
 
     sidebar.addEventListener('pointerdown', (e) => {
+        if (!sidebar.classList.contains('open')) return;
         startX = e.clientX;
         startY = e.clientY;
         history = [{ x: e.clientX, t: performance.now() }];
@@ -315,16 +316,13 @@ function startDrawerDragTracking() {
     sidebar.addEventListener('pointermove', (e) => {
         if (startX == null) return;
         if (verticalLock) return;
+        if (!sidebar.classList.contains('open')) { startX = null; startY = null; history = []; isDragging = false; return; }
         const dx = e.clientX - startX;
         const dy = e.clientY - startY;
-        // Only start drag tracking if the user has moved enough to distinguish
-        // a tap from a drag. This prevents interference with overlay clicks.
-        if (!isDragging && Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
         // If vertical movement dominates the gesture, the user is scrolling
         // inside the sidebar — permanently lock out drag for this gesture.
-        // This check runs both before and after isDragging is set, so a
-        // scroll that starts after the 8px horizontal threshold is still
-        // caught and the sidebar stays open.
+        // This MUST run before the deadzone check so that any scroll gesture
+        // is locked out even within the 8 px tap-vs-drag threshold.
         if (Math.abs(dy) >= Math.abs(dx)) {
             verticalLock = true;
             isDragging = false;
@@ -334,6 +332,12 @@ function startDrawerDragTracking() {
             history = [];
             return;
         }
+        // Only start drag tracking if the user has moved enough horizontally
+        // to distinguish a tap from a drag. This prevents interference with
+        // overlay clicks.  The vertical-dominance check above already ruled
+        // out scroll gestures, so reaching here means horizontal movement
+        // dominates.
+        if (!isDragging && Math.abs(dx) < 8) return;
         isDragging = true;
         history.push({ x: e.clientX, t: performance.now() });
         if (history.length > 8) history.shift();
@@ -346,6 +350,7 @@ function startDrawerDragTracking() {
 
     function onPointerUp(e) {
         if (startX == null) return;
+        if (!sidebar.classList.contains('open')) { startX = null; startY = null; history = []; isDragging = false; return; }
         const dx = e.clientX - startX;
         if (isDragging) {
             let velocity = 0;

@@ -515,7 +515,7 @@ try {
         assert.ok(index.has('mridula'), 'the added course teacher appears automatically, no config change');
         const entry = index.get('mridula').classes[0];
         assert.equal(entry.subject, 'Forensic Psychology');
-        assert.deepEqual(entry.contexts, ['SCDS · Year 2', 'SCDS · Year 3', 'SOAI · Year 2'], 'a configured elective gets contexts from every matching year');
+        assert.deepEqual(entry.contexts, ['SCDS · Year 3', 'SOB · Year 2'], 'a configured elective gets contexts from every matching year');
     });
     await check('lab classes merge in with a lab context label', () => {
         const lab = cls({ school: 'SCDS', year: 2, lab: true });

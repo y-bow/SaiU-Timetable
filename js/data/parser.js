@@ -249,6 +249,16 @@ function parseGridCSV(text, mandatoryCourses = null, electives = null, rooms = n
             const name = e.label.trim().toLowerCase();
             if (subject === name || subject.startsWith(name)) return e;
         }
+        const words = subject.split(/\s+/);
+        if (words.length >= 3) {
+            for (let len = words.length - 1; len >= 2; len--) {
+                const prefix = words.slice(0, len).join(' ');
+                for (const e of electiveList) {
+                    const name = e.label.trim().toLowerCase();
+                    if (prefix === name || prefix.startsWith(name)) return e;
+                }
+            }
+        }
         return null;
     };
 

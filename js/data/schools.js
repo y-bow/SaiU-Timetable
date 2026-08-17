@@ -85,7 +85,6 @@ export const SCHOOLS = [
                         ],
                     },
                     { id: 'fundamentals-of-business-organization-and-management', label: 'Fundamentals of Business Organization & Management' },
-                    { id: 'forensic-psychology', label: 'Forensic Psychology' },
                 ],
             },
             {
@@ -140,7 +139,6 @@ export const SCHOOLS = [
                 ],
                 electives: [
                     { id: 'intelligent-embedded-systems', label: 'Intelligent Embedded Systems' },
-                    { id: 'forensic-psychology', label: 'Forensic Psychology' },
                 ],
             },
         ],
@@ -182,7 +180,9 @@ export const SCHOOLS = [
                         'Financial Reporting and Analysis',
                     ],
                 },
-                electives: null,
+                electives: [
+                    { id: 'forensic-psychology', label: 'Forensic Psychology' },
+                ],
             },
         ],
     },

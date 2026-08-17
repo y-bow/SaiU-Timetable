@@ -1709,6 +1709,7 @@ input { font-family: inherit; }
         transform: translateX(-100%);
         top: 0; bottom: 0;
         z-index: 310;
+        touch-action: pan-y;
     }
     .sidebar.open { transform: translateX(0); }
     .sidebar-close-btn { display: grid; }
