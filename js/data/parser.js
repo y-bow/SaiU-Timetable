@@ -648,6 +648,73 @@ function stripClassMarkers(text) {
 }
 
 // ============================================================
+// Room-occupancy parser — scans the ENTIRE timetable CSV without
+// any school/year/section/elective filtering.
+//
+// For every time-slot row followed by a room-declaration row, each
+// column where BOTH the class cell and the room cell are non-empty
+// is recorded as an occupied room for that day + time slot.
+//
+// This is the data source for the Free Rooms feature, which needs
+// to know about ALL classes across ALL schools/years — not just
+// the ones relevant to the currently selected year config.
+// ============================================================
+
+/**
+ * Parse raw CSV into a flat list of room-occupancy records.
+ *
+ * @param {string} text raw CSV timetable content
+ * @returns {Array<{room: string, day: string, startTime: string, endTime: string}>}
+ */
+export function parseRoomOccupancy(text) {
+    const lines = text.split(/\r?\n/);
+    const data = [];
+    let currentDay = null;
+
+    for (let i = 0; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
+        const row = splitCSVLine(lines[i]);
+        if (row.length < 3) continue;
+
+        const col0 = row[0].toUpperCase();
+        if (DAYS.includes(col0)) currentDay = col0.charAt(0) + col0.slice(1).toLowerCase();
+        if (!currentDay) continue;
+
+        const timeText = row[1];
+        if (!timeText || /LUNCH|OPEN BLOCK/i.test(timeText)) continue;
+        const times = parseTimeRange(timeText);
+        if (!times) continue;
+
+        // The next non-empty line is the room-declaration row.
+        let roomRow = null;
+        for (let k = i + 1; k < lines.length; k++) {
+            if (!lines[k].trim()) continue;
+            roomRow = splitCSVLine(lines[k]);
+            break;
+        }
+        if (!roomRow) continue;
+
+        for (let j = 0; j < roomRow.length; j++) {
+            const roomVal = roomRow[j];
+            if (!roomVal) continue;
+            const roomLabel = String(roomVal).replace(/\s+/g, ' ').trim();
+            if (!roomLabel) continue;
+
+            const cell = row[j];
+            if (!cell) continue;
+
+            data.push({
+                room: roomLabel,
+                day: currentDay,
+                startTime: times.start,
+                endTime: times.end,
+            });
+        }
+    }
+    return data;
+}
+
+// ============================================================
 // List parser (SOAI / SOB format)
 // Expected columns: Day, Time, Subject, Faculty, Room, [Section]
 // Time column may be a range "09:00-10:00" or "09:00 AM - 10:00 AM".

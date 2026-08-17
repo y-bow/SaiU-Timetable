@@ -1,5 +1,5 @@
 import { CONFIG } from './config.js?v=2026-08-17-002';
-import { parseCSV, offeringKey } from '../data/parser.js?v=2026-08-17-002';
+import { parseCSV, parseRoomOccupancy, offeringKey } from '../data/parser.js?v=2026-08-17-002';
 import { compareTimetables, classIdentity, setChangeDetectorDebug } from '../data/change-detector.js?v=2026-08-17-002';
 import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen } from '../services/storage.js?v=2026-08-17-002';
 import * as nav from '../ui/navigation.js?v=2026-08-17-002';
@@ -31,6 +31,7 @@ let lastUpdated = null;
 let selectedDay = null;
 let clockTimer = null;
 let lastFeatureKey = null;
+let roomOccupancy = [];
 
 // Live-clock state (see liveClockTick below).
 //
@@ -269,6 +270,7 @@ async function load({ silent = false, background = false } = {}) {
     const cached = readCache(cacheKey);
     if (cached && cached.classes) {
         classes = cached.classes;
+        roomOccupancy = cached.roomOccupancy || [];
         loadedFor = nav.getYear()?.id ?? null;
         if (cached.savedAt) lastUpdated = new Date(cached.savedAt);
         syncSections();
@@ -287,16 +289,21 @@ async function load({ silent = false, background = false } = {}) {
         const parsed = parseCSV(text, nav.getParserType(), nav.getMandatoryCourses(), nav.getElectives(), nav.getRooms());
         if (!parsed.length) throw new Error('No classes parsed');
 
+        // Room occupancy: scans the ENTIRE CSV without school/year
+        // filtering, so Free Rooms knows about every occupied room.
+        const occ = parseRoomOccupancy(text);
+
         // SCDS Year 2: merge the separate lab timetables (DAA/FDE/Emg Lab)
         // under the main sheet classes so labs appear on the same timeline.
         const year = nav.getYear();
         classes = year && year.id === 'scds-2'
             ? (await loadMergedYear2Timetable(parsed)).classes
             : parsed;
+        roomOccupancy = occ;
 
         loadedFor = year?.id ?? null;
         lastUpdated = new Date();
-        writeCache(cacheKey, classes);
+        writeCache(cacheKey, { classes, roomOccupancy });
         // Smart change detection: compare the previous fetch against this one.
         // Classes are compared, not spreadsheet cells — a class that moved to
         // another cell/room/time/day keeps its identity and is reported as
@@ -324,7 +331,14 @@ function readCache(key) {
 }
 
 function writeCache(key, data) {
-    try { localStorage.setItem(key, JSON.stringify({ savedAt: Date.now(), classes: data })); }
+    try {
+        const payload = {
+            savedAt: Date.now(),
+            classes: Array.isArray(data) ? data : data.classes,
+            roomOccupancy: Array.isArray(data) ? [] : (data.roomOccupancy || []),
+        };
+        localStorage.setItem(key, JSON.stringify(payload));
+    }
     catch { /* full */ }
 }
 
@@ -868,6 +882,8 @@ function init() {
     initFreeRooms({
         getClasses: () => classes,
         getSelectedDay: () => selectedDay || contextDay(),
+        getRoomOccupancy: () => roomOccupancy,
+        getYearConfig: () => nav.getYear(),
     });
 
     load();

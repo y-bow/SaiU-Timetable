@@ -5,8 +5,12 @@ import { trackEvent } from '../services/analytics.js?v=2026-08-17-002';
  * Free Rooms — shows which rooms are available during each period
  * on the currently selected timetable day.
  *
- * Uses the already-parsed timetable (no extra fetches), discovers rooms
- * dynamically, and applies proper interval-overlap logic.
+ * Room discovery uses the authoritative room list from schools.js
+ * (the full inventory of physical rooms) plus any additional rooms
+ * discovered in the room-occupancy data.  Room availability comes
+ * from parseRoomOccupancy() — which scans the ENTIRE timetable CSV
+ * without school/year/section filtering — so a room occupied by ANY
+ * class (SCDS, SOAI, SOB, etc.) is correctly marked occupied.
  */
 
 const $ = (sel) => document.querySelector(sel);
@@ -33,6 +37,8 @@ let lastFocused = null;
 
 let getClasses = () => [];
 let getSelectedDay = () => null;
+let getRoomOccupancy = () => [];
+let getYearConfig = () => null;
 
 // ============================================================
 // Room normalization
@@ -40,8 +46,8 @@ let getSelectedDay = () => null;
 
 /**
  * Normalize room names for comparison: uppercase, hyphens → spaces,
- * collapse whitespace. Ensures "AB2 - 101" and "AB2 101" are the
- * same room.
+ * collapse whitespace.  Ensures "AB2 - 101", "AB2  -  101" and
+ * "AB2 101" all map to the same canonical key.
  */
 function normalizeRoom(name) {
     return String(name ?? '')
@@ -52,51 +58,78 @@ function normalizeRoom(name) {
 }
 
 /**
- * Return a display-friendly room name from a normalized key.
- * We keep the original casing from the timetable data.
+ * Canonical display name for a room.  Prefers the authoritative list
+ * from schools.js; falls back to a cleaned-up version of the raw name.
  */
-function displayRoom(room) {
-    return String(room ?? '').replace(/\s+/g, ' ').trim();
+const CANONICAL_DISPLAY = new Map();
+function buildCanonicalMap(knownRooms) {
+    CANONICAL_DISPLAY.clear();
+    for (const r of knownRooms) {
+        CANONICAL_DISPLAY.set(normalizeRoom(r), r);
+    }
+}
+
+function displayRoom(raw) {
+    const key = normalizeRoom(raw);
+    if (CANONICAL_DISPLAY.has(key)) return CANONICAL_DISPLAY.get(key);
+    return String(raw ?? '').replace(/\s+/g, ' ').trim();
 }
 
 // ============================================================
-// Free room calculation
+// Room discovery — authoritative inventory
 // ============================================================
 
 /**
- * Discover all unique rooms from the parsed timetable classes.
+ * Build the complete room inventory from:
+ *   1. The authoritative room list in the year config (schools.js).
+ *   2. Any extra rooms found in the occupancy data that are not in
+ *      the authoritative list.
+ *
  * Returns a Map of normalizedRoom → displayRoom.
  */
-function discoverRooms(classes) {
+function discoverRooms(occupancy, yearConfig) {
     const roomMap = new Map();
-    for (const c of classes) {
-        const room = String(c.room ?? '').trim();
+
+    // 1. Authoritative list — always present even if no classes exist.
+    const knownRooms = (yearConfig && yearConfig.rooms) || [];
+    buildCanonicalMap(knownRooms);
+    for (const raw of knownRooms) {
+        const key = normalizeRoom(raw);
+        if (!roomMap.has(key)) roomMap.set(key, displayRoom(raw));
+    }
+
+    // 2. Additional rooms found in the occupancy data.
+    for (const rec of occupancy) {
+        const room = String(rec.room ?? '').trim();
         if (!room) continue;
         const key = normalizeRoom(room);
-        if (!roomMap.has(key)) {
-            roomMap.set(key, displayRoom(room));
-        }
+        if (!roomMap.has(key)) roomMap.set(key, displayRoom(room));
     }
+
     return roomMap;
 }
 
+// ============================================================
+// Time slots & occupancy
+// ============================================================
+
 /**
- * Get unique time slots (periods) for a given day, sorted by start time.
- * Each slot has { startTime, endTime, startMin, endMin }.
+ * Get unique time slots (periods) for a given day from the occupancy
+ * data, sorted by start time.
  */
-function getDayTimeSlots(classes, day) {
+function getDayTimeSlots(occupancy, day) {
     const seen = new Set();
     const slots = [];
-    for (const c of classes) {
-        if (c.day !== day) continue;
-        const key = `${c.startTime}|${c.endTime}`;
+    for (const rec of occupancy) {
+        if (rec.day !== day) continue;
+        const key = `${rec.startTime}|${rec.endTime}`;
         if (seen.has(key)) continue;
         seen.add(key);
         slots.push({
-            startTime: c.startTime,
-            endTime: c.endTime,
-            startMin: toMinutes(c.startTime),
-            endMin: toMinutes(c.endTime),
+            startTime: rec.startTime,
+            endTime: rec.endTime,
+            startMin: toMinutes(rec.startTime),
+            endMin: toMinutes(rec.endTime),
         });
     }
     return slots.sort((a, b) => a.startMin - b.startMin);
@@ -108,38 +141,43 @@ function getDayTimeSlots(classes, day) {
  *
  *   existingStart < requestedEnd AND existingEnd > requestedStart
  *
- * Only classes belonging to the selected day affect availability.
+ * Uses the room-occupancy data (all schools/years), not the
+ * filtered class list.
  */
-function getOccupiedRooms(classes, day, slot) {
+function getOccupiedRooms(occupancy, day, slot) {
     const occupied = new Set();
-    for (const c of classes) {
-        if (c.day !== day) continue;
-        const cStart = toMinutes(c.startTime);
-        const cEnd = toMinutes(c.endTime);
-        // Interval overlap check
+    for (const rec of occupancy) {
+        if (rec.day !== day) continue;
+        const cStart = toMinutes(rec.startTime);
+        const cEnd = toMinutes(rec.endTime);
         if (cStart < slot.endMin && cEnd > slot.startMin) {
-            const room = String(c.room ?? '').trim();
-            if (room) {
-                occupied.add(normalizeRoom(room));
-            }
+            const room = String(rec.room ?? '').trim();
+            if (room) occupied.add(normalizeRoom(room));
         }
     }
     return occupied;
 }
 
+// ============================================================
+// Free room calculation
+// ============================================================
+
 /**
  * Calculate free rooms for the entire selected day.
- * Returns an array of period objects, each with:
- *   { startTime, endTime, freeRooms: string[], totalDiscovered: number }
+ *
+ * @param {Array} occupancy  room-occupancy records (all schools)
+ * @param {string} day       selected day name
+ * @param {object|null} yearConfig  current year config (rooms list)
+ * @returns {Array<{startTime, endTime, startMin, endMin, freeRooms: string[], totalDiscovered: number}>}
  */
-function calculateFreeRooms(classes, day) {
-    const allRooms = discoverRooms(classes);
-    const timeSlots = getDayTimeSlots(classes, day);
+function calculateFreeRooms(occupancy, day, yearConfig) {
+    const allRooms = discoverRooms(occupancy, yearConfig);
+    const timeSlots = getDayTimeSlots(occupancy, day);
 
     if (!allRooms.size || !timeSlots.length) return [];
 
     return timeSlots.map((slot) => {
-        const occupied = getOccupiedRooms(classes, day, slot);
+        const occupied = getOccupiedRooms(occupancy, day, slot);
         const freeRooms = [];
         for (const [normalized, display] of allRooms) {
             if (!occupied.has(normalized)) {
@@ -242,7 +280,8 @@ function trapFocus(container, onEscape) {
 function renderContent() {
     if (!contentEl) return;
     const day = getSelectedDay();
-    const classes = getClasses();
+    const occupancy = getRoomOccupancy();
+    const yearConfig = getYearConfig();
 
     // Update day label
     const dayLabel = $('#fr-day-label');
@@ -260,7 +299,7 @@ function renderContent() {
         return;
     }
 
-    const allRooms = discoverRooms(classes);
+    const allRooms = discoverRooms(occupancy, yearConfig);
     if (!allRooms.size) {
         contentEl.innerHTML = `
             <div class="free-rooms-empty">
@@ -271,7 +310,7 @@ function renderContent() {
         return;
     }
 
-    const results = calculateFreeRooms(classes, day);
+    const results = calculateFreeRooms(occupancy, day, yearConfig);
     if (!results.length) {
         contentEl.innerHTML = `
             <div class="free-rooms-empty">
@@ -315,12 +354,17 @@ function renderContent() {
 /**
  * Wire Free Rooms into the app. Creates the panel DOM and launch buttons.
  *
- * @param {{getClasses?: () => Array<object>, getSelectedDay?: () => string}} opts
- *   Live accessors for the currently parsed timetable and selected day.
+ * @param {{getClasses?: () => Array<object>, getSelectedDay?: () => string,
+ *          getRoomOccupancy?: () => Array<object>,
+ *          getYearConfig?: () => object|null}} opts
+ *   Live accessors for the currently parsed timetable, selected day,
+ *   room-occupancy data (from parseRoomOccupancy), and active year config.
  */
 export function initFreeRooms(opts = {}) {
     getClasses = opts.getClasses || getClasses;
     getSelectedDay = opts.getSelectedDay || getSelectedDay;
+    getRoomOccupancy = opts.getRoomOccupancy || getRoomOccupancy;
+    getYearConfig = opts.getYearConfig || getYearConfig;
     ensureDom();
     ensureLaunchButtons();
 }
