@@ -11,11 +11,11 @@
  * never invented — the timeline simply shows the classes that exist.
  */
 
-import { loadTeacherIndex } from '../services/teacher-fetch.js?v=2026-08-17-002';
-import { CONFIG } from '../core/config.js?v=2026-08-17-002';
-import { initAiAssistant } from '../ui/ai-assistant.js?v=2026-08-17-002';
-import { toMinutes, minutesToLabel, minutesToClock, todayName, WEEKDAYS, labSubjectLabel } from '../core/utils.js?v=2026-08-17-002';
-import { confirmTeacherMerge, dismissTeacherMerge } from '../data/teacher-identity.js?v=2026-08-17-002';
+import { loadTeacherIndex } from '../services/teacher-fetch.js?v=2026-08-18-001';
+import { CONFIG } from '../core/config.js?v=2026-08-18-001';
+import { initAiAssistant } from '../ui/ai-assistant.js?v=2026-08-18-001';
+import { toMinutes, minutesToLabel, minutesToClock, todayName, WEEKDAYS, labSubjectLabel } from '../core/utils.js?v=2026-08-18-001';
+import { confirmTeacherMerge, dismissTeacherMerge } from '../data/teacher-identity.js?v=2026-08-18-001';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -81,7 +81,7 @@ function applySearch(query) {
     let visible = 0;
     for (const btn of list.children) {
         // Search matches the canonical id, display name, folded name AND every
-        // alias — "Roopam" finds "Prof. Rupam Sah" via its alias; "Mariya"
+        // alias — "Roopam" finds "Prof. Rupam Shah" via its alias; "Mariya"
         // finds "Prof. Dr. Mariya" via the folded display name.
         const show = !needle || (btn.dataset.search || '').includes(needle);
         btn.classList.toggle('hidden', !show);
@@ -330,13 +330,12 @@ function renderDebug(res) {
 // ============================================================
 // Ambiguous identity confirmation (?debug).
 //
-// MEDIUM-confidence candidate pairs from the identity resolver ("Prof.
-// Roopam" ↔ "Prof. Rupam Sah") are never auto-merged. In debug mode they are
-// listed with [Yes, merge] / [No, keep separate] actions so an admin can
-// resolve them once; the decision is stored per-browser and re-applied on
-// every future parse (never asked again). The exported snippet is the
-// permanent TEACHER_ALIASES config entry to paste into
-// js/data/teacher-identity.js.
+// MEDIUM-confidence candidate pairs from the identity resolver ("Prof. Mariya"
+// ↔ "Prof. Mariya Shah") are never auto-merged. In debug mode they are listed
+// with [Yes, merge] / [No, keep separate] actions so an admin can resolve them
+// once; the decision is stored per-browser and re-applied on every future parse
+// (never asked again). The exported snippet is the permanent TEACHER_ALIASES
+// config entry to paste into js/data/teacher-identity.js.
 // ============================================================
 
 function renderConfirmCandidates() {

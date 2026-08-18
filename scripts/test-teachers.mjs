@@ -16,9 +16,12 @@
  *       Mariya", "Dr. Jemima" / "Jemima") and one-character spelling drifts
  *       merge ("Vigneshwaran" / "Vigneswaran") into ONE canonical identity;
  *     - MEDIUM confidence: first-name-only vs full name ("Mariya" /
- *       "Mariya Shah") and phonetic first-name variants ("Prof. Roopam" /
- *       "Prof. Rupam Sah") stay SEPARATE and surface as confirmation
- *       candidates — never auto-merged;
+ *       "Mariya Shah") stays SEPARATE and surfaces as a confirmation
+ *       candidate — never auto-merged;
+ *     - CONFIRMED aliases merge by default: "Prof. Roopam" / "Prof. Rupam
+ *       Shah" (phonetic first-name variant) resolve to ONE canonical teacher
+ *       because TEACHER_ALIASES declares them the same person — the heuristic
+ *       stays conservative, the alias is the confirmed override;
  *     - confirmed merges apply on the next build (one identity, aliases kept);
  *     - search text covers canonical id + display name + every alias.
  *
@@ -192,14 +195,16 @@ try {
         assert.equal(res.candidates.length, 1);
         assert.equal(res.candidates[0].reason, 'first-name-only vs full name');
     });
-    await check('MEDIUM: phonetic first-name variant is a candidate, not a merge ("Roopam" / "Rupam Sah")', () => {
-        assert.equal(identity.identityConfidence('Prof. Roopam', 'Prof. Rupam Sah').level, 'medium');
-        const res = identity.buildIdentityResolution(['Prof. Roopam', 'Prof. Rupam Sah'], []);
-        assert.equal(res.byId.size, 2, 'Roopam/Rupam Sah stay separate until confirmed');
-        assert.ok(res.byId.has('roopam'));
-        assert.ok(res.byId.has('rupam-sah'));
-        assert.equal(res.candidates.length, 1);
-        assert.equal(res.candidates[0].reason, 'similar first-name spelling');
+    await check('heuristic stays medium for Roopam/Rupam — the confirmed alias does the merge', () => {
+        // Raw similarity heuristic is UNCHANGED and conservative: a phonetic
+        // first-name variant is still medium-confidence, never auto-merged by
+        // guess. The merge comes from the confirmed TEACHER_ALIASES entry.
+        assert.equal(identity.identityConfidence('Prof. Roopam', 'Prof. Rupam Shah').level, 'medium');
+        const res = identity.buildIdentityResolution(['Prof. Roopam', 'Prof. Rupam Shah'], []);
+        assert.equal(res.byId.size, 1, 'confirmed alias merges Roopam + Rupam Shah into ONE identity');
+        assert.ok(res.byId.has('rupam-shah'));
+        assert.equal(res.byId.get('rupam-shah').displayName, 'Prof. Rupam Shah');
+        assert.equal(res.candidates.length, 0, 'no longer a pending candidate once merged');
     });
     await check('LOW: unrelated similar names stay separate', () => {
         assert.equal(identity.identityConfidence('Dr. Anil', 'Ms. Shimantika').level, 'low');
@@ -207,24 +212,42 @@ try {
         assert.equal(res.byId.size, 2);
         assert.equal(res.candidates.length, 0);
     });
-    await check('confirmed merge applies: Roopam + Rupam Sah → one identity with aliases', () => {
-        const res = identity.buildIdentityResolution(
-            ['Prof. Roopam', 'Prof. Rupam Sah'],
-            [{ a: 'Prof. Roopam', b: 'Prof. Rupam Sah' }],
-        );
-        assert.equal(res.byId.size, 1, 'confirmed pair merges on the next build');
-        assert.ok(res.byId.has('rupam-sah'));
-        assert.equal(res.byId.get('rupam-sah').displayName, 'Prof. Rupam Sah');
+    await check('alias: "Prof. Roopam" and "Prof. Rupam Shah" resolve to the same canonical teacher', () => {
+        const res = identity.buildIdentityResolution(['Prof. Roopam', 'Prof. Rupam Shah'], []);
+        assert.equal(res.byId.size, 1, 'both names must merge into ONE identity');
+        assert.ok(res.byId.has('rupam-shah'), 'canonical id is rupam-shah');
+        assert.equal(res.byId.get('rupam-shah').displayName, 'Prof. Rupam Shah');
         assert.deepEqual(
-            res.byId.get('rupam-sah').aliases.sort(),
-            ['Prof. Roopam', 'Prof. Rupam Sah'].sort(),
+            res.byId.get('rupam-shah').aliases.sort(),
+            ['Prof. Roopam', 'Prof. Rupam Shah'].sort(),
         );
         assert.equal(res.candidates.length, 0, 'no longer a pending candidate once merged');
     });
+    await check('alias: Roopam/Rupam matching is robust to case, titles, whitespace and punctuation', () => {
+        const variants = [
+            'Prof. Roopam',
+            'prof. roopam',
+            'Prof. Rupam Shah',
+            'prof rupam shah',
+            '  Prof.  Rupam  Shah  ',
+            'Prof. Rupam.Sah',        // period instead of space
+            'Prof. Rupam,Shah',        // comma instead of space
+            'prof rupam-shah',         // hyphen instead of space
+            'Prof. Roopam Shah',       // phonetic first name + full surname
+        ];
+        const res = identity.buildIdentityResolution(variants, []);
+        assert.equal(res.byId.size, 1, 'every formatting variant folds to the SAME identity');
+        assert.ok(res.byId.has('rupam-shah'));
+        assert.equal(res.byId.get('rupam-shah').displayName, 'Prof. Rupam Shah');
+        for (const n of variants) {
+            assert.ok(res.byName.has(n), `"${n}" is a known observed name`);
+            assert.equal(res.byName.get(n).id, 'rupam-shah', `"${n}" → rupam-shah`);
+        }
+    });
     await check('search text covers id + display name + folded aliases', () => {
-        const t = identity.teacherSearchText('rupam-sah', 'Prof. Rupam Sah', ['Prof. Roopam']);
-        assert.ok(t.includes('rupam-sah'));
-        assert.ok(t.includes('rupam sah'));
+        const t = identity.teacherSearchText('rupam-shah', 'Prof. Rupam Shah', ['Prof. Roopam']);
+        assert.ok(t.includes('rupam-shah'));
+        assert.ok(t.includes('rupam shah'));
         assert.ok(t.includes('roopam'), '"Roopam" finds the teacher via its alias');
     });
     await check('alias: Surya Krish and Surya C resolve to the same canonical teacher', () => {
@@ -321,6 +344,22 @@ try {
         assert.equal(index.size, 1);
         assert.ok(index.has('tamilarasi'));
         assert.equal(index.get('tamilarasi').classes.length, 2);
+    });
+    await check('teacher index: Roopam + Rupam Shah classes land under ONE canonical teacher', () => {
+        const { index, stats } = teacherIndex.buildTeacherIndex([
+            cls({ subject: 'Web Technology', faculty: 'Prof. Roopam', section: 1, source: 'main' }),
+            cls({ subject: 'Web Technology', faculty: 'Prof. Rupam Shah', section: 1, source: 'main' }),
+        ]);
+        assert.equal(index.size, 1, 'only ONE teacher entry for this person');
+        assert.ok(index.has('rupam-shah'), 'canonical key is rupam-shah');
+        assert.ok(!index.has('roopam'), 'no separate Roopam entry');
+        const rec = index.get('rupam-shah');
+        assert.equal(rec.name, 'Prof. Rupam Shah');
+        assert.equal(rec.classes.length, 2, 'classes from BOTH source spellings under the one teacher');
+        assert.ok(rec.searchText.includes('roopam'), '"Roopam" searches find the teacher via its alias');
+        assert.ok(rec.searchText.includes('rupam shah'));
+        assert.equal(stats.teachers, 1);
+        assert.equal(stats.entries, 2);
     });
     await check('a co-taught class is indexed under EACH teacher', () => {
         const { index, stats } = teacherIndex.buildTeacherIndex([
@@ -452,6 +491,26 @@ try {
         assert.equal(index.get('arjun').classes[0].subject, 'Emerging Tools and Applications');
         assert.deepEqual(index.get('arjun').classes[0].teachers, ['Prof. Arjun', 'Prof. Sonar']);
     });
+    await check('raw sheet cells naming "Roopam" and "Rupam Shah" index under the SAME teacher', () => {
+        const text = grid([
+            ['MONDAY', '09:15 AM - 10:10 AM', 'Web Technology - Sec 1 - Rupam Shah'],
+            ['', 'AB2 - 210', 'AB2 - 210'],
+            ['TUESDAY', '10:15 AM - 11:10 AM', 'Web Technology - Sec 3 - Roopam'],
+            ['', 'AB2 - 210', 'AB2 - 210'],
+        ]);
+        const { index } = indexFrom(text);
+        assert.equal(index.size, 1, 'one teacher entry, not two');
+        assert.ok(index.has('rupam-shah'), 'canonical key is rupam-shah');
+        assert.ok(!index.has('roopam'), 'no separate "Roopam" entry');
+        const rec = index.get('rupam-shah');
+        assert.equal(rec.name, 'Prof. Rupam Shah');
+        assert.equal(rec.classes.length, 2, 'both meetings (Mon + Tue) under the one teacher');
+        assert.deepEqual(
+            rec.classes.map((c) => c.day).sort(),
+            ['Monday', 'Tuesday'],
+            'every class referring to either source name is the same canonical teacher',
+        );
+    });
     await check('a two-teacher cell indexes under EACH teacher ("Dr. Anil / Ms. Shimantika")', () => {
         const text = grid([['MONDAY', '09:15 AM - 10:10 AM', 'Introduction to Zoology    Dr. Anil / Ms. Shimantika']]);
         const { index } = indexFrom(text);
@@ -569,34 +628,50 @@ try {
         const res = await teacherFetch.loadTeacherIndex();
         assert.equal(res, null);
     });
-    await check('a confirmed merge is applied on the next live build', async () => {
+    await check('a sheet naming "Roopam" and "Rupam Shah" builds ONE teacher identity by default', async () => {
         // Re-seed a clean store with a sheet containing both spellings.
         store.clear();
         globalThis.fetch = async () => ({
             ok: true,
             status: 200,
             text: async () => [
-                'MONDAY,09:15 AM - 10:10 AM,Web Technology - Sec 1 - Rupam Sah',
+                'MONDAY,09:15 AM - 10:10 AM,Web Technology - Sec 1 - Rupam Shah',
                 ',02.00 PM - 2.55PM,Web Technology - Sec 3 - Roopam',
             ].join('\n'),
         });
+        const res = await teacherFetch.loadTeacherIndex();
+        assert.equal(res.index.size, 1, 'confirmed alias merges by default — no per-browser confirmation needed');
+        assert.ok(res.index.has('rupam-shah'));
+        assert.ok(!res.index.has('roopam'));
+        assert.deepEqual(
+            res.index.get('rupam-shah').aliases.sort(),
+            ['Prof. Roopam', 'Prof. Rupam Shah'].sort(),
+        );
+        assert.equal(res.index.get('rupam-shah').classes.length, 2, 'both weekly classes under one teacher');
+        assert.equal(res.candidates.length, 0, 'no longer surfaced as a duplicate candidate');
+    });
+    await check('localStorage confirmation still merges an unresolved pair ("Mariya" / "Mariya Shah")', async () => {
+        store.clear();
+        globalThis.fetch = async () => ({
+            ok: true,
+            status: 200,
+            text: async () => [
+                'MONDAY,09:15 AM - 10:10 AM,COA - Sec 1 - Mariya Shah',
+                ',02.00 PM - 2.55PM,COA - Sec 3 - Mariya',
+            ].join('\n'),
+        });
         const before = await teacherFetch.loadTeacherIndex();
-        assert.equal(before.index.size, 2, 'before confirmation: two separate identities');
-        assert.ok(before.index.has('rupam-sah'));
-        assert.ok(before.index.has('roopam'));
-        assert.equal(before.candidates.length, 1, 'Roopam/Rupam Sah surface as a candidate');
+        assert.equal(before.index.size, 2, 'unconfirmed medium pair stays separate');
+        assert.equal(before.candidates.length, 1);
 
         // Confirm the merge — must persist and take effect without editing the sheet.
-        identity.confirmTeacherMerge('Prof. Rupam Sah', 'Prof. Roopam');
+        identity.confirmTeacherMerge('Prof. Mariya', 'Prof. Mariya Shah');
         const after = await teacherFetch.loadTeacherIndex();
-        assert.equal(after.index.size, 1, 'after confirmation: one identity');
-        assert.ok(after.index.has('rupam-sah'));
-        assert.ok(!after.index.has('roopam'));
-        assert.deepEqual(
-            after.index.get('rupam-sah').aliases.sort(),
-            ['Prof. Roopam', 'Prof. Rupam Sah'].sort(),
-        );
-        assert.equal(after.index.get('rupam-sah').classes.length, 2, 'both weekly classes under one teacher');
+        assert.equal(after.index.size, 1, 'per-browser confirmation merges on the next build');
+        assert.ok(after.index.has('mariya-shah'), 'canonical display name wins: "Prof. Mariya Shah"');
+        assert.ok(!after.index.has('mariya'));
+        assert.equal(after.index.get('mariya-shah').classes.length, 2, 'both weekly classes under one teacher');
+        assert.equal(after.candidates.length, 0);
     });
 
     console.log(`\n${passed} passed, ${failed} failed`);

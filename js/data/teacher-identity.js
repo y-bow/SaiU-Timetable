@@ -7,7 +7,7 @@
  *   "Prof. Mariya"  /  "Prof. Dr. Mariya"    title variant
  *   "Dr. Jemima"    /  "Jemima"              title variant
  *   "Dr. Vigneshwaran" / "Dr. Vigneswaran"   minor spelling variant
- *   "Prof. Roopam"  /  "Prof. Rupam Sah"     phonetic first name + surname
+ *   "Prof. Roopam"  /  "Prof. Rupam Shah"     phonetic first name + surname
  *   "Ms. Karen"     /  "Ms. Karen P Sneha"   first-name vs full name
  *
  * This module decides which observed names are the SAME person and which are
@@ -16,9 +16,13 @@
  *   - HIGH confidence pairs (identical after folding, or a one-character
  *     spelling drift with the same leading letter) merge automatically into ONE
  *     canonical identity.
- *   - MEDIUM confidence pairs (first-name-only vs full name, phonetic first
- *     name variants, same first name with a different surname) are NOT merged.
- *     They are surfaced as CONFIRMATION CANDIDATES for a developer/admin.
+ *   - Confirmed pairs declared in TEACHER_ALIASES (e.g. "Prof. Roopam" ↔
+ *     "Prof. Rupam Shah", "Surya Krish" ↔ "Surya C") also merge — but only
+ *     because a human verified they are the same person, never by guess.
+ *   - MEDIUM confidence pairs (first-name-only vs full name, unconfirmed
+ *     phonetic first-name variants, same first name with a different surname)
+ *     are NOT merged. They are surfaced as CONFIRMATION CANDIDATES for a
+ *     developer/admin.
  *   - LOW pairs stay separate.
  *
  * A first name alone is never proof of identity: "Mariya" and "Mariya Shah"
@@ -152,7 +156,9 @@ export function identityConfidence(a, b) {
         return { level: 'medium', reason: 'same first name, different surname' };
     }
 
-    // Phonetic first-name variants ("Roopam" / "Rupam") are candidates.
+    // Phonetic first-name variants ("Roopam" / "Rupam") are candidates — unless
+    // a confirmed TEACHER_ALIASES entry says otherwise ("Prof. Roopam" and
+    // "Prof. Rupam Shah" are the same person).
     const skA = phoneticSkeleton(firstA);
     const skB = phoneticSkeleton(firstB);
     if (skA && skA === skB) {
@@ -189,6 +195,13 @@ export const TEACHER_ALIASES = [
     // and Analysis, SOB Year 2). Both names resolve to the same canonical
     // teacher so the timetable shows ONE consistent identity.
     { match: /^surya\s+(?:krish|c)$/i, id: 'surya-c', displayName: 'Prof. Surya C' },
+    // "Prof. Roopam" is a phonetic first-name-only spelling of the teacher
+    // who also appears as "Prof. Rupam Sah" / "Prof. Rupam Shah" (Web
+    // Technology). All of these are the SAME person; they resolve to ONE
+    // canonical identity so the teacher timetable (and its index) never
+    // fragments this teacher across spellings. Formatting differences
+    // (case, title, extra whitespace, punctuation) fold away before matching.
+    { match: /^(?:roopam(?:\s+(?:sah|shah))?|rupam\s+(?:sah|shah))$/i, id: 'rupam-shah', displayName: 'Prof. Rupam Shah' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -416,7 +429,7 @@ export function buildIdentityResolution(observedNames, confirmed = [], aliases =
 
 /**
  * Searchable text for a teacher: canonical id + display name + every alias,
- * lowercased, so "Roopam" finds "Prof. Rupam Sah" via its alias, and "Mariya"
+ * lowercased, so "Roopam" finds "Prof. Rupam Shah" via its alias, and "Mariya"
  * finds "Prof. Dr. Mariya" via the folded display name.
  */
 export function teacherSearchText(id, displayName, aliases = []) {

@@ -41,13 +41,13 @@
  * per-browser confirmations are safely no-ops where storage is unavailable.)
  */
 
-import { normalizeFacultyName } from './parser.js?v=2026-08-17-002';
-import { classIdentity, flattenClasses } from './change-detector.js?v=2026-08-17-002';
+import { normalizeFacultyName } from './parser.js?v=2026-08-18-001';
+import { classIdentity, flattenClasses } from './change-detector.js?v=2026-08-18-001';
 import {
     buildIdentityResolution,
     loadTeacherConfirmations,
     teacherSearchText,
-} from './teacher-identity.js?v=2026-08-17-002';
+} from './teacher-identity.js?v=2026-08-18-001';
 
 const TEACHER_SPLIT_RE = /\s*(?:[,;/]|\band\b|&)\s*/gi;
 
@@ -92,7 +92,7 @@ export function splitTeachers(rawFaculty) {
 
 /**
  * Backward-compatible identity key for a display name. The canonical index
- * key is now the identity id from teacher-identity.js ("mariya", "rupam-sah");
+ * key is now the identity id from teacher-identity.js ("mariya", "rupam-shah");
  * this helper folds any display name the same way for callers that only have
  * a name.
  */
@@ -134,9 +134,11 @@ export function teacherKey(name) {
  *          entry, with a machine `reason` ('duplicate meeting' | 'no teacher
  *          parsed') — for the teacher page's ?debug panel.
  *   candidates  MEDIUM-confidence duplicate-teacher pairs that need a human
- *          to confirm ("Prof. Roopam" ↔ "Prof. Rupam Sah"). Never merged
+ *          to confirm ("Prof. Mariya" ↔ "Prof. Mariya Shah"). Never merged
  *          automatically; confirmed pairs are applied on the next build via
- *          the stored confirmations / TEACHER_ALIASES config.
+ *          the stored confirmations / TEACHER_ALIASES config. "Prof. Roopam"
+ *          ↔ "Prof. Rupam Shah" is a confirmed alias, so it merges and never
+ *          appears here.
  */
 export function buildTeacherIndex(classes) {
     const stats = { total: 0, meetings: 0, duplicates: 0, classes: 0, unassigned: 0, teachers: 0, entries: 0 };
