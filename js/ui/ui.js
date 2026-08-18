@@ -348,11 +348,25 @@ function startDrawerDragTracking() {
         sidebar.style.transform = `translateX(${resisted}px)`;
     });
 
+    function resetDragState() {
+        startX = null;
+        startY = null;
+        history = [];
+        isDragging = false;
+    }
+
+    // A pointerup closes the drawer only for a committed horizontal drag —
+    // the intentional swipe-to-close gesture. A gesture whose vertical
+    // movement ever dominated was a scroll inside the sidebar; it can never
+    // close the drawer. (`verticalLock` is belt-and-suspenders: the vertical
+    // lockout in pointermove already resets isDragging/startX, but this also
+    // guards exotic browsers that end a scroll with pointerup instead of
+    // pointercancel.)
     function onPointerUp(e) {
         if (startX == null) return;
-        if (!sidebar.classList.contains('open')) { startX = null; startY = null; history = []; isDragging = false; return; }
+        if (!sidebar.classList.contains('open')) { resetDragState(); return; }
         const dx = e.clientX - startX;
-        if (isDragging) {
+        if (isDragging && !verticalLock) {
             let velocity = 0;
             if (history.length > 1) {
                 const last = history[history.length - 1];
@@ -365,22 +379,32 @@ function startDrawerDragTracking() {
             sidebar.style.transform = '';
             sidebar.classList.toggle('open', open);
             overlayVisible(open);
+        } else {
+            // A tap (or a scroll the browser didn't cancel) — never a drag.
+            sidebar.style.transform = '';
         }
-        // If not dragging, it was a tap — do nothing here.
-        // The overlay click handler or sidebar close button handles closing.
-        startX = null;
-        startY = null;
-        history = [];
-        isDragging = false;
+        resetDragState();
+    }
+
+    // The browser took over this gesture for native scrolling (the sidebar
+    // uses touch-action: pan-y, so a vertical pan scrolls the sidebar body
+    // natively). A cancel is NEVER a drag-to-close. Real phones fire
+    // pointercancel the moment a vertical scroll begins — treating it like a
+    // pointerup here is exactly what closed the drawer mid-scroll. Clear any
+    // partial drag transform and reset the gesture state, nothing else.
+    function onPointerCancel() {
+        if (startX == null) return;
+        sidebar.style.transform = '';
+        resetDragState();
     }
 
     sidebar.addEventListener('pointerup', onPointerUp);
-    sidebar.addEventListener('pointercancel', onPointerUp);
+    sidebar.addEventListener('pointercancel', onPointerCancel);
     // Use document for pointerup so a drag that ends outside the sidebar
     // is still properly resolved. Without setPointerCapture, events fire
     // on the element actually under the pointer.
     document.addEventListener('pointerup', onPointerUp);
-    document.addEventListener('pointercancel', onPointerUp);
+    document.addEventListener('pointercancel', onPointerCancel);
 }
 
 function overlayVisible(show) {

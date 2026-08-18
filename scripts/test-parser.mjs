@@ -503,6 +503,21 @@ await check('SCDS-3: "Fundamentals of Business Organization and Management" (wit
     assert.equal(c.subject, 'Fundamentals of Business Organization & Management');
 });
 
+await check('SCDS-3: FBO with a space-run inside the course name (real sheet format) is not truncated', () => {
+    // The live sheet spells this cell "Fundamentals of Business Organization
+    //  & Management  Subramaniam" — a space-run INSIDE the course name, not
+    // just before the teacher. The split must recover the full course name
+    // instead of truncating at "Organization" and dropping the class.
+    const testGrid = [
+        'MONDAY,09:15 AM - 10:10 AM,DL - Sem 5 - Dr. KK,Fundamentals of Business Organization  & Management  Subramaniam',
+    ].join('\n');
+    const out = parseCSV(testGrid, 'grid', SCDS3_MANDATORY_COURSES, SCDS3_ALL_ELECTIVES, null);
+    const c = out.find(x => x.elective === 'fundamentals-of-business-organization-and-management');
+    assert.ok(c, 'FBO parsed with the full course name');
+    assert.equal(c.subject, 'Fundamentals of Business Organization & Management');
+    assert.equal(c.faculty, 'Prof. Subramaniam');
+});
+
 await check('SCDS-3: word-prefix fallback matches when expanded subject has trailing words', () => {
     // Year 3's matchElective now has the same word-prefix fallback as Year 2.
     // This tests the scenario where expandSubjectAlias returns the full canonical

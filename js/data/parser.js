@@ -635,6 +635,32 @@ export function splitSubjectFaculty(cell) {
         }
     }
 
+    // A space-run INSIDE a course name truncates the subject at the run and
+    // pushes the tail of the name into the faculty, e.g.
+    //   "Fundamentals of Business Organization  & Management  Subramaniam"
+    // → subject "Fundamentals of Business Organization", faculty "& Management
+    // Subramaniam". When the isolated subject is not a known course but a
+    // longer prefix of the collapsed cell is, re-split on the known-course
+    // boundary so the full course name survives as the subject and the true
+    // teacher is isolated.
+    if (faculty && subject && !resolveCourse(subject).matched) {
+        const collapsed = text.replace(/\s+/g, ' ').trim();
+        const words = collapsed.split(/\s+/);
+        const subjectLen = subject.split(/\s+/).length;
+        for (let len = words.length - 1; len >= 2; len--) {
+            const prefix = words.slice(0, len).join(' ');
+            const res = resolveCourse(prefix);
+            if (res && res.matched && len > subjectLen) {
+                const remainder = words.slice(len).join(' ');
+                if (remainder) {
+                    subject = prefix;
+                    faculty = remainder;
+                    break;
+                }
+            }
+        }
+    }
+
     return { subject, faculty: normalizeFacultyName(faculty) };
 }
 
