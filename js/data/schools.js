@@ -187,6 +187,41 @@ export const SCHOOLS = [
         ],
     },
     {
+        id: 'sot',
+        shortName: 'SOT',
+        // School of Technology → Biotechnology → Year 1. Uses the same
+        // per-program hierarchy as SAS: the school → programme → year tree.
+        // All six courses are mandatory (Year 1 Biotechnology has no elective
+        // selector), so `electives` stays null and the parser matches every
+        // course the same way the other mandatory lists do.
+        programs: [
+            {
+                id: 'biotechnology',
+                label: 'Biotechnology',
+                years: [
+                    {
+                        id: 'sot-bio-1',
+                        label: 'Year 1',
+                        level: 1,
+                        sections: null,
+                        sheetId: '1Jk3KCLqHHzi-jxigIcPpcXZestcxb8Y0BeQLjhiezb8',
+                        gid: '0',
+                        parser: 'grid',
+                        mandatoryCourses: [
+                            'Chemistry',
+                            'General Mathematics',
+                            'Fundamentals of Biotechnology',
+                            'Critical Thinking',
+                            'Indian Constitution & Democracy',
+                            'Frontiers of AI',
+                        ],
+                        electives: null,
+                    },
+                ],
+            },
+        ],
+    },
+    {
         id: 'sas',
         shortName: 'SAS',
         // SAS is the first school with per-program hierarchy: the school →
@@ -271,10 +306,12 @@ export function resolveSections(yearConfig) {
 
 /**
  * Determine whether the program selector should be shown.
- * Hidden when a school has only one program (or none).
+ * Shown whenever a school uses the programme hierarchy (even a single
+ * programme like SAS → Neuroscience), so the programme level stays explicit
+ * and its courses are never presented as generic school-level courses.
  */
 export function shouldShowProgram(school) {
-    return school.programs && school.programs.length > 1;
+    return !!(school.programs && school.programs.length > 0);
 }
 
 /**

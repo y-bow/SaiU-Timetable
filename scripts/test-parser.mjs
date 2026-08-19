@@ -51,7 +51,7 @@ for (const rel of MODULES) {
 
 const { splitSubjectFaculty, parseCSV } = await import(pathToFileURL(join(dir, 'js/data/parser.js')).href);
 const { buildYearCourseContext } = await import(pathToFileURL(join(dir, 'js/data/course-normalizer.js')).href);
-const { SCHOOLS } = await import(pathToFileURL(join(dir, 'js/data/schools.js')).href);
+const { SCHOOLS, shouldShowProgram } = await import(pathToFileURL(join(dir, 'js/data/schools.js')).href);
 
 let passed = 0;
 let failed = 0;
@@ -607,6 +607,11 @@ await check('SAS courses never appear under another programme of the same school
     assert.deepStrictEqual(neuro.years, [neuro.years[0]], 'single programme, single year');
 });
 
+await check('SAS shows the programme selector so Neuroscience is an explicit, selectable level', () => {
+    assert.equal(shouldShowProgram(sas), true, 'programme selector is shown for SAS');
+    assert.equal(sas.programs[0].label, 'Neuroscience', 'the single programme is labelled Neuroscience');
+});
+
 console.log('--- parseCSV (grid): SAS Year 3 Neuroscience ---');
 const SAS_GRID = [
     'MONDAY,09:15 AM - 10:10 AM,Biostatistics         Dr. Sivan',
@@ -656,7 +661,7 @@ await check('SAS Year 3: a bare "Cell Physiology" cell keeps its name and invent
     assert.equal(c.faculty, '', 'no phantom teacher invented');
 });
 
-await check('SAS Year 3: legacy dash spelling "Cell Physiology - Elective" folds onto the elective', () => {
+await check('SAS Year 3: dash spelling "Cell Physiology - Elective" folds onto the elective with no phantom teacher', () => {
     const variant = [
         'MONDAY,09:15 AM - 10:10 AM,Cell Physiology - Elective',
     ].join('\n');
@@ -697,6 +702,187 @@ await check('SAS Year 3: a non-SAS cell (SCDS course) is skipped', () => {
     const out = parseCSV(mixed, 'grid', SAS_MANDATORY, SAS_ELECTIVES, null);
     assert.ok(out.some(x => x.subject === 'Biostatistics'), 'SAS course parsed');
     assert.ok(!out.some(x => x.subject === 'Deep Learning'), 'SCDS course is not pulled into SAS Year 3');
+});
+
+console.log('--- SOT Year 1 Biotechnology config ---');
+
+const sot = SCHOOLS.find(s => s.id === 'sot');
+const SOT_MANDATORY = [
+    'Chemistry',
+    'General Mathematics',
+    'Fundamentals of Biotechnology',
+    'Critical Thinking',
+    'Indian Constitution & Democracy',
+    'Frontiers of AI',
+];
+const SOT_ELECTIVES = null;
+
+await check('SOT school exists with the Biotechnology programme', () => {
+    assert.ok(sot, 'SOT school exists');
+    assert.equal(sot.shortName, 'SOT');
+    assert.ok(sot.programs, 'SOT uses a program hierarchy');
+    const bio = sot.programs.find(p => p.id === 'biotechnology');
+    assert.ok(bio, 'Biotechnology programme exists');
+    assert.equal(bio.label, 'Biotechnology');
+});
+
+await check('SOT Biotechnology has exactly one Year 1 config', () => {
+    const bio = sot.programs.find(p => p.id === 'biotechnology');
+    assert.equal(bio.years.length, 1, 'one year config');
+    const year1 = bio.years[0];
+    assert.equal(year1.label, 'Year 1');
+    assert.equal(year1.level, 1);
+    assert.equal(year1.id, 'sot-bio-1');
+    assert.equal(year1.parser, 'grid');
+});
+
+await check('SOT Year 1 has exactly the 6 mandatory courses and no electives', () => {
+    const year1 = sot.programs.find(p => p.id === 'biotechnology').years[0];
+    assert.deepStrictEqual(year1.mandatoryCourses, SOT_MANDATORY);
+    assert.equal(year1.electives, null);
+});
+
+await check('SOT Year 1 exclusive courses do NOT appear in any other school/programme/year', () => {
+    // "Critical Thinking" is a pre-existing shared course (already offered by
+    // SCDS Year 3 before SOT was added), exactly like Human AI Interaction /
+    // Forensic Psychology etc. — the requirement is that the NEW SOT courses
+    // are not added to any other programme, so only the five SOT-specific
+    // courses are checked for cross-contamination.
+    const exclusive = SOT_MANDATORY.filter(name => name !== 'Critical Thinking');
+    const sotCourses = new Set(exclusive);
+    for (const school of SCHOOLS) {
+        if (school.id === 'sot') continue;
+        const yearConfigs = school.programs
+            ? school.programs.flatMap(p => p.years)
+            : (school.years || []);
+        for (const year of yearConfigs) {
+            const all = [...(year.mandatoryCourses || []), ...(year.electives || []).map(e => e.label)];
+            for (const name of all) {
+                assert.ok(!sotCourses.has(name), `${school.id} / ${year.id} must not contain "${name}"`);
+            }
+        }
+    }
+});
+
+await check('SOT is the only school offering Year 1', () => {
+    const year1Schools = SCHOOLS.filter(s => {
+        const years = s.programs ? s.programs.flatMap(p => p.years) : (s.years || []);
+        return years.some(y => y.level === 1);
+    });
+    assert.deepStrictEqual(year1Schools.map(s => s.id), ['sot'], 'only SOT offers Year 1');
+});
+
+console.log('--- parseCSV (grid): SOT Year 1 Biotechnology ---');
+const SOT_GRID = [
+    'MONDAY,09:15 AM - 10:10 AM,Chemistry         Dr. Gupta',
+    ',10:15 AM - 11:10 AM,General Mathematics         Dr. Rao',
+    ',11:15 AM - 12:10 PM,Fundamentals of Biotechnology         Dr. Sharma',
+    ',12:15 PM - 1:10 PM,Critical Thinking (SAS/SoAI/SoB/SoT/SCDS)  (Sem 1)         Megha Kapoor',
+    'TUESDAY,09:15 AM - 10:10 AM,Indian Constitution & Democracy - Sem1         Dr. Khan',
+    ',10:15 AM - 11:10 AM,Frontiers of AI Sem1         Dr. Iyer',
+].join('\n');
+
+await check('SOT Year 1: all six mandatory courses parse', () => {
+    const out = parseCSV(SOT_GRID, 'grid', SOT_MANDATORY, SOT_ELECTIVES, null);
+    for (const name of SOT_MANDATORY) {
+        const c = out.find(x => x.subject === name);
+        assert.ok(c, `${name} parsed`);
+        assert.equal(c.elective, undefined, `${name} is not tagged as elective`);
+    }
+});
+
+await check('SOT Year 1: mandatory courses carry stable canonical courseIds', () => {
+    const out = parseCSV(SOT_GRID, 'grid', SOT_MANDATORY, SOT_ELECTIVES, null);
+    assert.equal(out.find(x => x.subject === 'Chemistry').courseId, 'chemistry');
+    assert.equal(out.find(x => x.subject === 'General Mathematics').courseId, 'general-mathematics');
+    assert.equal(out.find(x => x.subject === 'Fundamentals of Biotechnology').courseId, 'fundamentals-of-biotechnology');
+    assert.equal(out.find(x => x.subject === 'Critical Thinking').courseId, 'critical-thinking');
+    assert.equal(out.find(x => x.subject === 'Indian Constitution & Democracy').courseId, 'indian-constitution-and-democracy');
+    assert.equal(out.find(x => x.subject === 'Frontiers of AI').courseId, 'frontiers-of-ai');
+});
+
+await check('SOT Year 1: classes carry real teacher/time/room data from the source', () => {
+    const out = parseCSV(SOT_GRID, 'grid', SOT_MANDATORY, SOT_ELECTIVES, null);
+    const c = out.find(x => x.subject === 'Chemistry');
+    assert.equal(c.faculty, 'Prof. Dr.Gupta');
+    assert.equal(c.startTime, '09:15');
+    assert.equal(c.endTime, '10:10');
+    assert.equal(c.day, 'Monday');
+});
+
+await check('SOT Year 1: "Indian Constitution & Democracy - Sem1" drops the Sem1 tag', () => {
+    const variant = [
+        'MONDAY,09:15 AM - 10:10 AM,Indian Constitution & Democracy - Sem1',
+    ].join('\n');
+    const out = parseCSV(variant, 'grid', SOT_MANDATORY, SOT_ELECTIVES, null);
+    const c = out.find(x => x.courseId === 'indian-constitution-and-democracy');
+    assert.ok(c, 'course parsed from a bare tagged cell');
+    assert.equal(c.subject, 'Indian Constitution & Democracy', 'Sem1 tag stripped');
+    assert.equal(c.faculty, '', 'no phantom teacher invented');
+});
+
+await check('SOT Year 1: "Indian Constitution & Democracy - Sem1 - Teacher" parses with the full name', () => {
+    const variant = [
+        'MONDAY,09:15 AM - 10:10 AM,Indian Constitution & Democracy - Sem1 - Dr. Khan',
+    ].join('\n');
+    const out = parseCSV(variant, 'grid', SOT_MANDATORY, SOT_ELECTIVES, null);
+    const c = out.find(x => x.courseId === 'indian-constitution-and-democracy');
+    assert.ok(c, 'course parsed with a teacher');
+    assert.equal(c.subject, 'Indian Constitution & Democracy');
+    assert.equal(c.faculty, 'Prof. Dr.Khan');
+});
+
+await check('SOT Year 1: "Frontiers of AI Sem1" drops the Sem1 tag', () => {
+    const variant = [
+        'MONDAY,09:15 AM - 10:10 AM,Frontiers of AI Sem1',
+    ].join('\n');
+    const out = parseCSV(variant, 'grid', SOT_MANDATORY, SOT_ELECTIVES, null);
+    const c = out.find(x => x.courseId === 'frontiers-of-ai');
+    assert.ok(c, 'course parsed from a bare tagged cell');
+    assert.equal(c.subject, 'Frontiers of AI', 'Sem1 tag stripped');
+    assert.equal(c.faculty, '', 'no phantom teacher invented');
+});
+
+await check('SOT Year 1: "Indian Constitution and Democracy - Sem1" ("and" for "&") still matches', () => {
+    const variant = [
+        'MONDAY,09:15 AM - 10:10 AM,Indian Constitution and Democracy - Sem1',
+    ].join('\n');
+    const out = parseCSV(variant, 'grid', SOT_MANDATORY, SOT_ELECTIVES, null);
+    const c = out.find(x => x.courseId === 'indian-constitution-and-democracy');
+    assert.ok(c, 'course parsed via & ↔ and normalization');
+    assert.equal(c.subject, 'Indian Constitution & Democracy');
+});
+
+await check('SOT Year 1: "Critical Thinking (SAS/SoAI/SoB/SoT/SCDS)  (Sem 1)" shows as plain Critical Thinking', () => {
+    const variant = [
+        'MONDAY,09:15 AM - 10:10 AM,Critical Thinking (SAS/SoAI/SoB/SoT/SCDS)  (Sem 1)',
+    ].join('\n');
+    const out = parseCSV(variant, 'grid', SOT_MANDATORY, SOT_ELECTIVES, null);
+    const c = out.find(x => x.courseId === 'critical-thinking');
+    assert.ok(c, 'course parsed from a bare tagged cell');
+    assert.equal(c.subject, 'Critical Thinking', 'school + semester tags stripped');
+    assert.equal(c.faculty, '', 'no phantom teacher invented');
+});
+
+await check('SOT Year 1: "Critical Thinking (SAS/SoAI/SoB/SoT/SCDS) (Sem 1) Megha Kapoor" parses cleanly', () => {
+    const variant = [
+        'MONDAY,09:15 AM - 10:10 AM,Critical Thinking (SAS/SoAI/SoB/SoT/SCDS)  (Sem 1)              Megha Kapoor',
+    ].join('\n');
+    const out = parseCSV(variant, 'grid', SOT_MANDATORY, SOT_ELECTIVES, null);
+    const c = out.find(x => x.courseId === 'critical-thinking');
+    assert.ok(c, 'course parsed with its teacher');
+    assert.equal(c.subject, 'Critical Thinking');
+    assert.equal(c.faculty, 'Prof. Megha Kapoor');
+});
+
+await check('SOT Year 1: a non-SOT cell (SCDS course) is skipped', () => {
+    const mixed = [
+        'MONDAY,09:15 AM - 10:10 AM,Chemistry         Dr. Gupta',
+        ',10:15 AM - 11:10 AM,Deep Learning',
+    ].join('\n');
+    const out = parseCSV(mixed, 'grid', SOT_MANDATORY, SOT_ELECTIVES, null);
+    assert.ok(out.some(x => x.subject === 'Chemistry'), 'SOT course parsed');
+    assert.ok(!out.some(x => x.subject === 'Deep Learning'), 'SCDS course is not pulled into SOT Year 1');
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);

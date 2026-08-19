@@ -86,7 +86,7 @@ const COURSE_DEFINITIONS = [
     { canonical: 'computer-networks', display: 'Computer Networks', aliases: ['CN'] },
     { canonical: 'cyber-security', display: 'Cybersecurity: Fundamental Concepts and Management', aliases: ['CYBER', 'Cyber'] },
     { canonical: 'introduction-to-financial-accounting', display: 'Introduction to Financial Accounting', aliases: ['IFA'] },
-    { canonical: 'critical-thinking', display: 'Critical Thinking', aliases: ['CT'] },
+    { canonical: 'critical-thinking', display: 'Critical Thinking', aliases: ['CT', 'Critical Thinking (SAS/SoAI/SoB/SoT/SCDS)'] },
     { canonical: 'financial-reporting-and-analysis', display: 'Financial Reporting and Analysis' },
     { canonical: 'organizational-psychology', display: 'Organizational Psychology', aliases: ['Organizational Psychology - Micro Perspective'] },
     { canonical: 'human-ai-interaction', display: 'Human AI Interaction' },
@@ -105,6 +105,17 @@ const COURSE_DEFINITIONS = [
     { canonical: 'operations-research', display: 'Operations Research' },
     { canonical: 'human-resource-management', display: 'Human Resource Management' },
     { canonical: 'principles-in-financial-management', display: 'Principles in Financial Management', aliases: ['PFM', 'PIFM', 'Principles of Financial Management'] },
+
+    // SOT Year 1 Biotechnology (shared grid sheet). "Critical Thinking" is
+    // already registered above (SCDS Year 3). The sheet may spell the two
+    // semester-tagged courses with a " - Sem1" / "Sem1" / "Sem 1" suffix; the
+    // aliases fold those spellings onto the clean course names (the semester
+    // tag is dropped from the course identity).
+    { canonical: 'chemistry', display: 'Chemistry' },
+    { canonical: 'general-mathematics', display: 'General Mathematics' },
+    { canonical: 'fundamentals-of-biotechnology', display: 'Fundamentals of Biotechnology' },
+    { canonical: 'indian-constitution-and-democracy', display: 'Indian Constitution & Democracy', aliases: ['Indian Constitution & Democracy - Sem1'] },
+    { canonical: 'frontiers-of-ai', display: 'Frontiers of AI', aliases: ['Frontiers of AI Sem1'] },
 
     // SAS Year 3 Neuroscience (shared grid sheet)
     { canonical: 'biostatistics', display: 'Biostatistics' },

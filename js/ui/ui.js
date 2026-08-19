@@ -46,7 +46,7 @@ export function renderSidebar(state) {
 
     const programSection = $('#sidebar-program-section');
     if (programSection) {
-        const show = state.programs && state.programs.length > 1;
+        const show = state.programs && state.programs.length > 0;
         programSection.classList.toggle('hidden', !show);
     }
 

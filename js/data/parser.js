@@ -388,6 +388,14 @@ const SUBJECT_ALIASES = [
     { match: /^(?:PFM|PIFM|Principles of Financial Management)$/i, name: 'Principles in Financial Management' },
     { match: /^FP$/i, name: 'Forensic Psychology' },
 
+    // SOT Year 1 Biotechnology. The sheet may spell these courses with a
+    // semester tag ("Indian Constitution & Democracy - Sem1", "Frontiers of
+    // AI Sem1", "Sem 1") — the alias drops the tag and folds the spelling
+    // onto the clean course name, and "&"↔"and" is normalized exactly like
+    // the FBO/PFM courses above.
+    { match: /^Indian Constitution\s*(?:&|and)\s*Democracy(?:\s*-\s*Sem(?:ester)?\s*\.?\s*1)?$/i, name: 'Indian Constitution & Democracy' },
+    { match: /^Frontiers of AI(?:\s*-?\s*Sem(?:ester)?\s*\.?\s*1)?$/i, name: 'Frontiers of AI' },
+
     // SAS Year 3 Neuroscience. "Cell Physiology" is the elective course; any
     // "Cell Physiology - Elective" / "Cell Physiology-Elective" dash-spaced
     // spelling left in the sheet folds onto it too. "&"↔"and" is
@@ -638,9 +646,8 @@ export function splitSubjectFaculty(cell) {
     // course name (e.g. "Forensic Psychology Dr Mridula").  Try progressively
     // shorter prefixes of the subject to see if any is a known course — the
     // remainder is the teacher. Skipped when the WHOLE subject is already a
-    // known course (e.g. "Cell Physiology - Elective" folds onto the
-    // "Cell Physiology" elective): peeling a prefix here would truncate a
-    // legitimate course name and invent a phantom teacher.
+    // known course (e.g. "Cell Physiology - Elective"): peeling a prefix here
+    // would truncate a legitimate course name and invent a phantom teacher.
     if (!faculty && subject && !resolveCourse(subject).matched) {
         const words = subject.split(/\s+/);
         for (let len = words.length - 1; len >= 2; len--) {
@@ -697,6 +704,13 @@ function stripClassMarkers(text) {
         .replace(/\s*-\s*Sem(?:ester)?\s*\.?\s*\d+\s*-?\s*/gi, ' - ')
         .replace(/\s*-\s*[Ss]ec\s*\.?\s*\d+\s*-?\s*/gi, ' - ')
         .replace(/\s*\(Sec\s*\.?\s*\d+\)\s*/gi, ' ')
+        // "Sem N" in parens ("(Sem 1)") is the same semester marker as the
+        // dash form above; drop it too.
+        .replace(/\s*\(\s*Sem(?:ester)?\s*\.?\s*\d+\s*\)\s*/gi, ' ')
+        // Shared-course qualifier used by the main sheet: "Critical Thinking
+        // (SAS/SoAI/SoB/SoT/SCDS)" means the course is shared across schools —
+        // the school list is not part of the course name.
+        .replace(/\s*\(\s*(?:SAS|SoAI|SoB|SoT|SCDS)(?:\s*\/\s*(?:SAS|SoAI|SoB|SoT|SCDS))*\s*\)\s*/gi, ' ')
         // Whitespace-only parens ("Labour Law 2 (    )") are an empty faculty
         // placeholder, never a subject. Drop them so they don't split the cell.
         .replace(/\s*\(\s*\)\s*/g, ' ')
