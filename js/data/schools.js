@@ -186,6 +186,45 @@ export const SCHOOLS = [
             },
         ],
     },
+    {
+        id: 'sas',
+        shortName: 'SAS',
+        // SAS is the first school with per-program hierarchy: the school →
+        // programme → year tree. The program selector auto-picks the single
+        // Neuroscience programme (the UI hides the selector for one program),
+        // and `buildYearMap` / navigation resolve program years exactly like
+        // direct school years.
+        programs: [
+            {
+                id: 'neuroscience',
+                label: 'Neuroscience',
+                years: [
+                    {
+                        id: 'sas-neuro-3',
+                        label: 'Year 3',
+                        level: 3,
+                        sections: null,
+                        sheetId: '1Jk3KCLqHHzi-jxigIcPpcXZestcxb8Y0BeQLjhiezb8',
+                        gid: '0',
+                        parser: 'grid',
+                        // SAS Year 3 Neuroscience. "Cell Physiology - Elective"
+                        // is the only elective — the other five are the courses
+                        // every SAS Neuroscience Year 3 student attends.
+                        mandatoryCourses: [
+                            'Biostatistics',
+                            'Clinical Neuroscience',
+                            'Molecular Neuroscience',
+                            'Analytical Methods',
+                            'Psychiatry & Mood disorders',
+                        ],
+                        electives: [
+                            { id: 'cell-physiology-elective', label: 'Cell Physiology - Elective' },
+                        ],
+                    },
+                ],
+            },
+        ],
+    },
 ];
 
 /**

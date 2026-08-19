@@ -105,6 +105,21 @@ const COURSE_DEFINITIONS = [
     { canonical: 'operations-research', display: 'Operations Research' },
     { canonical: 'human-resource-management', display: 'Human Resource Management' },
     { canonical: 'principles-in-financial-management', display: 'Principles in Financial Management', aliases: ['PFM', 'PIFM', 'Principles of Financial Management'] },
+
+    // SAS Year 3 Neuroscience (shared grid sheet)
+    { canonical: 'biostatistics', display: 'Biostatistics' },
+    // The " - Elective" suffix is PART of the course name, not a section/tag.
+    // The folded key ("cell physiology elective") is what lets the parser keep
+    // the dash intact instead of mis-splitting "Cell Physiology - Elective"
+    // into a subject + a teacher named "Elective".
+    { canonical: 'cell-physiology-elective', display: 'Cell Physiology - Elective' },
+    { canonical: 'clinical-neuroscience', display: 'Clinical Neuroscience' },
+    { canonical: 'molecular-neuroscience', display: 'Molecular Neuroscience' },
+    // The live sheet spells this course "Analytical Methods & Instrumentation";
+    // the alias folds it onto the configured "Analytical Methods" identity so
+    // the courseId stays stable and change detection never sees a rename.
+    { canonical: 'analytical-methods', display: 'Analytical Methods', aliases: ['Analytical Methods & Instrumentation'] },
+    { canonical: 'psychiatry-and-mood-disorders', display: 'Psychiatry & Mood disorders' },
 ];
 
 // ---------------------------------------------------------------------------
