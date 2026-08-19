@@ -108,11 +108,10 @@ const COURSE_DEFINITIONS = [
 
     // SAS Year 3 Neuroscience (shared grid sheet)
     { canonical: 'biostatistics', display: 'Biostatistics' },
-    // The " - Elective" suffix is PART of the course name, not a section/tag.
-    // The folded key ("cell physiology elective") is what lets the parser keep
-    // the dash intact instead of mis-splitting "Cell Physiology - Elective"
-    // into a subject + a teacher named "Elective".
-    { canonical: 'cell-physiology-elective', display: 'Cell Physiology - Elective' },
+    // The earlier sheet spelling "Cell Physiology - Elective" (dash + suffix)
+    // is kept as an alias so it still resolves to this course instead of being
+    // mis-split into a subject + a teacher named "Elective".
+    { canonical: 'cell-physiology', display: 'Cell Physiology', aliases: ['Cell Physiology - Elective'] },
     { canonical: 'clinical-neuroscience', display: 'Clinical Neuroscience' },
     { canonical: 'molecular-neuroscience', display: 'Molecular Neuroscience' },
     // The live sheet spells this course "Analytical Methods & Instrumentation";

@@ -558,7 +558,7 @@ console.log('--- SAS Year 3 Neuroscience config ---');
 
 const sas = SCHOOLS.find(s => s.id === 'sas');
 const SAS_MANDATORY = ['Biostatistics', 'Clinical Neuroscience', 'Molecular Neuroscience', 'Analytical Methods', 'Psychiatry & Mood disorders'];
-const SAS_ELECTIVES = [{ id: 'cell-physiology-elective', label: 'Cell Physiology - Elective' }];
+const SAS_ELECTIVES = [{ id: 'cell-physiology', label: 'Cell Physiology' }];
 
 await check('SAS school exists with the Neuroscience programme', () => {
     assert.ok(sas, 'SAS school exists');
@@ -610,7 +610,7 @@ await check('SAS courses never appear under another programme of the same school
 console.log('--- parseCSV (grid): SAS Year 3 Neuroscience ---');
 const SAS_GRID = [
     'MONDAY,09:15 AM - 10:10 AM,Biostatistics         Dr. Sivan',
-    ',10:15 AM - 11:10 AM,Cell Physiology - Elective    Dr. Rao',
+    ',10:15 AM - 11:10 AM,Cell Physiology         Dr. Rao',
     ',11:15 AM - 12:10 PM,Clinical Neuroscience         Dr. Gupta',
     ',12:15 PM - 1:10 PM,Molecular Neuroscience         Dr. Sharma',
     'TUESDAY,09:15 AM - 10:10 AM,Analytical Methods         Dr. Mehta',
@@ -635,37 +635,37 @@ await check('SAS Year 3: mandatory courses carry stable canonical courseIds', ()
     assert.equal(out.find(x => x.subject === 'Psychiatry & Mood disorders').courseId, 'psychiatry-and-mood-disorders');
 });
 
-await check('SAS Year 3: Cell Physiology - Elective is parsed as the elective', () => {
+await check('SAS Year 3: Cell Physiology is parsed as the elective', () => {
     const out = parseCSV(SAS_GRID, 'grid', SAS_MANDATORY, SAS_ELECTIVES, null);
-    const c = out.find(x => x.elective === 'cell-physiology-elective');
-    assert.ok(c, 'Cell Physiology - Elective parsed');
-    assert.equal(c.subject, 'Cell Physiology - Elective');
-    assert.equal(c.courseId, 'cell-physiology-elective');
+    const c = out.find(x => x.elective === 'cell-physiology');
+    assert.ok(c, 'Cell Physiology parsed');
+    assert.equal(c.subject, 'Cell Physiology');
+    assert.equal(c.courseId, 'cell-physiology');
     assert.equal(c.faculty, 'Prof. Dr.Rao');
 });
 
-await check('SAS Year 3: a bare "Cell Physiology - Elective" cell keeps its full name and invents no teacher', () => {
+await check('SAS Year 3: a bare "Cell Physiology" cell keeps its name and invents no teacher', () => {
     const bare = [
         'MONDAY,09:15 AM - 10:10 AM,Biostatistics         Dr. Sivan',
-        ',10:15 AM - 11:10 AM,Cell Physiology - Elective',
+        ',10:15 AM - 11:10 AM,Cell Physiology',
     ].join('\n');
     const out = parseCSV(bare, 'grid', SAS_MANDATORY, SAS_ELECTIVES, null);
-    const c = out.find(x => x.elective === 'cell-physiology-elective');
-    assert.ok(c, 'Cell Physiology - Elective parsed from a bare cell');
-    assert.equal(c.subject, 'Cell Physiology - Elective', 'dash is part of the course name');
-    assert.equal(c.faculty, '', 'no phantom teacher invented from "- Elective"');
+    const c = out.find(x => x.elective === 'cell-physiology');
+    assert.ok(c, 'Cell Physiology parsed from a bare cell');
+    assert.equal(c.subject, 'Cell Physiology');
+    assert.equal(c.faculty, '', 'no phantom teacher invented');
 });
 
-await check('SAS Year 3: bare sheet spelling "Cell Physiology" (no " - Elective") is recognized as the elective', () => {
+await check('SAS Year 3: legacy dash spelling "Cell Physiology - Elective" folds onto the elective', () => {
     const variant = [
-        'MONDAY,09:15 AM - 10:10 AM,Cell Physiology         Dr. Manobala / Moses',
+        'MONDAY,09:15 AM - 10:10 AM,Cell Physiology - Elective',
     ].join('\n');
     const out = parseCSV(variant, 'grid', SAS_MANDATORY, SAS_ELECTIVES, null);
-    const c = out.find(x => x.elective === 'cell-physiology-elective');
-    assert.ok(c, 'Cell Physiology parsed as the elective');
-    assert.equal(c.subject, 'Cell Physiology - Elective', 'preserved course name is used');
-    assert.equal(c.courseId, 'cell-physiology-elective');
-    assert.equal(c.faculty, 'Prof. Dr.Manobala / Moses', 'teacher from the sheet is kept');
+    const c = out.find(x => x.elective === 'cell-physiology');
+    assert.ok(c, 'dash spelling parses as the Cell Physiology elective');
+    assert.equal(c.subject, 'Cell Physiology', 'legacy " - Elective" suffix is folded away');
+    assert.equal(c.courseId, 'cell-physiology');
+    assert.equal(c.faculty, '', 'no phantom teacher invented from the dash');
 });
 
 await check('SAS Year 3: sheet spelling "Analytical Methods & Instrumentation" maps onto Analytical Methods', () => {

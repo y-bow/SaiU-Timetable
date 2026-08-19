@@ -388,16 +388,14 @@ const SUBJECT_ALIASES = [
     { match: /^(?:PFM|PIFM|Principles of Financial Management)$/i, name: 'Principles in Financial Management' },
     { match: /^FP$/i, name: 'Forensic Psychology' },
 
-    // SAS Year 3 Neuroscience. "Cell Physiology - Elective" is one course whose
-    // " - Elective" suffix is part of the name — normalize dash spacing so any
-    // "Cell Physiology-Elective" / "Cell Physiology  -  Elective" spelling in
-    // the sheet folds onto the same elective, and expand the bare sheet form
-    // "Cell Physiology" (observed in the live sheet) onto it too. "&"↔"and" is
+    // SAS Year 3 Neuroscience. "Cell Physiology" is the elective course; any
+    // "Cell Physiology - Elective" / "Cell Physiology-Elective" dash-spaced
+    // spelling left in the sheet folds onto it too. "&"↔"and" is
     // normalized exactly like the FBO/PFM courses above, so "Psychiatry and
     // Mood disorders" and "Psychiatry & Mood disorders" are the same course.
     // "Analytical Methods & Instrumentation" is the live sheet's spelling of
     // the configured "Analytical Methods" course.
-    { match: /^Cell Physiology(?:\s*-?\s*Elective)?$/i, name: 'Cell Physiology - Elective' },
+    { match: /^Cell Physiology(?:\s*-?\s*Elective)?$/i, name: 'Cell Physiology' },
     { match: /^Analytical Methods(?:\s*&\s*Instrumentation)?$/i, name: 'Analytical Methods' },
     { match: /^Psychiatry\s*(?:&|and)\s*Mood\s*Disorders?$/i, name: 'Psychiatry & Mood disorders' },
 ];
@@ -615,9 +613,9 @@ export function splitSubjectFaculty(cell) {
     // subject ("Law of Insurance -                      Sanjay Bang").
     //
     // When the ENTIRE cell is a known course, the dash is part of the course
-    // name, not a subject/teacher separator — "Cell Physiology - Elective" and
-    // "Organizational Psychology - Micro Perspective" keep their full name and
-    // no phantom teacher ("Elective") is invented.
+    // name, not a subject/teacher separator — "Organizational Psychology -
+    // Micro Perspective" keeps its full name and no phantom teacher is
+    // invented from the dash.
     if ((!faculty || faculty.trim().startsWith('-')) && /-\s*\S/.test(text) && !resolveCourse(text).matched) {
         const m = text.match(/\s*-\s*(.+)$/);
         if (m) faculty = m[1].trim();
@@ -639,8 +637,11 @@ export function splitSubjectFaculty(cell) {
     // isolated a teacher, the trailing word(s) may be the teacher glued to the
     // course name (e.g. "Forensic Psychology Dr Mridula").  Try progressively
     // shorter prefixes of the subject to see if any is a known course — the
-    // remainder is the teacher.
-    if (!faculty && subject) {
+    // remainder is the teacher. Skipped when the WHOLE subject is already a
+    // known course (e.g. "Cell Physiology - Elective" folds onto the
+    // "Cell Physiology" elective): peeling a prefix here would truncate a
+    // legitimate course name and invent a phantom teacher.
+    if (!faculty && subject && !resolveCourse(subject).matched) {
         const words = subject.split(/\s+/);
         for (let len = words.length - 1; len >= 2; len--) {
             const prefix = words.slice(0, len).join(' ');
@@ -919,8 +920,8 @@ function splitTeacherCell(cell) {
             // 3. Dash separation: "Subject - Teacher" (single spaces). A
             //    trailing course number ("Economics - 1") is not a teacher.
             //    When the whole cell is a known course, the dash is part of
-            //    the course name ("Cell Physiology - Elective") and must not
-            //    invent a teacher named "Elective".
+            //    the course name ("Organizational Psychology - Micro
+            //    Perspective") and must not invent a phantom teacher.
             const dash = text.match(/\s-\s(.+)$/);
             if (dash && !/^\d+$/.test(dash[1].trim()) && !resolveCourse(text).matched) {
                 subject = text.slice(0, dash.index).replace(/\s+/g, ' ').trim();
