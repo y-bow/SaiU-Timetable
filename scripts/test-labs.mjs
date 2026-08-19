@@ -182,7 +182,7 @@ try {
         const c = parse(etV1, ET, {});
         assert.equal(c.length, 3);
         for (const e of c) {
-            assert.equal(e.subject, 'Emerging Tools Lab');
+            assert.equal(e.subject, 'Emering Tools and Applications Lab');
             assert.equal(e.elective, 'emerging-tools-and-applications');
             assert.equal(e.lab, true);
             assert.equal(e.source, 'emerging-tools-lab');
@@ -263,7 +263,7 @@ try {
         'MONDAY,09:15 AM - 10:10 AM,ET - Sec 1 - Arjun,Emerging Tools - Sec 2 - Sonar',
         ',,AB2-101,AB2-202',
     ].join('\n');
-    const etElectives = [{ id: 'emerging-tools-and-applications', label: 'Emerging Tools and Applications', sections: [] }];
+    const etElectives = [{ id: 'emerging-tools-and-applications', label: 'Emering Tools and Applications', sections: [] }];
     await check('both "ET" and full-word "Emerging Tools" cells are tagged as the elective', () => {
         const c = parseCSV(etMain, 'grid', null, etElectives, ['AB2-101', 'AB2-202']);
         assert.equal(c.length, 1, 'both cells share a slot and group into one elective event');
@@ -351,7 +351,7 @@ try {
             'MONDAY,09:15 AM - 10:10 AM,ET - Sec 1 - Arjun,Linear Algebra - Sec 1 - Dr. Tamil',
             ',,AB2-101,AB2-202',
         ].join('\n');
-        const etElectives = [{ id: 'emerging-tools-and-applications', label: 'Emerging Tools and Applications', sections: [] }];
+const etElectives = [{ id: 'emerging-tools-and-applications', label: 'Emering Tools and Applications', sections: [] }];
         const c = parseCSV(csv, 'grid', null, etElectives, ['AB2-101', 'AB2-202']);
         const et = c.find((x) => x.elective);
         const la = c.find((x) => !x.elective);

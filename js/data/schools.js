@@ -67,7 +67,7 @@ export const SCHOOLS = [
                     { id: 'intelligent-embedded-systems', label: 'Intelligent Embedded Systems' },
                     {
                         id: 'emerging-tools-and-applications',
-                        label: 'Emerging Tools and Applications',
+                        label: 'Emering Tools and Applications',
                         // Emerging Tools offering sections (Section 1/2/3). The
                         // numeric `section` is the STABLE identity: selecting a
                         // section drives BOTH the main-course offering match and

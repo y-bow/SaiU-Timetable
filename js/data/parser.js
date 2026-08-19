@@ -23,7 +23,7 @@
  * multiple offerings in the sheet is supported with no per-course config.
  */
 
-import { resolveCourse } from './course-normalizer.js?v=2026-08-18-001';
+import { resolveCourse, splitLabSuffix } from './course-normalizer.js?v=2026-08-18-001';
 
 const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
 const SECTION_REGEX = /\(Sec\s*(\d+)\)/i;
@@ -233,6 +233,15 @@ function parseGridCSV(text, mandatoryCourses = null, electives = null, rooms = n
         ? mandatoryCourses.map(c => c.trim().toLowerCase())
         : null;
 
+    // Canonical ids of the mandatory courses. A differently-spelled cell that
+    // resolves onto a mandatory course's canonical id (e.g. "Emering Tools and
+    // Applications Lab" → emerging-tools-and-applications) is still that
+    // course — the canonical fallback below makes the match without ever
+    // renaming the cell.
+    const mandatoryCanonicals = mandatoryList
+        ? new Set(mandatoryList.map(t => resolveCourse(t).canonical).filter(Boolean))
+        : null;
+
     // Elective configs. Matching is strict — the elective's full label must be
     // a prefix of the parsed subject (covers exact matches and suffixed names
     // like "Course II"). The reverse prefix rule used for mandatory courses is
@@ -257,6 +266,17 @@ function parseGridCSV(text, mandatoryCourses = null, electives = null, rooms = n
                     const name = e.label.trim().toLowerCase();
                     if (prefix === name || prefix.startsWith(name)) return e;
                 }
+            }
+        }
+        // Canonical fallback: a differently-spelled cell that resolves onto a
+        // configured elective's canonical id is that elective ("Emering Tools
+        // and Applications" → emerging-tools-and-applications). Only reached
+        // when label-prefix matching found nothing, so existing matches are
+        // never disturbed.
+        const res = resolveCourse(subject);
+        if (res && res.canonical) {
+            for (const e of electiveList) {
+                if (e.id === res.canonical) return e;
             }
         }
         return null;
@@ -297,14 +317,17 @@ function parseGridCSV(text, mandatoryCourses = null, electives = null, rooms = n
                 const room = findRoom(lines, i, j);
                 const { subject, faculty } = splitSubjectFaculty(cell);
                 const name = expandSubjectAlias(subject);
-                const subjLower = name.trim().toLowerCase();
+                const { base: baseName, isLab } = splitLabSuffix(name);
+                const subjLower = baseName.trim().toLowerCase();
 
                 let elective = null;
                 if (electiveList) elective = matchElective(subjLower);
 
                 let isMandatory = false;
                 if (mandatoryList) {
-                    isMandatory = !elective && mandatoryList.some(t => matchesName(subjLower, t));
+                    isMandatory = !elective &&
+                        (mandatoryList.some(t => matchesName(subjLower, t)) ||
+                         (mandatoryCanonicals && mandatoryCanonicals.has(resolveCourse(baseName).canonical)));
                 }
 
                 if ((mandatoryList || electiveList) && !isMandatory && !elective) continue;
@@ -319,6 +342,7 @@ function parseGridCSV(text, mandatoryCourses = null, electives = null, rooms = n
                     endTime: times.end,
                     courseId: elective ? elective.id : resolveCourseId(name),
                     ...(elective ? { elective: elective.id } : {}),
+                    ...(isLab ? { lab: true } : {}),
                 });
             } else if (mandatoryList || electiveList) {
                 // Unsectioned cell — parse only when it is a mandatory course
@@ -326,11 +350,13 @@ function parseGridCSV(text, mandatoryCourses = null, electives = null, rooms = n
                 // year/program and is skipped.
                 const { subject, faculty } = splitSubjectFaculty(cell);
                 const name = expandSubjectAlias(subject);
-                const subjLower = name.trim().toLowerCase();
+                const { base: baseName, isLab } = splitLabSuffix(name);
+                const subjLower = baseName.trim().toLowerCase();
                 if (!subjLower) continue;
 
                 const isMandatory = !!mandatoryList &&
-                    mandatoryList.some(t => matchesName(subjLower, t));
+                    (mandatoryList.some(t => matchesName(subjLower, t)) ||
+                     (mandatoryCanonicals && mandatoryCanonicals.has(resolveCourse(baseName).canonical)));
                 const elective = isMandatory ? null : matchElective(subjLower);
                 if (!isMandatory && !elective) continue;
 
@@ -345,6 +371,7 @@ function parseGridCSV(text, mandatoryCourses = null, electives = null, rooms = n
                     endTime: times.end,
                     courseId: elective ? elective.id : resolveCourseId(name),
                     ...(elective ? { elective: elective.id } : {}),
+                    ...(isLab ? { lab: true } : {}),
                 });
             }
         }
@@ -373,8 +400,20 @@ function parseGridCSV(text, mandatoryCourses = null, electives = null, rooms = n
 // ============================================================
 
 const SUBJECT_ALIASES = [
-    { match: /^ET$/i, name: 'Emerging Tools and Applications' },
-    { match: /^Emerging Tools\b/i, name: 'Emerging Tools and Applications' },
+    { match: /^ET$/i, name: 'Emering Tools and Applications' },
+    // The lecture spellings ("Emerging Tools", "Emering Tools",
+    // "… and Applications") all fold onto the timetable's canonical display
+    // name "Emering Tools and Applications". The negative lookahead keeps a
+    // " Lab" suffix out of the lecture alias, so a lab cell is never misread as
+    // the lecture — the full lab alias below wins for "… and Applications Lab",
+    // and any other "… Lab" spelling stays intact and is classified as a lab by
+    // its suffix (splitLabSuffix in course-normalizer.js).
+    { match: /^Emerging Tools(?:\s+and\s+Applications)?(?!\s+Lab\b)$/i, name: 'Emering Tools and Applications' },
+    { match: /^Emering Tools(?:\s+and\s+Applications)?(?!\s+Lab\b)$/i, name: 'Emering Tools and Applications' },
+    // A lab cell ("Emering Tools and Applications Lab" / "Emerging … Lab")
+    // keeps the full lab name; the display layer renders it as
+    // "Emering Tools and Applications [Lab]" via the lab badge.
+    { match: /^(?:Emering|Emerging) Tools(?:\s+and\s+|\s*&\s*)Applications Lab\.?$/i, name: 'Emering Tools and Applications Lab' },
     { match: /^CN$/i, name: 'Computer Networks' },
     { match: /^(?:INT|INTT)\s*EMB$/i, name: 'Intelligent Embedded Systems' },
     { match: /^DL$/i, name: 'Deep Learning' },
@@ -504,6 +543,16 @@ function parseGridCSVRooms(text, electives = null, rooms = null) {
                 }
             }
         }
+        // Canonical fallback: a differently-spelled cell that resolves onto a
+        // configured elective's canonical id is that elective. Only reached
+        // when label-prefix matching found nothing, so existing matches are
+        // never disturbed.
+        const res = resolveCourse(subject);
+        if (res && res.canonical) {
+            for (const e of electiveList) {
+                if (e.id === res.canonical) return e;
+            }
+        }
         return null;
     };
 
@@ -542,7 +591,8 @@ function parseGridCSVRooms(text, electives = null, rooms = null) {
 
             const { subject, faculty, section } = splitClassCell(cell);
             const name = expandSubjectAlias(subject);
-            const elective = matchElective(name.toLowerCase());
+            const { base: baseName, isLab } = splitLabSuffix(name);
+            const elective = matchElective(baseName.toLowerCase());
             if (section == null && !elective) continue;
             if (!name) continue;
 
@@ -562,6 +612,7 @@ function parseGridCSVRooms(text, electives = null, rooms = null) {
                 endTime: times.end,
                 courseId: elective ? elective.id : resolveCourseId(name),
                 ...(elective ? { elective: elective.id } : {}),
+                ...(isLab ? { lab: true } : {}),
             });
         }
     }
@@ -831,15 +882,26 @@ function parseListCSV(text, electives = null) {
         }
 
         // Tag rows whose subject is one of the configured electives so the
-        // app can show them only when the student selects them.
+        // app can show them only when the student selects them. Matching uses
+        // the lab-stripped base name plus a canonical fallback, so a "… Lab"
+        // cell or a differently-spelled name still finds its elective.
+        const { base: baseName, isLab } = splitLabSuffix(subject);
         let elective = null;
         if (electiveList) {
-            const subjLower = subject.trim().toLowerCase();
+            const subjLower = baseName.trim().toLowerCase();
             for (const e of electiveList) {
                 const name = e.label.trim().toLowerCase();
                 if (subjLower === name || subjLower.startsWith(name)) {
                     elective = e.id;
                     break;
+                }
+            }
+            if (!elective) {
+                const res = resolveCourse(baseName);
+                if (res && res.canonical) {
+                    for (const e of electiveList) {
+                        if (e.id === res.canonical) { elective = e.id; break; }
+                    }
                 }
             }
         }
@@ -854,6 +916,7 @@ function parseListCSV(text, electives = null) {
             endTime: times.end,
             courseId: elective || resolveCourseId(subject),
             ...(elective ? { elective } : {}),
+            ...(isLab ? { lab: true } : {}),
         });
     }
     return data;
@@ -1017,6 +1080,7 @@ export function parseTeacherGrid(text) {
             }
 
             const name = expandSubjectAlias(subject);
+            const { isLab } = splitLabSuffix(name);
             const record = {
                 day: currentDay,
                 subject: name,
@@ -1029,6 +1093,7 @@ export function parseTeacherGrid(text) {
                 _hasSection: !!hasSection,
                 _line: i + 1,
                 _col: j + 1,
+                ...(isLab ? { lab: true } : {}),
             };
             data.push(record);
             teacherDiagLog(

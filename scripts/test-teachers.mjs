@@ -488,7 +488,7 @@ try {
         const { index } = indexFrom(text);
         assert.ok(index.has('arjun'));
         assert.ok(index.has('sonar'));
-        assert.equal(index.get('arjun').classes[0].subject, 'Emerging Tools and Applications');
+        assert.equal(index.get('arjun').classes[0].subject, 'Emering Tools and Applications');
         assert.deepEqual(index.get('arjun').classes[0].teachers, ['Prof. Arjun', 'Prof. Sonar']);
     });
     await check('raw sheet cells naming "Roopam" and "Rupam Shah" index under the SAME teacher', () => {
@@ -549,7 +549,7 @@ try {
         assert.ok(index.has('salim'));
         assert.ok(index.has('k-k-singh'));
         const et = index.get('salim').classes[0];
-        assert.equal(et.subject, 'Emerging Tools and Applications');
+        assert.equal(et.subject, 'Emering Tools and Applications');
         assert.equal(et.section, 5);
         assert.deepEqual(et.contexts, ['SCDS · Year 2']);
         const dl = index.get('k-k-singh').classes[0];

@@ -62,6 +62,25 @@ export function slugifyCourse(raw) {
     return foldCourseText(raw).replace(/\s+/g, '-');
 }
 
+/**
+ * Classify a raw course name as a lab variant.
+ *
+ * Only a name that itself ends with a " Lab" / "Lab." suffix is a lab. The
+ * suffix is a DISPLAY/CLASSIFICATION property, never part of the course's base
+ * identity — so "Some Course Lab" is the lab of "Some Course". Matching is
+ * exact (the whole name must end with the suffix), never partial/prefix, so a
+ * normal course is never flagged because another course shares its prefix
+ * ("Emering Tools" never becomes a lab because "Emering Tools Lab" exists).
+ *
+ * @param {string} raw a raw course name
+ * @returns {{ base: string, isLab: boolean }} base name and lab flag
+ */
+export function splitLabSuffix(raw) {
+    const text = String(raw ?? '').trim();
+    const m = text.match(/^(.*\S)\s+Lab\.?$/i);
+    return m ? { base: m[1].trim(), isLab: true } : { base: text, isLab: false };
+}
+
 // ---------------------------------------------------------------------------
 // Course registry.
 //
@@ -76,7 +95,11 @@ const COURSE_DEFINITIONS = [
     { canonical: 'design-and-analysis-of-algorithms', display: 'Design and Analysis of Algorithms', aliases: ['DAA', 'Design and analysis of algorithms'] },
     { canonical: 'foundation-of-data-engineering', display: 'Foundation of Data Engineering', aliases: ['FDE'] },
     { canonical: 'intelligent-embedded-systems', display: 'Intelligent Embedded Systems', aliases: ['INT EMB', 'INTT EMB'] },
-    { canonical: 'emerging-tools-and-applications', display: 'Emerging Tools and Applications', aliases: ['ET', 'Emerging Tools'] },
+    { canonical: 'emerging-tools-and-applications', display: 'Emering Tools and Applications', aliases: ['ET', 'Emerging Tools', 'Emerging Tools and Applications', 'Emering Tools and Applications'] },
+    // The Year 2 "Emg Lab" tab is the lab of the Emerging Tools course. Its own
+    // canonical id keeps it distinct from the lecture (lecture + lab never
+    // collapse into one record); "… Lab" is a classification/display property.
+    { canonical: 'emerging-tools-lab', display: 'Emering Tools and Applications Lab', aliases: ['Emerging Tools Lab', 'Emering Tools Lab', 'ET Lab'] },
 
     // SCDS Year 3 (sheet: Sem 5 / Sem 7 marker columns)
     { canonical: 'deep-learning', display: 'Deep Learning', aliases: ['DL'] },
