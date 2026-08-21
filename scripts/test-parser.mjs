@@ -50,7 +50,7 @@ for (const rel of MODULES) {
 }
 
 const { splitSubjectFaculty, parseCSV } = await import(pathToFileURL(join(dir, 'js/data/parser.js')).href);
-const { buildYearCourseContext, splitLabSuffix } = await import(pathToFileURL(join(dir, 'js/data/course-normalizer.js')).href);
+const { buildYearCourseContext, resolveCourse, splitLabSuffix } = await import(pathToFileURL(join(dir, 'js/data/course-normalizer.js')).href);
 const { SCHOOLS, shouldShowProgram } = await import(pathToFileURL(join(dir, 'js/data/schools.js')).href);
 
 let passed = 0;
@@ -726,14 +726,19 @@ await check('SOT school exists with the Biotechnology programme', () => {
     assert.equal(bio.label, 'Biotechnology');
 });
 
-await check('SOT Biotechnology has exactly one Year 1 config', () => {
+await check('SOT Biotechnology has a Year 1 and a Year 2 config', () => {
     const bio = sot.programs.find(p => p.id === 'biotechnology');
-    assert.equal(bio.years.length, 1, 'one year config');
+    assert.equal(bio.years.length, 2, 'two year configs');
     const year1 = bio.years[0];
     assert.equal(year1.label, 'Year 1');
     assert.equal(year1.level, 1);
     assert.equal(year1.id, 'sot-bio-1');
     assert.equal(year1.parser, 'grid');
+    const year2 = bio.years[1];
+    assert.equal(year2.label, 'Year 2');
+    assert.equal(year2.level, 2);
+    assert.equal(year2.id, 'sot-bio-2');
+    assert.equal(year2.parser, 'grid');
 });
 
 await check('SOT Year 1 has exactly the 6 mandatory courses and no electives', () => {
@@ -770,6 +775,67 @@ await check('SOT is the only school offering Year 1', () => {
         return years.some(y => y.level === 1);
     });
     assert.deepStrictEqual(year1Schools.map(s => s.id), ['sot'], 'only SOT offers Year 1');
+});
+
+console.log('--- SOT Year 2 Biotechnology config ---');
+
+const SOT2 = sot.programs.find(p => p.id === 'biotechnology').years[1];
+const SOT2_MANDATORY = [
+    'Chemical Engineering',
+    'Environmental Biotechnology',
+    'Microbiology',
+    'Frontiers of AI',
+    'Operations Research',
+];
+const SOT2_ELECTIVES = null;
+
+await check('SOT Year 2 has exactly the 5 mandatory courses and no electives', () => {
+    assert.deepStrictEqual(SOT2.mandatoryCourses, SOT2_MANDATORY);
+    assert.equal(SOT2.electives, null);
+});
+
+await check('SOT Year 2 exclusive courses do NOT appear in any other school/programme/year', () => {
+    // "Frontiers of AI" (SOT Year 1) and "Operations Research" (SOB Year 2)
+    // are pre-existing shared courses. The three new SOT Year 2 courses must
+    // not be added to any other programme.
+    const exclusive = SOT2_MANDATORY.filter(name => !['Frontiers of AI', 'Operations Research'].includes(name));
+    const sot2Courses = new Set(exclusive);
+    for (const school of SCHOOLS) {
+        if (school.id === 'sot') continue;
+        const yearConfigs = school.programs
+            ? school.programs.flatMap(p => p.years)
+            : (school.years || []);
+        for (const year of yearConfigs) {
+            const all = [...(year.mandatoryCourses || []), ...(year.electives || []).map(e => e.label)];
+            for (const name of all) {
+                assert.ok(!sot2Courses.has(name), `${school.id} / ${year.id} must not contain "${name}"`);
+            }
+        }
+    }
+});
+
+await check('SOT Year 2: all five mandatory courses resolve to stable canonical ids', () => {
+    const ctx = buildYearCourseContext(SOT2.mandatoryCourses, SOT2.electives);
+    for (const name of SOT2_MANDATORY) {
+        const res = resolveCourse(name);
+        assert.ok(res && !res.ambiguous && res.canonical, `${name} resolves`);
+        assert.ok(ctx.known.has(res.canonical), `${name} is in the Year 2 known set`);
+    }
+    assert.equal(resolveCourse('Chemical Engineering').canonical, 'chemical-engineering');
+    assert.equal(resolveCourse('Environmental Biotechnology').canonical, 'environmental-biotechnology');
+    assert.equal(resolveCourse('Microbiology').canonical, 'microbiology');
+    assert.equal(resolveCourse('Frontiers of AI').canonical, 'frontiers-of-ai');
+    assert.equal(resolveCourse('Operations Research').canonical, 'operations-research');
+});
+
+await check('SOT Year 2: no duplicate course definitions were created', () => {
+    // Reused entries (frontiers-of-ai, operations-research) must not be
+    // duplicated in the registry — resolveCourse must yield exactly one hit.
+    for (const name of SOT2_MANDATORY) {
+        const res = resolveCourse(name);
+        assert.ok(res && !res.ambiguous, `${name} is unambiguous`);
+        assert.equal(res.candidates.length, 0, `${name} has no competing candidates`);
+    }
 });
 
 console.log('--- parseCSV (grid): SOT Year 1 Biotechnology ---');
@@ -883,6 +949,47 @@ await check('SOT Year 1: a non-SOT cell (SCDS course) is skipped', () => {
     const out = parseCSV(mixed, 'grid', SOT_MANDATORY, SOT_ELECTIVES, null);
     assert.ok(out.some(x => x.subject === 'Chemistry'), 'SOT course parsed');
     assert.ok(!out.some(x => x.subject === 'Deep Learning'), 'SCDS course is not pulled into SOT Year 1');
+});
+
+console.log('--- parseCSV (grid): SOT Year 2 Biotechnology ---');
+// The grid below carries ONLY course names (no teacher/time/room baked in from
+// any timetable image) — the parser must recognize the five Year 2 courses
+// purely from the configured course list, with real data coming from the
+// source sheet at runtime.
+const SOT2_GRID = [
+    'MONDAY,09:15 AM - 10:10 AM,Chemical Engineering',
+    ',10:15 AM - 11:10 AM,Environmental Biotechnology',
+    ',11:15 AM - 12:10 PM,Microbiology',
+    ',12:15 PM - 1:10 PM,Frontiers of AI',
+    ',2:15 PM - 3:10 PM,Operations Research',
+].join('\n');
+
+await check('SOT Year 2: all five mandatory courses parse', () => {
+    const out = parseCSV(SOT2_GRID, 'grid', SOT2_MANDATORY, SOT2_ELECTIVES, null);
+    for (const name of SOT2_MANDATORY) {
+        const c = out.find(x => x.subject === name);
+        assert.ok(c, `${name} parsed`);
+        assert.equal(c.elective, undefined, `${name} is not tagged as elective`);
+    }
+});
+
+await check('SOT Year 2: mandatory courses carry stable canonical courseIds', () => {
+    const out = parseCSV(SOT2_GRID, 'grid', SOT2_MANDATORY, SOT2_ELECTIVES, null);
+    assert.equal(out.find(x => x.subject === 'Chemical Engineering').courseId, 'chemical-engineering');
+    assert.equal(out.find(x => x.subject === 'Environmental Biotechnology').courseId, 'environmental-biotechnology');
+    assert.equal(out.find(x => x.subject === 'Microbiology').courseId, 'microbiology');
+    assert.equal(out.find(x => x.subject === 'Frontiers of AI').courseId, 'frontiers-of-ai');
+    assert.equal(out.find(x => x.subject === 'Operations Research').courseId, 'operations-research');
+});
+
+await check('SOT Year 2: a non-SOT cell (SCDS course) is skipped', () => {
+    const mixed = [
+        'MONDAY,09:15 AM - 10:10 AM,Microbiology',
+        ',10:15 AM - 11:10 AM,Deep Learning',
+    ].join('\n');
+    const out = parseCSV(mixed, 'grid', SOT2_MANDATORY, SOT2_ELECTIVES, null);
+    assert.ok(out.some(x => x.subject === 'Microbiology'), 'SOT Year 2 course parsed');
+    assert.ok(!out.some(x => x.subject === 'Deep Learning'), 'SCDS course is not pulled into SOT Year 2');
 });
 
 console.log('--- generic lab classification (grid) ---');

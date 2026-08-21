@@ -1,5 +1,5 @@
-import { toMinutes, minutesToClock } from '../core/utils.js?v=2026-08-18-001';
-import { trackEvent } from '../services/analytics.js?v=2026-08-18-001';
+import { toMinutes, minutesToClock } from '../core/utils.js?v=2026-08-21-003';
+import { trackEvent } from '../services/analytics.js?v=2026-08-21-003';
 
 /**
  * Free Rooms — shows which rooms are available during each period
@@ -84,7 +84,7 @@ function displayRoom(raw) {
  * Rooms to exclude from the free-rooms list: labs and the Moot Court Hall
  * are special-purpose spaces, not bookable classrooms.
  */
-const EXCLUDED_ROOM_PATTERNS = /\b(moot\s*court|lab)\b/i;
+const EXCLUDED_ROOM_PATTERNS = /\b(moot\s*court|lab|faculty\s*conference)\b/i;
 
 /**
  * Build the complete room inventory from:

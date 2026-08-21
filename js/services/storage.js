@@ -1,4 +1,4 @@
-import { CONFIG } from '../core/config.js?v=2026-08-18-001';
+import { CONFIG } from '../core/config.js?v=2026-08-21-003';
 
 /**
  * localStorage persistence: timetable cache, room-change map,
@@ -81,8 +81,9 @@ export function getNavState() {
         yearId: localStorage.getItem(NAV_KEYS.year) || null,
         section: (() => {
             const raw = localStorage.getItem(NAV_KEYS.section);
+            if (raw == null) return null;
             const n = parseInt(raw, 10);
-            return Number.isFinite(n) && n > 0 ? n : null;
+            return Number.isFinite(n) && n > 0 ? n : (raw || null);
         })(),
     };
 }

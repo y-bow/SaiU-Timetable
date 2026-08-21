@@ -113,6 +113,7 @@ export const SCHOOLS = [
                     { id: 'community-psychology', label: 'Community Psychology' },
                     { id: 'fundamentals-of-business-organization-and-management', label: 'Fundamentals of Business Organization & Management' },
                     { id: 'principles-in-financial-management', label: 'Principles in Financial Management' },
+                    { id: 'conflict-in-contemporary-international-relations', label: 'Conflicts in Contemporary International Relations' },
                 ],
             },
         ],
@@ -189,11 +190,11 @@ export const SCHOOLS = [
     {
         id: 'sot',
         shortName: 'SOT',
-        // School of Technology → Biotechnology → Year 1. Uses the same
-        // per-program hierarchy as SAS: the school → programme → year tree.
-        // All six courses are mandatory (Year 1 Biotechnology has no elective
-        // selector), so `electives` stays null and the parser matches every
-        // course the same way the other mandatory lists do.
+        // School of Technology → Biotechnology. Uses the same per-program
+        // hierarchy as SAS: the school → programme → year tree. Every course is
+        // mandatory (Biotechnology has no elective selector), so `electives`
+        // stays null and the parser matches every course the same way the other
+        // mandatory lists do.
         programs: [
             {
                 id: 'biotechnology',
@@ -214,6 +215,23 @@ export const SCHOOLS = [
                             'Critical Thinking',
                             'Indian Constitution & Democracy',
                             'Frontiers of AI',
+                        ],
+                        electives: null,
+                    },
+                    {
+                        id: 'sot-bio-2',
+                        label: 'Year 2',
+                        level: 2,
+                        sections: null,
+                        sheetId: '1Jk3KCLqHHzi-jxigIcPpcXZestcxb8Y0BeQLjhiezb8',
+                        gid: '0',
+                        parser: 'grid',
+                        mandatoryCourses: [
+                            'Chemical Engineering',
+                            'Environmental Biotechnology',
+                            'Microbiology',
+                            'Frontiers of AI',
+                            'Operations Research',
                         ],
                         electives: null,
                     },

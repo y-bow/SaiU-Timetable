@@ -116,6 +116,7 @@ const COURSE_DEFINITIONS = [
     { canonical: 'forensic-psychology', display: 'Forensic Psychology' },
     { canonical: 'fundamentals-of-business-organization-and-management', display: 'Fundamentals of Business Organization & Management', aliases: ['FBO', 'FOB'] },
     { canonical: 'community-psychology', display: 'Community Psychology' },
+    { canonical: 'conflict-in-contemporary-international-relations', display: 'Conflicts in Contemporary International Relations', aliases: ['CCIR', 'Conflict in Contemporary International Relations', 'Conflicts in Contemporary International Relations'] },
 
     // SOAI Year 2 (sheet: AB1-101 / AB1-104 columns)
     { canonical: 'differential-equations', display: 'Differential Equations' },
@@ -129,16 +130,21 @@ const COURSE_DEFINITIONS = [
     { canonical: 'human-resource-management', display: 'Human Resource Management' },
     { canonical: 'principles-in-financial-management', display: 'Principles in Financial Management', aliases: ['PFM', 'PIFM', 'Principles of Financial Management'] },
 
-    // SOT Year 1 Biotechnology (shared grid sheet). "Critical Thinking" is
-    // already registered above (SCDS Year 3). The sheet may spell the two
-    // semester-tagged courses with a " - Sem1" / "Sem1" / "Sem 1" suffix; the
-    // aliases fold those spellings onto the clean course names (the semester
-    // tag is dropped from the course identity).
+    // SOT Biotechnology (shared grid sheet). "Critical Thinking" is
+    // already registered above (SCDS Year 3); "Frontiers of AI" and
+    // "Operations Research" are shared courses registered above (SOT Year 1 /
+    // SOB Year 2). The sheet may spell the Year 1 semester-tagged courses with
+    // a " - Sem1" / "Sem1" / "Sem 1" suffix; the aliases fold those spellings
+    // onto the clean course names (the semester tag is dropped from the course
+    // identity).
     { canonical: 'chemistry', display: 'Chemistry' },
     { canonical: 'general-mathematics', display: 'General Mathematics' },
     { canonical: 'fundamentals-of-biotechnology', display: 'Fundamentals of Biotechnology' },
     { canonical: 'indian-constitution-and-democracy', display: 'Indian Constitution & Democracy', aliases: ['Indian Constitution & Democracy - Sem1'] },
     { canonical: 'frontiers-of-ai', display: 'Frontiers of AI', aliases: ['Frontiers of AI Sem1'] },
+    { canonical: 'chemical-engineering', display: 'Chemical Engineering' },
+    { canonical: 'environmental-biotechnology', display: 'Environmental Biotechnology' },
+    { canonical: 'microbiology', display: 'Microbiology' },
 
     // SAS Year 3 Neuroscience (shared grid sheet)
     { canonical: 'biostatistics', display: 'Biostatistics' },
