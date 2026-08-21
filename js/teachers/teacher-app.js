@@ -447,6 +447,114 @@ async function load({ silent = false } = {}) {
 }
 
 // ============================================================
+// Pull to refresh
+// ============================================================
+
+let pullStart = 0, pulling = false;
+
+function initPullToRefresh() {
+    const indicator = $('.pull-indicator');
+    if (!indicator) return;
+    const threshold = 90;
+    window.addEventListener('touchstart', (e) => {
+        if (window.scrollY <= 0) { pullStart = e.touches[0].clientY; pulling = true; }
+    }, { passive: true });
+    window.addEventListener('touchmove', (e) => {
+        if (!pulling || pullStart <= 0) return;
+        const dy = e.touches[0].clientY - pullStart;
+        if (dy > 0) { indicator.classList.add('visible'); if (dy >= threshold) indicator.classList.add('active'); }
+    }, { passive: true });
+    window.addEventListener('touchend', () => {
+        if (indicator.classList.contains('active')) {
+            load({ silent: true });
+            showToast('Teacher timetable refreshed');
+        }
+        indicator.classList.remove('visible', 'active');
+        pulling = false; pullStart = 0;
+    }, { passive: true });
+}
+
+// ============================================================
+// PWA update flow
+// ============================================================
+
+const UPDATE_RELOAD_KEY = 'tt-update-reload-teacher';
+
+function isDevHost() {
+    return ['localhost', '127.0.0.1', '::1', '0.0.0.0'].includes(location.hostname);
+}
+
+function reloadOnce(version) {
+    try {
+        if (sessionStorage.getItem(UPDATE_RELOAD_KEY) === version) return false;
+        sessionStorage.setItem(UPDATE_RELOAD_KEY, version);
+    } catch { /* private mode — reload freely */ }
+    if (document.hidden) {
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) window.location.reload();
+        }, { once: true });
+    } else {
+        window.location.reload();
+    }
+    return true;
+}
+
+function controllerBuildId() {
+    const scriptURL = navigator.serviceWorker.controller && navigator.serviceWorker.controller.scriptURL;
+    if (!scriptURL) return null;
+    try { return new URL(scriptURL).searchParams.get('v'); } catch { return null; }
+}
+
+async function initServiceWorkerUpdate() {
+    if (!('serviceWorker' in navigator) || isDevHost() || !location.protocol.startsWith('https')) return;
+
+    const hadController = !!navigator.serviceWorker.controller;
+
+    try {
+        const reg = await navigator.serviceWorker.register('./sw.js?v=' + encodeURIComponent(CONFIG.BUILD_ID));
+
+        const askToActivate = (worker) => {
+            if (worker && worker.state === 'installed') {
+                worker.postMessage({ type: 'SKIP_WAITING' });
+            }
+        };
+
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (!hadController) return;
+            const version = controllerBuildId() || CONFIG.BUILD_ID;
+            reloadOnce(version);
+        });
+
+        askToActivate(reg.waiting);
+
+        const watchInstalling = () => {
+            const worker = reg.installing;
+            if (!worker) return;
+            worker.addEventListener('statechange', () => {
+                if (worker.state === 'installed') askToActivate(worker);
+            });
+        };
+        watchInstalling();
+        reg.addEventListener('updatefound', watchInstalling);
+
+        setInterval(() => reg.update().catch(() => {}), 60 * 60 * 1000);
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) reg.update().catch(() => {});
+        });
+    } catch { /* registration failed — page works without SW */ }
+}
+
+async function checkForRemoteUpdate() {
+    if (!navigator.onLine || isDevHost()) return;
+    try {
+        const res = await fetch('build.json?v=' + Date.now(), { cache: 'no-store' });
+        if (!res.ok) return;
+        const meta = await res.json();
+        if (meta && meta.id && meta.id !== CONFIG.BUILD_ID) reloadOnce(meta.id);
+    } catch { /* offline / transient — ignore */ }
+}
+
+// ============================================================
 // Bootstrap
 // ============================================================
 
@@ -470,6 +578,9 @@ function init() {
     // Failsafe FIRST: never let the splash block the page if anything below
     // (AI wiring, load) throws.
     setTimeout(hideSplash, 4000);
+    initPullToRefresh();
+    initServiceWorkerUpdate();
+    checkForRemoteUpdate();
 
     initAiAssistant({
         getClasses: () => state.classes,
@@ -485,3 +596,7 @@ function init() {
 }
 
 document.addEventListener('DOMContentLoaded', init);
+
+window.addEventListener('pageshow', (e) => {
+    if (e.persisted) window.location.reload();
+});

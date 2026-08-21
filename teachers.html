@@ -14,6 +14,7 @@
         .splash-logo { width: 88px; height: 88px; }
     </style>
 
+    <script src="js/generated/build.js?v=2026-08-21-006" defer></script>
     <link rel="preload" href="style.css?v=2026-08-21-006" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="style.css?v=2026-08-21-006"></noscript>
     <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon/favicon-32.png?v=2026-08-21-006">
@@ -60,6 +61,10 @@
         </section>
 
         <section class="teacher-content" aria-label="Teacher timetable">
+            <div id="pull-indicator" class="pull-indicator" aria-hidden="true">
+                <span class="spinner"></span>
+                <span>Release to refresh</span>
+            </div>
             <div id="teacher-debug" class="teacher-debug hidden" aria-live="polite"></div>
 
             <div class="teacher-context">
