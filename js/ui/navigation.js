@@ -1,5 +1,5 @@
-import { SCHOOLS, buildYearMap, resolveYears, resolveSections, shouldShowProgram, shouldShowSection, schoolHasLevel } from '../data/schools.js?v=2026-08-21-003';
-import { getNavState, setNavState, getStoredElectives, setStoredElectives, getStoredOfferings, setStoredOffering, getStoredEmergingToolsSection, setStoredEmergingToolsSection } from '../services/storage.js?v=2026-08-21-003';
+import { SCHOOLS, buildYearMap, resolveYears, resolveSections, shouldShowProgram, shouldShowSection, schoolHasLevel } from '../data/schools.js?v=2026-08-21-005';
+import { getNavState, setNavState, getStoredElectives, setStoredElectives, getStoredOfferings, setStoredOffering, getStoredEmergingToolsSection, setStoredEmergingToolsSection } from '../services/storage.js?v=2026-08-21-005';
 
 /**
  * Navigation state management.
@@ -198,8 +198,14 @@ export function navigateToSchool(schoolId) {
     let program = null;
     if (school.programs) program = school.programs[0];
 
-    const years = program ? (program.years || []) : (school.years || []);
-    const yearConfig = years[0] || null;
+    // Preserve the current year level when switching schools so the user
+    // stays on e.g. Year 2 instead of being reset to Year 1.
+    const currentLevel = state.year?.level;
+    let yearConfig = currentLevel != null ? findYearByLevel(school, program, currentLevel) : null;
+    if (!yearConfig) {
+        const years = program ? (program.years || []) : (school.years || []);
+        yearConfig = years[0] || null;
+    }
 
     let section = null;
     if (yearConfig) {
@@ -230,7 +236,12 @@ export function navigateToProgram(programId) {
     const program = findProgram(school, programId);
     if (!program) return;
 
-    const yearConfig = program.years?.[0] || null;
+    // Preserve the current year level when switching programs.
+    const currentLevel = state.year?.level;
+    let yearConfig = currentLevel != null ? findYearByLevel(school, program, currentLevel) : null;
+    if (!yearConfig) {
+        yearConfig = program.years?.[0] || null;
+    }
     let section = null;
     if (yearConfig) {
         const sections = resolveSections(yearConfig);

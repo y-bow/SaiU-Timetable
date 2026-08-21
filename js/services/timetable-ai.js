@@ -1,6 +1,6 @@
-import { CONFIG } from '../core/config.js?v=2026-08-21-003';
-import { offeringKey } from '../data/parser.js?v=2026-08-21-003';
-import { dateForWeekday } from './n8n.js?v=2026-08-21-003';
+import { CONFIG } from '../core/config.js?v=2026-08-21-005';
+import { offeringKey } from '../data/parser.js?v=2026-08-21-005';
+import { dateForWeekday } from './n8n.js?v=2026-08-21-005';
 
 /**
  * Generative-AI timetable assistant ("Ask SaiU AI").

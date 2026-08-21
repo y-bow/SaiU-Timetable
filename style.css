@@ -982,7 +982,7 @@ input { font-family: inherit; }
    ============================================================ */
 .toast {
     position: fixed;
-    bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(50px + env(safe-area-inset-bottom, 0px));
     left: 50%;
     transform: translate(-50%, 80px);
     background: var(--material-toast);
@@ -1486,6 +1486,11 @@ input { font-family: inherit; }
 
     /* Credit pill stays bottom-center over the timetable area. */
     .main-footer {
+        left: calc(50% + var(--sidebar-w) / 2);
+    }
+
+    /* Toast follows the same horizontal center as the credit pill. */
+    .toast {
         left: calc(50% + var(--sidebar-w) / 2);
     }
 
