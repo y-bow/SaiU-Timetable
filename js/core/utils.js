@@ -1,4 +1,4 @@
-import { CONFIG } from './config.js?v=2026-08-21-005';
+import { CONFIG } from './config.js?v=2026-08-21-006';
 
 /**
  * Time and day helpers — all times are handled as "HH:MM" (24h) strings.
