@@ -116,7 +116,7 @@ function belongsToYear(c, year) {
  * Stamp school/year context onto every raw teacher class. `_ctxLabels` is a
  * Set of "SCHOOL · Year N" labels (a class can belong to several year configs,
  * e.g. Deep Learning appears in both the SCDS-2 rooms and SCDS-3 mandatory
- * list). `_hasSection` is consumed here and removed.
+ * list). `_hasSection` is preserved for the teacher page's section badge.
  */
 function stampYearContexts(classes, yearMap) {
     for (const c of classes || []) {
@@ -128,7 +128,7 @@ function stampYearContexts(classes, yearMap) {
             if (!c._ctxLabels) c._ctxLabels = new Set();
             c._ctxLabels.add(contextLabel(school, program, year));
         }
-        delete c._hasSection;
+
     }
     return classes;
 }

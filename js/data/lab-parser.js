@@ -383,6 +383,7 @@ export function recordsToAppClasses(records, config, ctx = {}) {
                 year: r.year,
                 school: r.school,
                 source: r.source,
+                _hasSection: true,
             };
         });
 }
@@ -405,6 +406,7 @@ function toFlatElectiveClasses(records, config) {
             elective: config.electiveId,
             course: r.course,
             courseId: res ? res.canonical : null,
+            _hasSection: true,
             year: r.year,
             school: r.school,
             source: r.source,
