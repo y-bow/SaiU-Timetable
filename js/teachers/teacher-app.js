@@ -11,11 +11,11 @@
  * never invented — the timeline simply shows the classes that exist.
  */
 
-import { loadTeacherIndex } from '../services/teacher-fetch.js?v=2026-08-21-006';
-import { CONFIG } from '../core/config.js?v=2026-08-21-006';
-import { initAiAssistant } from '../ui/ai-assistant.js?v=2026-08-21-006';
-import { toMinutes, minutesToLabel, minutesToClock, todayName, WEEKDAYS, labSubjectLabel } from '../core/utils.js?v=2026-08-21-006';
-import { confirmTeacherMerge, dismissTeacherMerge } from '../data/teacher-identity.js?v=2026-08-21-006';
+import { loadTeacherIndex } from '../services/teacher-fetch.js?v=2026-08-21-007';
+import { CONFIG } from '../core/config.js?v=2026-08-21-007';
+import { initAiAssistant } from '../ui/ai-assistant.js?v=2026-08-21-007';
+import { toMinutes, minutesToLabel, minutesToClock, todayName, WEEKDAYS, labSubjectLabel } from '../core/utils.js?v=2026-08-21-007';
+import { confirmTeacherMerge, dismissTeacherMerge } from '../data/teacher-identity.js?v=2026-08-21-007';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -224,14 +224,10 @@ function buildItem(c, startMin, endMin) {
     li.className = 'tl-item upcoming';
 
     const badges = [];
-    // Only show section badge when the sheet had an explicit "Sec N" marker
-    // AND the class belongs to a single school. Multiple schools (e.g. SCDS
-    // Year 2 + SOAI Year 2) or years without sections (e.g. SCDS Year 3)
-    // should not display a section badge.
-    const schools = new Set((c.contexts || []).map((ctx) => ctx.split(' · ')[0]).filter(Boolean));
-    const showSection = c._hasSection && schools.size <= 1;
-    const sectionText = showSection ? `Section ${c.section}` : '';
-    if (sectionText) badges.push(`<span class="badge">${escapeHtml(sectionText)}</span>`);
+    if (c._hasSection) {
+        badges.push(`<span class="badge">${escapeHtml(`Section ${c.section}`)}</span>`);
+    }
+    if (c.year) badges.push(`<span class="badge badge-year">Year ${c.year}</span>`);
     if (c.lab) badges.push('<span class="badge badge-lab">Lab</span>');
     if (c.course && c.course !== c.subject) {
         badges.push(`<span class="badge badge-course">${escapeHtml(c.course)}</span>`);
