@@ -322,18 +322,49 @@ await check('SCDS-3 newly added elective (minor) is parsed with its teacher', ()
     assert.equal(c.section, 1);
 });
 
+console.log('--- SOB Year 1 config: BBA ---');
+
+await check('SOB Year 1 has BBA section', () => {
+    const sob = SCHOOLS.find(s => s.id === 'sob');
+    assert.ok(sob, 'SOB school exists');
+    const year1 = sob.years.find(y => y.id === 'sob-year1');
+    assert.ok(year1, 'SOB Year 1 exists');
+    assert.deepStrictEqual(year1.sections, ['BBA']);
+});
+
+await check('SOB Year 1 BBA courses are correct', () => {
+    const sob = SCHOOLS.find(s => s.id === 'sob');
+    const year1 = sob.years.find(y => y.id === 'sob-year1');
+    const bba = year1.sectionCourses['BBA'];
+    assert.deepStrictEqual(bba, [
+        'Fundamentals of Business',
+        'Financial Management',
+        'Business Mathematics and Stats',
+        'Critical Thinking',
+        'ICD',
+        'Frontiers of AI',
+    ]);
+});
+
+await check('SOB Year 1 has no B.Com', () => {
+    const sob = SCHOOLS.find(s => s.id === 'sob');
+    const year1 = sob.years.find(y => y.id === 'sob-year1');
+    assert.ok(!year1.sectionCourses['B.Com'], 'no B.Com section courses');
+    assert.ok(!year1.sections.includes('B.Com'), 'no B.Com in sections');
+});
+
 console.log('--- SOB Year 2 config: BBA / B.Com split ---');
 
 await check('SOB Year 2 has BBA and B.Com sections', () => {
     const sob = SCHOOLS.find(s => s.id === 'sob');
     assert.ok(sob, 'SOB school exists');
-    const year2 = sob.years[0];
+    const year2 = sob.years.find(y => y.id === 'sob-year2');
     assert.deepStrictEqual(year2.sections, ['BBA', 'B.Com']);
 });
 
 await check('SOB Year 2 BBA courses are correct', () => {
     const sob = SCHOOLS.find(s => s.id === 'sob');
-    const year2 = sob.years[0];
+    const year2 = sob.years.find(y => y.id === 'sob-year2');
     const bba = year2.sectionCourses['BBA'];
     assert.ok(bba.includes('Corporate and Business Law'), 'BBA has Corporate and Business Law');
     assert.ok(bba.includes('Operations Research'), 'BBA has Operations Research');
@@ -345,7 +376,7 @@ await check('SOB Year 2 BBA courses are correct', () => {
 
 await check('SOB Year 2 B.Com courses are correct', () => {
     const sob = SCHOOLS.find(s => s.id === 'sob');
-    const year2 = sob.years[0];
+    const year2 = sob.years.find(y => y.id === 'sob-year2');
     const bcom = year2.sectionCourses['B.Com'];
     assert.ok(bcom.includes('Corporate and Business Law'), 'B.Com has Corporate and Business Law');
     assert.ok(bcom.includes('Human Resource Management'), 'B.Com has Human Resource Management');
@@ -357,7 +388,7 @@ await check('SOB Year 2 B.Com courses are correct', () => {
 
 await check('shared courses appear in both BBA and B.Com', () => {
     const sob = SCHOOLS.find(s => s.id === 'sob');
-    const year2 = sob.years[0];
+    const year2 = sob.years.find(y => y.id === 'sob-year2');
     const bba = year2.sectionCourses['BBA'];
     const bcom = year2.sectionCourses['B.Com'];
     const shared = ['Corporate and Business Law', 'Human Resource Management', 'Principles in Financial Management'];
@@ -749,11 +780,11 @@ await check('SOT Year 1 has exactly the 6 mandatory courses and no electives', (
 
 await check('SOT Year 1 exclusive courses do NOT appear in any other school/programme/year', () => {
     // "Critical Thinking" is a pre-existing shared course (already offered by
-    // SCDS Year 3 before SOT was added), exactly like Human AI Interaction /
-    // Forensic Psychology etc. — the requirement is that the NEW SOT courses
-    // are not added to any other programme, so only the five SOT-specific
-    // courses are checked for cross-contamination.
-    const exclusive = SOT_MANDATORY.filter(name => name !== 'Critical Thinking');
+    // SCDS Year 3 before SOT was added), and "Frontiers of AI" is shared with
+    // SOB Year 1 — the requirement is that the NEW SOT courses are not added
+    // to any other programme, so only the four SOT-specific courses are
+    // checked for cross-contamination.
+    const exclusive = SOT_MANDATORY.filter(name => !['Critical Thinking', 'Frontiers of AI'].includes(name));
     const sotCourses = new Set(exclusive);
     for (const school of SCHOOLS) {
         if (school.id === 'sot') continue;
@@ -769,12 +800,12 @@ await check('SOT Year 1 exclusive courses do NOT appear in any other school/prog
     }
 });
 
-await check('SOT is the only school offering Year 1', () => {
+await check('SOT and SOB are the schools offering Year 1', () => {
     const year1Schools = SCHOOLS.filter(s => {
         const years = s.programs ? s.programs.flatMap(p => p.years) : (s.years || []);
         return years.some(y => y.level === 1);
     });
-    assert.deepStrictEqual(year1Schools.map(s => s.id), ['sot'], 'only SOT offers Year 1');
+    assert.deepStrictEqual(year1Schools.map(s => s.id).sort(), ['sob', 'sot'], 'SOB and SOT offer Year 1');
 });
 
 console.log('--- SOT Year 2 Biotechnology config ---');

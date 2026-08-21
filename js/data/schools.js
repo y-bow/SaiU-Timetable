@@ -150,6 +150,34 @@ export const SCHOOLS = [
         programs: null,
         years: [
             {
+                id: 'sob-year1',
+                label: 'Year 1',
+                level: 1,
+                sections: ['BBA'],
+                sheetId: '1Jk3KCLqHHzi-jxigIcPpcXZestcxb8Y0BeQLjhiezb8',
+                gid: '0',
+                parser: 'grid',
+                mandatoryCourses: [
+                    'Fundamentals of Business',
+                    'Financial Management',
+                    'Business Mathematics and Stats',
+                    'Critical Thinking',
+                    'ICD',
+                    'Frontiers of AI',
+                ],
+                sectionCourses: {
+                    'BBA': [
+                        'Fundamentals of Business',
+                        'Financial Management',
+                        'Business Mathematics and Stats',
+                        'Critical Thinking',
+                        'ICD',
+                        'Frontiers of AI',
+                    ],
+                },
+                electives: null,
+            },
+            {
                 id: 'sob-year2',
                 label: 'Year 2',
                 level: 2,

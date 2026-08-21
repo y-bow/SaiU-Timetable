@@ -124,6 +124,11 @@ const COURSE_DEFINITIONS = [
     { canonical: 'discrete-mathematics', display: 'Discrete Mathematics', aliases: ['Discrete Mathematics & Set Theory'] },
     { canonical: 'image-processing', display: 'Image Processing' },
 
+    // SOB BBA Year 1 (sheet: AB2-211 / AB1-103 columns)
+    { canonical: 'fundamentals-of-business', display: 'Fundamentals of Business' },
+    { canonical: 'financial-management', display: 'Financial Management' },
+    { canonical: 'business-mathematics-and-stats', display: 'Business Mathematics and Stats' },
+
     // SOB BBA Year 2 (sheet: AB2-211 / AB1-103 columns)
     { canonical: 'corporate-and-business-law', display: 'Corporate and Business Law' },
     { canonical: 'operations-research', display: 'Operations Research' },
@@ -140,7 +145,7 @@ const COURSE_DEFINITIONS = [
     { canonical: 'chemistry', display: 'Chemistry' },
     { canonical: 'general-mathematics', display: 'General Mathematics' },
     { canonical: 'fundamentals-of-biotechnology', display: 'Fundamentals of Biotechnology' },
-    { canonical: 'indian-constitution-and-democracy', display: 'Indian Constitution & Democracy', aliases: ['Indian Constitution & Democracy - Sem1'] },
+    { canonical: 'indian-constitution-and-democracy', display: 'Indian Constitution & Democracy', aliases: ['Indian Constitution & Democracy - Sem1', 'ICD'] },
     { canonical: 'frontiers-of-ai', display: 'Frontiers of AI', aliases: ['Frontiers of AI Sem1'] },
     { canonical: 'chemical-engineering', display: 'Chemical Engineering' },
     { canonical: 'environmental-biotechnology', display: 'Environmental Biotechnology' },
