@@ -11,11 +11,11 @@
  * never invented — the timeline simply shows the classes that exist.
  */
 
-import { loadTeacherIndex } from '../services/teacher-fetch.js?v=2026-08-21-007';
-import { CONFIG } from '../core/config.js?v=2026-08-21-007';
-import { initAiAssistant } from '../ui/ai-assistant.js?v=2026-08-21-007';
-import { toMinutes, minutesToLabel, minutesToClock, todayName, WEEKDAYS, labSubjectLabel } from '../core/utils.js?v=2026-08-21-007';
-import { confirmTeacherMerge, dismissTeacherMerge } from '../data/teacher-identity.js?v=2026-08-21-007';
+import { loadTeacherIndex } from '../services/teacher-fetch.js?v=2026-08-21-011';
+import { CONFIG } from '../core/config.js?v=2026-08-21-011';
+import { initAiAssistant } from '../ui/ai-assistant.js?v=2026-08-21-011';
+import { toMinutes, minutesToLabel, minutesToClock, todayName, WEEKDAYS, labSubjectLabel } from '../core/utils.js?v=2026-08-21-011';
+import { confirmTeacherMerge, dismissTeacherMerge } from '../data/teacher-identity.js?v=2026-08-21-011';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -266,18 +266,12 @@ function buildItem(c, startMin, endMin) {
 // Loading / states
 // ============================================================
 
-function hideSplash() {
-    const s = $('#splash');
-    if (s) s.classList.add('splash-hidden');
-}
-
 function showLoading() {
     $('#loading-state')?.classList.add('visible');
 }
 
 function hideLoading() {
     $('#loading-state')?.classList.remove('visible');
-    hideSplash();
 }
 
 function showToast(message) {
@@ -439,7 +433,6 @@ async function load({ silent = false } = {}) {
     } else {
         select(state.order[0]);
     }
-    if (!silent) hideSplash();
 }
 
 // ============================================================
@@ -571,9 +564,6 @@ function init() {
     });
     $('#teacher-retry')?.addEventListener('click', () => load());
 
-    // Failsafe FIRST: never let the splash block the page if anything below
-    // (AI wiring, load) throws.
-    setTimeout(hideSplash, 4000);
     initPullToRefresh();
     initServiceWorkerUpdate();
     checkForRemoteUpdate();

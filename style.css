@@ -99,28 +99,6 @@ input { font-family: inherit; }
 .hidden { display: none !important; }
 :focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: var(--radius-sm); }
 
-/* ---------- Splash screen ---------- */
-.splash {
-    position: fixed;
-    inset: 0;
-    z-index: 9999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--bg);
-    pointer-events: none;
-}
-.splash.splash-hidden {
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 300ms cubic-bezier(0.25, 0.1, 0.25, 1), visibility 0s linear 300ms;
-}
-.splash-logo {
-    width: 88px;
-    height: 88px;
-    filter: drop-shadow(0 8px 24px rgba(216, 87, 87, 0.15));
-}
-
 /* ---------- Scrollbar (dark, matches theme) ---------- */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }

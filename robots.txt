@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Allow: /index.html
+Allow: /teachers.html
+Allow: /404.html
+
+Sitemap: https://y-bow.github.io/SaiU-Timetable/sitemap.xml

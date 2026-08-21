@@ -1,5 +1,5 @@
-import { toMinutes, minutesToClock } from '../core/utils.js?v=2026-08-21-007';
-import { trackEvent } from '../services/analytics.js?v=2026-08-21-007';
+import { toMinutes, minutesToClock } from '../core/utils.js?v=2026-08-21-011';
+import { trackEvent } from '../services/analytics.js?v=2026-08-21-011';
 
 /**
  * Free Rooms — shows which rooms are available during each period

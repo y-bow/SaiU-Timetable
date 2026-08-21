@@ -1,0 +1,34 @@
+# SaiU Timetable
+
+Real-time university timetable dashboard for Sai University (SaiU).
+
+## Overview
+
+SaiU Timetable is a Progressive Web App (PWA) that displays the weekly class timetable for students and teachers across SaiU schools (SCDS, SOAI, SOB). It fetches timetable data from public Google Sheets and provides live class tracking, countdowns, and offline support.
+
+## Pages
+
+- **Student Timetable** (`/`): Main page with year/school/program/section filters, daily schedule view, lab group selection, and elective pickers.
+- **Teacher Timetable** (`/teachers.html`): Searchable teacher directory with weekly timetable views for every SaiU teacher.
+
+## Features
+
+- Section-specific timetable filtering
+- Lab group scheduling (SCDS Year 2)
+- Elective course selection
+- Free room finder
+- PWA install support with offline caching
+- Dark/light theme adaptation
+- Background sync for timetable updates
+
+## Data Source
+
+Timetable data is sourced from public Google Sheets maintained by the university. The app fetches and parses CSV-format timetable grids client-side.
+
+## Technical Details
+
+- Built with vanilla HTML, CSS, and JavaScript (no framework)
+- ES modules for code splitting
+- Service Worker for offline support
+- Responsive mobile-first design
+- Hosted on GitHub Pages

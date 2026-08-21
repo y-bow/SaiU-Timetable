@@ -1,24 +1,24 @@
-import { CONFIG } from './config.js?v=2026-08-21-007';
-import { parseCSV, parseRoomOccupancy, offeringKey } from '../data/parser.js?v=2026-08-21-007';
-import { compareTimetables, classIdentity, setChangeDetectorDebug } from '../data/change-detector.js?v=2026-08-21-007';
-import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen } from '../services/storage.js?v=2026-08-21-007';
-import * as nav from '../ui/navigation.js?v=2026-08-21-007';
-import * as ui from '../ui/ui.js?v=2026-08-21-007';
-import { checkArjunSinghTransition, resetArjunSinghTransition } from '../ui/easter-eggs.js?v=2026-08-21-007';
-import * as labSection from '../ui/lab-section.js?v=2026-08-21-007';
-import { loadMergedYear2Timetable } from '../services/lab-fetch.js?v=2026-08-21-007';
-import { matchesEmergingToolsSection } from '../data/lab-parser.js?v=2026-08-21-007';
-import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-08-21-007';
-import { init as initAnalytics, trackEvent } from '../services/analytics.js?v=2026-08-21-007';
-import { dispatchTimetableChanges, setN8nDebug } from '../services/n8n.js?v=2026-08-21-007';
+import { CONFIG } from './config.js?v=2026-08-21-011';
+import { parseCSV, parseRoomOccupancy, offeringKey } from '../data/parser.js?v=2026-08-21-011';
+import { compareTimetables, classIdentity, setChangeDetectorDebug } from '../data/change-detector.js?v=2026-08-21-011';
+import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen } from '../services/storage.js?v=2026-08-21-011';
+import * as nav from '../ui/navigation.js?v=2026-08-21-011';
+import * as ui from '../ui/ui.js?v=2026-08-21-011';
+import { checkArjunSinghTransition, resetArjunSinghTransition } from '../ui/easter-eggs.js?v=2026-08-21-011';
+import * as labSection from '../ui/lab-section.js?v=2026-08-21-011';
+import { loadMergedYear2Timetable } from '../services/lab-fetch.js?v=2026-08-21-011';
+import { matchesEmergingToolsSection } from '../data/lab-parser.js?v=2026-08-21-011';
+import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-08-21-011';
+import { init as initAnalytics, trackEvent } from '../services/analytics.js?v=2026-08-21-011';
+import { dispatchTimetableChanges, setN8nDebug } from '../services/n8n.js?v=2026-08-21-011';
 // Localhost-only dev console harness for timetable change notifications
 // (window.testRoomChangeNotification / testTimeChangeNotification /
 // testInvalidRoomChange). This side-effect import executes the module, which
 // attaches the functions itself; the module self-gates on localhost, so the
 // production build is never affected.
-import '../services/timetable-test-harness.js?v=2026-08-21-007';
-import { initAiAssistant } from '../ui/ai-assistant.js?v=2026-08-21-007';
-import { initFreeRooms } from '../ui/free-rooms.js?v=2026-08-21-007';
+import '../services/timetable-test-harness.js?v=2026-08-21-011';
+import { initAiAssistant } from '../ui/ai-assistant.js?v=2026-08-21-011';
+import { initFreeRooms } from '../ui/free-rooms.js?v=2026-08-21-011';
 
 /**
  * App bootstrap, fetch, and interactivity.

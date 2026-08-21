@@ -100,6 +100,9 @@ function versionRefs(html, patterns) {
     'js/core/app\\.js',
     'js/generated/build\\.js',
   ]);
+  // OG/Twitter image URLs must not have ?v= query strings — social crawlers
+  // may not follow them. Strip any that versionRefs accidentally added.
+  html = html.replace(/(<meta\s+(?:name|property)="(?:og:image|twitter:image)"[^>]*content="[^"]*?)\?v=[^"]*"/g, '$1"');
   write(file, html);
 }
 
@@ -110,13 +113,20 @@ function versionRefs(html, patterns) {
 // ---------------------------------------------------------------------------
 for (const file of ['game.html', '404.html', 'teachers.html']) {
   if (!existsSync(join(ROOT, file))) continue;
-  write(file, versionRefs(read(file), [
+  let html = versionRefs(read(file), [
     'style\\.css',
     'js/services/timetable-sync\\.js',
     'js/game/breakout\\.js',
     'js/teachers/teacher-app\\.js',
+    'js/generated/build\\.js',
     'icons/[A-Za-z0-9._/-]+\\.png',
-  ]));
+  ]);
+  // OG/Twitter image URLs must not have ?v= query strings.
+  html = html.replace(/(<meta\s+(?:name|property)="(?:og:image|twitter:image)"[^>]*content="[^"]*?)\?v=[^"]*"/g, '$1"');
+  // Update the inline __TT_BUILD_ID__ if present (teachers.html inlines it
+  // instead of loading js/generated/build.js as a separate request).
+  html = html.replace(/window\.__TT_BUILD_ID__\s*=\s*'[^']*'/, `window.__TT_BUILD_ID__='${BUILD_ID}'`);
+  write(file, html);
 }
 
 // ---------------------------------------------------------------------------

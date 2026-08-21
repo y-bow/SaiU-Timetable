@@ -1,8 +1,8 @@
-import { CONFIG } from '../core/config.js?v=2026-08-21-007';
-import { toMinutes, minutesToLabel, minutesToClock, todayName, isBeforeToday, WEEKDAYS, labSubjectLabel } from '../core/utils.js?v=2026-08-21-007';
-import { offeringKey } from '../data/parser.js?v=2026-08-21-007';
-import { rubberband, projectMomentum } from '../core/spring.js?v=2026-08-21-007';
-import { mergeAdjacentForDisplay, displayItemHighlighted } from './display.js?v=2026-08-21-007';
+import { CONFIG } from '../core/config.js?v=2026-08-21-011';
+import { toMinutes, minutesToLabel, minutesToClock, todayName, isBeforeToday, WEEKDAYS, labSubjectLabel } from '../core/utils.js?v=2026-08-21-011';
+import { offeringKey } from '../data/parser.js?v=2026-08-21-011';
+import { rubberband, projectMomentum } from '../core/spring.js?v=2026-08-21-011';
+import { mergeAdjacentForDisplay, displayItemHighlighted } from './display.js?v=2026-08-21-011';
 
 /**
  * DOM rendering — sidebar filters + timeline.
@@ -784,10 +784,6 @@ export function showLoading() {
     if (!el) return;
     clearTimeout(el._timer);
     el._timer = setTimeout(() => el.classList.add('visible'), 150);
-    // The splash covers the JS-load gap; once the app is running the
-    // in-app loading state takes over so a slow data fetch never holds
-    // the splash screen.
-    hideSplash();
 }
 
 export function hideLoading() {
@@ -796,12 +792,6 @@ export function hideLoading() {
         clearTimeout(el._timer);
         el.classList.remove('visible');
     }
-    hideSplash();
-}
-
-export function hideSplash() {
-    const el = $('#splash');
-    if (el) el.classList.add('splash-hidden');
 }
 
 export function renderDateLine() {}
