@@ -1,8 +1,8 @@
-import { CONFIG } from '../core/config.js?v=2026-08-21-005';
-import { toMinutes, minutesToLabel, minutesToClock, todayName, isBeforeToday, WEEKDAYS, labSubjectLabel } from '../core/utils.js?v=2026-08-21-005';
-import { offeringKey } from '../data/parser.js?v=2026-08-21-005';
-import { rubberband, projectMomentum } from '../core/spring.js?v=2026-08-21-005';
-import { mergeAdjacentForDisplay, displayItemHighlighted } from './display.js?v=2026-08-21-005';
+import { CONFIG } from '../core/config.js?v=2026-08-21-006';
+import { toMinutes, minutesToLabel, minutesToClock, todayName, isBeforeToday, WEEKDAYS, labSubjectLabel } from '../core/utils.js?v=2026-08-21-006';
+import { offeringKey } from '../data/parser.js?v=2026-08-21-006';
+import { rubberband, projectMomentum } from '../core/spring.js?v=2026-08-21-006';
+import { mergeAdjacentForDisplay, displayItemHighlighted } from './display.js?v=2026-08-21-006';
 
 /**
  * DOM rendering — sidebar filters + timeline.
@@ -509,6 +509,8 @@ export function updateLiveClock(now, current, next) {
         }
     }
     const fill = $('#timeline .tl-item.highlight .progress-fill');
+    const track = $('#timeline .tl-item.highlight .progress-track');
+    const glow = $('#timeline .tl-item.highlight .progress-glow');
     if (fill) {
         const span = (end - start) * 60;
         const pct = span > 0 ? Math.min(100, Math.max(0, ((nowSec - start * 60) / span) * 100)) : 0;
@@ -516,6 +518,16 @@ export function updateLiveClock(now, current, next) {
         if (fill._lastWidth !== width) {
             fill._lastWidth = width;
             fill.style.width = width;
+        }
+        if (glow) {
+            glow.style.left = width;
+        }
+        const phase = pct >= 100 ? 'done' : pct >= 90 ? '4' : pct >= 75 ? '3' : pct >= 50 ? '2' : '1';
+        if (track && track.dataset.phase !== phase) {
+            track.dataset.phase = phase;
+        }
+        if (fill.dataset.phase !== phase) {
+            fill.dataset.phase = phase;
         }
     }
 }
@@ -631,9 +643,11 @@ function buildTimeline(timeline, items, nowMin, skipBreaks, dayStatus = 'today',
             <div class="tl-countdown">${ICONS.clock}<span>${status === 'current'
                 ? `${naturalDur(endMin - nowMin)} remaining`
                 : `Starts in ${naturalDur(startMin - nowMin)}`}</span></div>` : '';
+        const _initPct = Math.min(100, Math.max(0, ((nowMin - startMin) / (endMin - startMin)) * 100));
+        const _initPhase = _initPct >= 100 ? 'done' : _initPct >= 90 ? '4' : _initPct >= 75 ? '3' : _initPct >= 50 ? '2' : '1';
         const progress = dayStatus === 'today' && hl && status === 'current' ? `
             <div class="progress-wrap">
-                <div class="progress-track"><div class="progress-fill" style="width:${Math.min(100, Math.max(0, ((nowMin - startMin) / (endMin - startMin)) * 100))}%"></div></div>
+                <div class="progress-track" data-phase="${_initPhase}"><div class="progress-fill" style="width:${_initPct}%"></div><div class="progress-glow" style="left:${_initPct}%"></div></div>
                 <div class="progress-meta">
                     <span class="progress-elapsed">${minutesToClock(startMin)}</span>
                     <span class="progress-remaining">${minutesToClock(endMin)}</span>

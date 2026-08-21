@@ -854,16 +854,98 @@ input { font-family: inherit; }
 
 .progress-wrap { margin-top: 8px; }
 .progress-track {
+    position: relative;
     height: 3px;
     border-radius: var(--radius-pill);
     background: var(--surface-3);
-    overflow: hidden;
+    overflow: visible;
 }
 .progress-fill {
+    position: relative;
     height: 100%; width: 0%;
     border-radius: var(--radius-pill);
     background: linear-gradient(90deg, var(--primary), var(--primary-hover));
     transition: width 1s cubic-bezier(0.25, 0.1, 0.25, 1);
+    overflow: hidden;
+}
+/* 1. Shimmer — subtle light sweep across the filled portion */
+.progress-fill::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.18) 40%,
+        rgba(255, 255, 255, 0.28) 50%,
+        rgba(255, 255, 255, 0.18) 60%,
+        transparent 100%
+    );
+    width: 200%;
+    animation: pb-shimmer 2.4s ease-in-out infinite;
+    will-change: transform;
+}
+@keyframes pb-shimmer {
+    0%   { transform: translateX(-75%); }
+    100% { transform: translateX(75%); }
+}
+/* 2. Leading edge — soft glow at progress endpoint (on track, not fill, to avoid overflow:hidden clip) */
+.progress-glow {
+    position: absolute;
+    top: 50%;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--primary-hover);
+    box-shadow: 0 0 6px 2px rgba(216, 87, 87, 0.45);
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.7;
+    transition: opacity 0.4s ease, box-shadow 0.4s ease, width 0.4s ease, height 0.4s ease;
+    will-change: transform, opacity;
+    pointer-events: none;
+}
+/* 3. Active pulse — slow calm breathing on the track */
+.progress-wrap {
+    animation: pb-pulse 3s ease-in-out infinite;
+    will-change: opacity;
+}
+@keyframes pb-pulse {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.88; }
+}
+/* 4. Time-based micro-transitions via data-phase attribute */
+/* Phase 2 → 50-75% */
+.progress-track[data-phase="2"] .progress-glow {
+    box-shadow: 0 0 8px 3px rgba(216, 87, 87, 0.5);
+    opacity: 0.8;
+}
+/* Phase 3 → 75-90% — slightly increase leading edge */
+.progress-track[data-phase="3"] .progress-glow {
+    width: 10px;
+    height: 10px;
+    box-shadow: 0 0 10px 4px rgba(216, 87, 87, 0.55);
+    opacity: 0.85;
+}
+/* Phase 4 → 90-100% — almost finished gentle pulse */
+.progress-track[data-phase="4"] .progress-glow {
+    width: 11px;
+    height: 11px;
+    box-shadow: 0 0 12px 5px rgba(216, 87, 87, 0.6);
+    opacity: 0.9;
+    animation: pb-almost-pulse 1.2s ease-in-out infinite;
+}
+@keyframes pb-almost-pulse {
+    0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.9; }
+    50%      { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+}
+/* 5. Class completion — settle state */
+.progress-track[data-phase="done"] .progress-glow {
+    animation: none;
+    opacity: 0;
+}
+.progress-fill[data-phase="done"]::before {
+    animation: none;
+    opacity: 0;
 }
 .progress-meta {
     display: flex; justify-content: space-between;
@@ -1445,6 +1527,12 @@ input { font-family: inherit; }
         transition-duration: 0.01ms !important;
     }
     html { scroll-behavior: auto; }
+    /* Keep progress width transition smooth — it's functional, not decorative */
+    .progress-fill { transition: width 0.8s ease !important; }
+    /* Hide decorative pseudo-elements and glow */
+    .progress-fill::before { display: none !important; }
+    .progress-glow { display: none !important; }
+    .progress-wrap { animation: none !important; }
 }
 
 /* Reduced transparency — frostier, near-solid surfaces */
