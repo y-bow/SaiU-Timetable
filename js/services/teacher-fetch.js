@@ -220,7 +220,10 @@ function rebuildIndex(cached) {
  * }|null>}
  */
 export async function loadTeacherIndex({ useCache = true } = {}) {
-    const sheet = await fetchMainSheetText({ useCache });
+    const [sheet, labResult] = await Promise.all([
+        fetchMainSheetText({ useCache }),
+        syncYear2Labs(),
+    ]);
     if (sheet.status === 'error') {
         if (useCache) {
             const cached = read(TEACHER_CACHE_KEY);
@@ -241,7 +244,7 @@ export async function loadTeacherIndex({ useCache = true } = {}) {
         return null;
     }
 
-    const { classes: labClasses, statuses: labStatuses } = await syncYear2Labs();
+    const { classes: labClasses, statuses: labStatuses } = labResult;
     const all = gatherAllTimetables(sheet.text, labClasses);
     const built = buildTeacherIndex(all);
 
