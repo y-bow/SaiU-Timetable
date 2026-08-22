@@ -462,11 +462,6 @@ input { font-family: inherit; }
     }
 }
 
-.sidebar-divider {
-    height: 1px; background: var(--border-bright);
-    margin: 6px 14px;
-}
-
 /* Unified action card at the bottom of the sidebar: Feedback, Install App,
    and timestamp live inside one dark rounded container. */
 .sidebar-actions-card {
@@ -965,45 +960,6 @@ input { font-family: inherit; }
 .tl-done.empty .tl-done-icon { color: var(--text-tertiary); }
 .tl-done strong { color: var(--text); font-size: 1rem; font-weight: 600; }
 .tl-done span { color: var(--text-tertiary); font-size: 0.82rem; }
-
-/* ============================================================
-   Sidebar Breakout CTA — quiet, footer-subtle invitation.
-   The static CTA lives in the sidebar footer, above Install App.
-   ============================================================ */
-.game-cta {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    padding: 2px 0;
-    text-align: center;
-}
-.game-cta-text {
-    font-size: 0.66rem;
-    font-weight: 400;
-    color: var(--text-tertiary);
-}
-.game-cta-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    height: 30px;
-    padding: 0 16px;
-    border-radius: var(--radius-pill);
-    font-size: 0.72rem;
-    font-weight: 500;
-    color: var(--text-secondary);
-    background: var(--surface-2);
-    border: 1px solid var(--border);
-    text-decoration: none;
-    transition: color var(--fast), border-color var(--fast), background var(--fast), transform 100ms ease-out;
-}
-.game-cta-btn:hover {
-    color: var(--text);
-    border-color: var(--border-strong);
-    background: var(--surface-3);
-}
-.game-cta-btn:active { transform: scale(0.97); }
 
 /* ============================================================
    State card
@@ -1815,7 +1771,6 @@ input { font-family: inherit; }
     .sidebar-install-btn { min-height: 44px; }
     .ai-launch-btn { min-height: 44px; }
     .fr-launch-btn { min-height: 44px; }
-    .game-cta-btn { min-height: 44px; }
     .sidebar-elective-select { min-height: 44px; padding: 9px 10px; }
     .tl-offering { min-height: 34px; padding: 6px 10px; }
     .ai-chip { min-height: 38px; }

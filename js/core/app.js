@@ -1,24 +1,24 @@
-import { CONFIG } from './config.js?v=2026-08-21-011';
-import { parseCSV, parseRoomOccupancy, offeringKey } from '../data/parser.js?v=2026-08-21-011';
-import { compareTimetables, classIdentity, setChangeDetectorDebug } from '../data/change-detector.js?v=2026-08-21-011';
-import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen } from '../services/storage.js?v=2026-08-21-011';
-import * as nav from '../ui/navigation.js?v=2026-08-21-011';
-import * as ui from '../ui/ui.js?v=2026-08-21-011';
-import { checkArjunSinghTransition, resetArjunSinghTransition } from '../ui/easter-eggs.js?v=2026-08-21-011';
-import * as labSection from '../ui/lab-section.js?v=2026-08-21-011';
-import { loadMergedYear2Timetable } from '../services/lab-fetch.js?v=2026-08-21-011';
-import { matchesEmergingToolsSection } from '../data/lab-parser.js?v=2026-08-21-011';
-import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-08-21-011';
-import { init as initAnalytics, trackEvent } from '../services/analytics.js?v=2026-08-21-011';
-import { dispatchTimetableChanges, setN8nDebug } from '../services/n8n.js?v=2026-08-21-011';
+import { CONFIG } from './config.js?v=2026-08-22-001';
+import { parseCSV, parseRoomOccupancy, offeringKey } from '../data/parser.js?v=2026-08-22-001';
+import { compareTimetables, classIdentity, setChangeDetectorDebug } from '../data/change-detector.js?v=2026-08-22-001';
+import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen } from '../services/storage.js?v=2026-08-22-001';
+import * as nav from '../ui/navigation.js?v=2026-08-22-001';
+import * as ui from '../ui/ui.js?v=2026-08-22-001';
+import { checkArjunSinghTransition, resetArjunSinghTransition } from '../ui/easter-eggs.js?v=2026-08-22-001';
+import * as labSection from '../ui/lab-section.js?v=2026-08-22-001';
+import { loadMergedYear2Timetable } from '../services/lab-fetch.js?v=2026-08-22-001';
+import { matchesEmergingToolsSection } from '../data/lab-parser.js?v=2026-08-22-001';
+import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-08-22-001';
+import { init as initAnalytics, trackEvent } from '../services/analytics.js?v=2026-08-22-001';
+import { dispatchTimetableChanges, setN8nDebug } from '../services/n8n.js?v=2026-08-22-001';
 // Localhost-only dev console harness for timetable change notifications
 // (window.testRoomChangeNotification / testTimeChangeNotification /
 // testInvalidRoomChange). This side-effect import executes the module, which
 // attaches the functions itself; the module self-gates on localhost, so the
 // production build is never affected.
-import '../services/timetable-test-harness.js?v=2026-08-21-011';
-import { initAiAssistant } from '../ui/ai-assistant.js?v=2026-08-21-011';
-import { initFreeRooms } from '../ui/free-rooms.js?v=2026-08-21-011';
+import '../services/timetable-test-harness.js?v=2026-08-22-001';
+import { initAiAssistant } from '../ui/ai-assistant.js?v=2026-08-22-001';
+import { initFreeRooms } from '../ui/free-rooms.js?v=2026-08-22-001';
 
 /**
  * App bootstrap, fetch, and interactivity.
@@ -569,28 +569,22 @@ function initActions() {
 
     const handleInstall = async () => {
         if (deferredPrompt) {
-            console.log('[PWA] Triggering native install prompt');
             deferredPrompt.prompt();
             const { outcome } = await deferredPrompt.userChoice;
-            console.log('[PWA] User choice:', outcome);
             if (outcome === 'accepted') {
                 hideInstallButton();
             }
             deferredPrompt = null;
         } else if (isStandalone()) {
-            console.log('[PWA] Already installed');
             ui.showToast('Already installed');
         } else {
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
             const isAndroid = /Android/i.test(navigator.userAgent);
             if (isIOS) {
-                console.log('[PWA] iOS — no programmatic install, showing share sheet instructions');
                 ui.showToast('Tap Share \u2192 Add to Home Screen');
             } else if (isAndroid) {
-                console.log('[PWA] Android but no deferredPrompt — showing menu instructions');
                 ui.showToast('Tap browser menu \u2192 Install app');
             } else {
-                console.log('[PWA] Desktop but no deferredPrompt — showing address bar instructions');
                 ui.showToast('Click the install icon in your address bar');
             }
         }
@@ -796,7 +790,6 @@ async function initServiceWorkerUpdate() {
             if (!document.hidden) reg.update().catch(() => {});
         });
 
-        console.log('[PWA] Service Worker registered, scope:', reg.scope);
     } catch (err) {
         console.warn('[PWA] Service Worker registration/update failed:', err);
     }
@@ -823,7 +816,6 @@ function initPWA() {
 
     // Already installed — hide button
     if (isStandalone()) {
-        console.log('[PWA] Running in standalone mode — already installed');
         hideInstallButton();
         return;
     }
@@ -832,29 +824,16 @@ function initPWA() {
     window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
         deferredPrompt = e;
-        console.log('[PWA] beforeinstallprompt captured — install available');
         showInstallButton();
     });
 
     // App was just installed
     window.addEventListener('appinstalled', () => {
-        console.log('[PWA] App installed successfully');
         deferredPrompt = null;
         hideInstallButton();
         trackEvent('pwa_installed');
     });
 
-    // Debug: log if beforeinstallprompt never fires after 5s
-    setTimeout(() => {
-        if (!deferredPrompt && !isStandalone()) {
-            console.warn('[PWA] beforeinstallprompt did not fire within 5s');
-            console.warn('[PWA] Possible reasons:');
-            console.warn('  - Browser does not support programmatic install');
-            console.warn('  - App does not meet installability criteria (HTTPS, manifest, SW)');
-            console.warn('  - User already dismissed the install infobar');
-            console.warn('  - App is already installed');
-        }
-    }, 5000);
 }
 
 // ============================================================

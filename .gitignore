@@ -1,3 +1,45 @@
+# Dependencies
 node_modules/
+
+# Build output
 dist/
+build/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# OS files
 .DS_Store
+Thumbs.db
+Desktop.ini
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Power BI cache files
+*.pbix.lock
+*.pbit.lk
+
+# Temporary exports
+*.tmp
+*.temp
+temp/
+tmp/
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Misc
+.buildinfo
