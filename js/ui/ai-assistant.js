@@ -27,8 +27,8 @@ const GENERIC_ERROR = "I couldn't reach SaiU AI right now. Please try again.";
 const SUGGESTED_QUESTIONS = [
     "What's my next class?",
     'When is Deep Learning?',
-    'When is SCDS Section 3 free?',
-    'When are SCDS 3 and SCDS 2 both free?',
+    'When is SOAI free?',
+    'When are SCDS Section 3 and SCDS Section 2 both free?',
     'What changed today?',
 ];
 

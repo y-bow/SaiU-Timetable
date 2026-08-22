@@ -240,6 +240,7 @@ function n8nContext() {
     const school = nav.getSchool();
     return {
         year: year?.id ?? null,
+        yearLevel: year?.level ?? null,
         school: school?.id ?? null,
         section: selectedSection,
         labGroup: labSection.getLabGroup(),
