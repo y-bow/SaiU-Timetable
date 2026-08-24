@@ -148,6 +148,7 @@ const COURSE_DEFINITIONS = [
     { canonical: 'indian-constitution-and-democracy', display: 'Indian Constitution & Democracy', aliases: ['Indian Constitution & Democracy - Sem1', 'ICD'] },
     { canonical: 'frontiers-of-ai', display: 'Frontiers of AI', aliases: ['Frontiers of AI Sem1'] },
     { canonical: 'chemical-engineering', display: 'Chemical Engineering' },
+    { canonical: 'basic-chemical-engineering', display: 'Basic Chemical Engineering', aliases: ['Basic Chemical Engg', 'Basic Chem Engg'] },
     { canonical: 'environmental-biotechnology', display: 'Environmental Biotechnology' },
     { canonical: 'microbiology', display: 'Microbiology' },
 

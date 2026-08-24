@@ -255,6 +255,7 @@ export const SCHOOLS = [
                         gid: '0',
                         parser: 'grid',
                         mandatoryCourses: [
+                            'Basic Chemical Engineering',
                             'Chemical Engineering',
                             'Environmental Biotechnology',
                             'Microbiology',
