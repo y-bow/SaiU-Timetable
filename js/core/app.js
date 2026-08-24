@@ -619,19 +619,19 @@ function initNavigationListeners() {
         nav.navigateToSchool(e.detail.schoolId);
         selectedSection = nav.getState().section;
         trackEvent('school_changed', { school: e.detail.schoolId });
-        load(); ui.closeDrawer();
+        load();
     });
     window.addEventListener('programchange', (e) => {
         nav.navigateToProgram(e.detail.programId);
         selectedSection = nav.getState().section;
         trackEvent('program_changed', { program: e.detail.programId });
-        load(); ui.closeDrawer();
+        load();
     });
     window.addEventListener('yearchange', (e) => {
         nav.navigateToYear(e.detail.yearId);
         selectedSection = nav.getState().section;
         trackEvent('year_changed', { year: e.detail.yearId });
-        load(); ui.closeDrawer();
+        load();
     });
     window.addEventListener('sectionchange', (e) => {
         const s = e.detail.section;
@@ -639,7 +639,7 @@ function initNavigationListeners() {
         selectedSection = s;
         nav.navigateToSection(s);
         trackEvent('section_changed', { section: s });
-        render(); ui.closeDrawer();
+        render();
     });
     window.addEventListener('electivetoggle', (e) => {
         const ids = new Set(nav.getSelectedElectives());
