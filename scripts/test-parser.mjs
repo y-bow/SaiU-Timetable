@@ -805,13 +805,14 @@ await check('SOT and SOB are the schools offering Year 1', () => {
         const years = s.programs ? s.programs.flatMap(p => p.years) : (s.years || []);
         return years.some(y => y.level === 1);
     });
-    assert.deepStrictEqual(year1Schools.map(s => s.id).sort(), ['sob', 'sot'], 'SOB and SOT offer Year 1');
+    assert.deepStrictEqual(year1Schools.map(s => s.id).sort(), ['scds', 'sob', 'sot'], 'SCDS, SOB and SOT offer Year 1');
 });
 
 console.log('--- SOT Year 2 Biotechnology config ---');
 
 const SOT2 = sot.programs.find(p => p.id === 'biotechnology').years[1];
 const SOT2_MANDATORY = [
+    'Basic Chemical Engineering',
     'Chemical Engineering',
     'Environmental Biotechnology',
     'Microbiology',
@@ -820,7 +821,7 @@ const SOT2_MANDATORY = [
 ];
 const SOT2_ELECTIVES = null;
 
-await check('SOT Year 2 has exactly the 5 mandatory courses and no electives', () => {
+await check('SOT Year 2 has exactly the 6 mandatory courses and no electives', () => {
     assert.deepStrictEqual(SOT2.mandatoryCourses, SOT2_MANDATORY);
     assert.equal(SOT2.electives, null);
 });
@@ -988,14 +989,15 @@ console.log('--- parseCSV (grid): SOT Year 2 Biotechnology ---');
 // purely from the configured course list, with real data coming from the
 // source sheet at runtime.
 const SOT2_GRID = [
-    'MONDAY,09:15 AM - 10:10 AM,Chemical Engineering',
-    ',10:15 AM - 11:10 AM,Environmental Biotechnology',
-    ',11:15 AM - 12:10 PM,Microbiology',
-    ',12:15 PM - 1:10 PM,Frontiers of AI',
-    ',2:15 PM - 3:10 PM,Operations Research',
+    'MONDAY,09:15 AM - 10:10 AM,Basic Chemical Engineering',
+    ',10:15 AM - 11:10 AM,Chemical Engineering',
+    ',11:15 AM - 12:10 PM,Environmental Biotechnology',
+    ',12:15 PM - 1:10 PM,Microbiology',
+    ',2:15 PM - 3:10 PM,Frontiers of AI',
+    ',3:15 PM - 4:10 PM,Operations Research',
 ].join('\n');
 
-await check('SOT Year 2: all five mandatory courses parse', () => {
+await check('SOT Year 2: all six mandatory courses parse', () => {
     const out = parseCSV(SOT2_GRID, 'grid', SOT2_MANDATORY, SOT2_ELECTIVES, null);
     for (const name of SOT2_MANDATORY) {
         const c = out.find(x => x.subject === name);
@@ -1006,6 +1008,7 @@ await check('SOT Year 2: all five mandatory courses parse', () => {
 
 await check('SOT Year 2: mandatory courses carry stable canonical courseIds', () => {
     const out = parseCSV(SOT2_GRID, 'grid', SOT2_MANDATORY, SOT2_ELECTIVES, null);
+    assert.equal(out.find(x => x.subject === 'Basic Chemical Engineering').courseId, 'basic-chemical-engineering');
     assert.equal(out.find(x => x.subject === 'Chemical Engineering').courseId, 'chemical-engineering');
     assert.equal(out.find(x => x.subject === 'Environmental Biotechnology').courseId, 'environmental-biotechnology');
     assert.equal(out.find(x => x.subject === 'Microbiology').courseId, 'microbiology');

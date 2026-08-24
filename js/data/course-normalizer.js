@@ -89,6 +89,13 @@ export function splitLabSuffix(raw) {
 // ---------------------------------------------------------------------------
 
 const COURSE_DEFINITIONS = [
+    // SCDS Year 1 mandatory courses (no sections)
+    { canonical: 'programming-in-c', display: 'Programming in C', aliases: ['PIC', 'Programming in C'] },
+    { canonical: 'engineering-foundation-and-application', display: 'Engineering Foundation and Application', aliases: ['EFA', 'Engineering Foundation and Application'] },
+    { canonical: 'applied-mathematics', display: 'Applied Mathematics', aliases: ['AM', 'Applied Mathematics'] },
+    // "Critical Thinking" and "Frontiers of AI" are already registered below
+    // (shared across SCDS Year 3 / SOT / SOB / SOAI).
+
     // SCDS Year 2 lectures + electives (sheet: AB2-101/202/203/205/207, AB1-MOOT COURT HALL)
     { canonical: 'web-technology', display: 'Web Technology' },
     { canonical: 'linear-algebra', display: 'Linear Algebra' },

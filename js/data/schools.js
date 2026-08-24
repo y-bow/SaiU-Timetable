@@ -29,6 +29,23 @@ export const SCHOOLS = [
         programs: null,
         years: [
             {
+                id: 'scds-1',
+                label: 'Year 1',
+                level: 1,
+                sections: null,
+                sheetId: '1Jk3KCLqHHzi-jxigIcPpcXZestcxb8Y0BeQLjhiezb8',
+                gid: '0',
+                parser: 'grid',
+                mandatoryCourses: [
+                    'Programming in C',
+                    'Critical Thinking',
+                    'Engineering Foundation and Application',
+                    'Frontiers of AI',
+                    'Applied Mathematics',
+                ],
+                electives: null,
+            },
+            {
                 id: 'scds-2',
                 label: 'Year 2',
                 level: 2,

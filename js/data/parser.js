@@ -427,6 +427,17 @@ const SUBJECT_ALIASES = [
     { match: /^(?:PFM|PIFM|Principles of Financial Management)$/i, name: 'Principles in Financial Management' },
     { match: /^FP$/i, name: 'Forensic Psychology' },
 
+    // SCDS Year 1 mandatory courses. Abbreviations and minor formatting
+    // differences in the sheet fold onto the clean course names.
+    { match: /^PIC$/i, name: 'Programming in C' },
+    { match: /^Programming in C$/i, name: 'Programming in C' },
+    { match: /^EFA$/i, name: 'Engineering Foundation and Application' },
+    { match: /^Engineering Foundation(?:\s+and|\s*&)\s*Application$/i, name: 'Engineering Foundation and Application' },
+    { match: /^AM$/i, name: 'Applied Mathematics' },
+    { match: /^Applied Mathematics$/i, name: 'Applied Mathematics' },
+    // "Critical Thinking" and "Frontiers of AI" aliases already exist below
+    // (shared across SCDS Year 3 / SOT / SOB / SOAI).
+
     // SOT Year 1 Biotechnology. The sheet may spell these courses with a
     // semester tag ("Indian Constitution & Democracy - Sem1", "Frontiers of
     // AI Sem1", "Sem 1") — the alias drops the tag and folds the spelling
