@@ -85,6 +85,7 @@ function displayRoom(raw) {
  * are special-purpose spaces, not bookable classrooms.
  */
 const EXCLUDED_ROOM_PATTERNS = /\b(moot\s*court|lab|faculty\s*conference)\b/i;
+const EXCLUDED_ROOMS = new Set(['AB2-208']);
 
 /**
  * Build the complete room inventory from:
@@ -102,7 +103,7 @@ function discoverRooms(occupancy, yearConfig) {
     buildCanonicalMap(knownRooms);
     for (const raw of knownRooms) {
         const key = normalizeRoom(raw);
-        if (EXCLUDED_ROOM_PATTERNS.test(key)) continue;
+        if (EXCLUDED_ROOM_PATTERNS.test(key) || EXCLUDED_ROOMS.has(key)) continue;
         if (!roomMap.has(key)) roomMap.set(key, displayRoom(raw));
     }
 
@@ -111,7 +112,7 @@ function discoverRooms(occupancy, yearConfig) {
         const room = String(rec.room ?? '').trim();
         if (!room) continue;
         const key = normalizeRoom(room);
-        if (EXCLUDED_ROOM_PATTERNS.test(key)) continue;
+        if (EXCLUDED_ROOM_PATTERNS.test(key) || EXCLUDED_ROOMS.has(key)) continue;
         if (!roomMap.has(key)) roomMap.set(key, displayRoom(room));
     }
 

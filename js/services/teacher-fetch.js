@@ -38,8 +38,7 @@ import { syncYear2Labs } from './lab-fetch.js?v=2026-08-22-001';
 export const TEACHER_CACHE_KEY = 'tt-teachers-v3';
 export const MAIN_SHEET_CACHE_KEY = 'tt-teachers-main-sheet-v1';
 
-const SCHOOL_LABELS = { scds: 'SCDS', soai: 'SOAI', sob: 'SOB' };
-const LAB_CONTEXT = 'SCDS · Year 2 Lab';
+const SCHOOL_LABELS = { scds: 'SCDS', soai: 'SOAI', sob: 'SOB', sot: 'SOT', sas: 'SAS' };
 
 function read(key) {
     try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : null; }
@@ -150,8 +149,8 @@ export function gatherAllTimetables(mainText, labClasses = [], yearMap = buildYe
     }
     for (const c of labClasses || []) {
         const label = c.school
-            ? `${String(c.school).toUpperCase()} · Year ${c.year} Lab`
-            : LAB_CONTEXT;
+            ? `${String(c.school).toUpperCase()} · Year ${c.year}`
+            : `${schoolLabel({ id: 'scds' })} · Year 2`;
         all.push({ ...c, _ctxLabel: label });
     }
     return all;

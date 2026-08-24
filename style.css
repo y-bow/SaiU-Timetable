@@ -1716,7 +1716,7 @@ input { font-family: inherit; }
 .badge-lab { background: var(--warning-soft); color: var(--warning); border-color: transparent; }
 .badge-course { background: var(--danger-soft); color: var(--danger); border-color: transparent; }
 .badge-context { background: var(--primary-soft); color: var(--primary-text); border-color: transparent; }
-.badge-year { background: var(--success-soft); color: var(--success); border-color: transparent; }
+.badge-section { background: var(--success-soft); color: var(--success); border-color: transparent; }
 
 .tl-co-taught {
     margin-top: 5px;

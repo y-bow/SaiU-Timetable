@@ -225,14 +225,18 @@ function buildItem(c, startMin, endMin) {
 
     const badges = [];
     if (c._hasSection) {
-        badges.push(`<span class="badge">${escapeHtml(`Section ${c.section}`)}</span>`);
+        badges.push(`<span class="badge badge-section">${escapeHtml(`Section ${c.section}`)}</span>`);
     }
-    if (c.year) badges.push(`<span class="badge badge-year">Year ${c.year}</span>`);
+    // School + year: use the context label (e.g. "SCDS · Year 2") when
+    // available; otherwise build from the raw school/year fields.
+    const schoolYear = (c.contexts || [])[0]
+        || ((c.school || c.year) ? `${(c.school || '').toUpperCase()} · Year ${c.year}` : null);
+    if (schoolYear) badges.push(`<span class="badge badge-context">${escapeHtml(schoolYear)}</span>`);
     if (c.lab) badges.push('<span class="badge badge-lab">Lab</span>');
     if (c.course && c.course !== c.subject) {
         badges.push(`<span class="badge badge-course">${escapeHtml(c.course)}</span>`);
     }
-    for (const ctx of c.contexts || []) {
+    for (const ctx of (c.contexts || []).slice(1)) {
         badges.push(`<span class="badge badge-context">${escapeHtml(ctx)}</span>`);
     }
 
