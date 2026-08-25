@@ -172,6 +172,13 @@ const COURSE_DEFINITIONS = [
     // the courseId stays stable and change detection never sees a rename.
     { canonical: 'analytical-methods', display: 'Analytical Methods', aliases: ['Analytical Methods & Instrumentation'] },
     { canonical: 'psychiatry-and-mood-disorders', display: 'Psychiatry & Mood disorders' },
+
+    // SAS Year 2 Psychology
+    { canonical: 'psychopathology', display: 'Psychopathology', aliases: ['Psychopathology I', 'Psychopathology II'] },
+    // 'community-psychology' is already registered above (SCDS Year 3 elective).
+    { canonical: 'psychology-behind-social-media', display: 'Psychology Behind Social Media', aliases: ['Psych Behind Social Media', 'Psychology of Social Media'] },
+    { canonical: 'introduction-to-cognitive-neuroscience', display: 'Introduction to Cognitive Neuroscience', aliases: ['Intro to Cognitive Neuroscience', 'Cognitive Neuroscience'] },
+    { canonical: 'research-methodology', display: 'Research Methodology', aliases: ['Research Methods'] },
 ];
 
 // ---------------------------------------------------------------------------

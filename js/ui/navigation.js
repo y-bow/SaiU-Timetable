@@ -201,7 +201,17 @@ export function navigateToSchool(schoolId) {
     // Preserve the current year level when switching schools so the user
     // stays on e.g. Year 2 instead of being reset to Year 1.
     const currentLevel = state.year?.level;
-    let yearConfig = currentLevel != null ? findYearByLevel(school, program, currentLevel) : null;
+    let yearConfig = null;
+    if (currentLevel != null && school.programs) {
+        // Search all programs for one that has the requested year level.
+        for (const p of school.programs) {
+            const y = findYearByLevel(school, p, currentLevel);
+            if (y) { program = p; yearConfig = y; break; }
+        }
+    }
+    if (!yearConfig && currentLevel != null) {
+        yearConfig = findYearByLevel(school, program, currentLevel);
+    }
     if (!yearConfig) {
         const years = program ? (program.years || []) : (school.years || []);
         yearConfig = years[0] || null;
@@ -278,11 +288,33 @@ export function navigateToYear(yearId) {
     let yearConfig = findYearByLevel(school, program, level);
 
     if (!yearConfig) {
-        const target = SCHOOLS.find(s => schoolHasLevel(s, level));
-        if (!target) return;
-        school = target;
-        program = target.programs ? target.programs[0] : null;
-        yearConfig = findYearByLevel(school, program, level);
+        // First, check if the current school has the level in a different
+        // program (e.g. SAS Psychology Year 2 when switching from SAS
+        // Neuroscience Year 3). This avoids jumping to another school.
+        if (school.programs) {
+            for (const p of school.programs) {
+                if (p === program) continue;
+                const y = findYearByLevel(school, p, level);
+                if (y) { program = p; yearConfig = y; break; }
+            }
+        }
+        if (!yearConfig) {
+            const target = SCHOOLS.find(s => schoolHasLevel(s, level));
+            if (!target) return;
+            school = target;
+            // Search all programs for one that has the requested year level,
+            // instead of always picking the first program.
+            if (target.programs) {
+                for (const p of target.programs) {
+                    const y = findYearByLevel(school, p, level);
+                    if (y) { program = p; yearConfig = y; break; }
+                }
+            }
+            if (!yearConfig) {
+                program = target.programs ? target.programs[0] : null;
+                yearConfig = findYearByLevel(school, program, level);
+            }
+        }
     }
     if (!yearConfig) return;
 

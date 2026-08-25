@@ -322,6 +322,29 @@ export const SCHOOLS = [
                     },
                 ],
             },
+            {
+                id: 'psychology',
+                label: 'Psychology',
+                years: [
+                    {
+                        id: 'sas-psych-2',
+                        label: 'Year 2',
+                        level: 2,
+                        sections: null,
+                        sheetId: '1Jk3KCLqHHzi-jxigIcPpcXZestcxb8Y0BeQLjhiezb8',
+                        gid: '0',
+                        parser: 'grid',
+                        mandatoryCourses: [
+                            'Psychopathology',
+                            'Community Psychology',
+                            'Psychology Behind Social Media',
+                            'Introduction to Cognitive Neuroscience',
+                            'Research Methodology',
+                        ],
+                        electives: null,
+                    },
+                ],
+            },
         ],
     },
 ];
