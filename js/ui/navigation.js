@@ -159,10 +159,12 @@ export function initNavigation() {
         yearConfig = resolveYearConfig(school, program, saved.yearId);
         if (yearConfig) year = yearConfig;
     }
-    // If no valid year, pick the first available.
+    // If no valid year, only pick a year when it is the SOLE available year —
+    // making the transition explicit rather than silently falling through to an
+    // arbitrary years[0] that may change the global year level.
     if (!yearConfig && school) {
         const years = program ? (program.years || []) : (school.years || []);
-        if (years.length) {
+        if (years.length === 1) {
             yearConfig = years[0];
             year = yearConfig;
         }
@@ -212,9 +214,15 @@ export function navigateToSchool(schoolId) {
     if (!yearConfig && currentLevel != null) {
         yearConfig = findYearByLevel(school, program, currentLevel);
     }
+    // When the destination school lacks the current year level, only navigate
+    // to its first year if it is the SOLE available year — making the
+    // transition explicit rather than silently falling through to an arbitrary
+    // years[0] that may change the global year level.
     if (!yearConfig) {
         const years = program ? (program.years || []) : (school.years || []);
-        yearConfig = years[0] || null;
+        if (years.length === 1) {
+            yearConfig = years[0];
+        }
     }
 
     let section = null;
@@ -249,8 +257,12 @@ export function navigateToProgram(programId) {
     // Preserve the current year level when switching programs.
     const currentLevel = state.year?.level;
     let yearConfig = currentLevel != null ? findYearByLevel(school, program, currentLevel) : null;
-    if (!yearConfig) {
-        yearConfig = program.years?.[0] || null;
+    // When the destination program lacks the current year level, only navigate
+    // to its first year if it is the SOLE available year — making the
+    // transition explicit rather than silently falling through to an arbitrary
+    // years[0] that may change the global year level.
+    if (!yearConfig && program.years?.length === 1) {
+        yearConfig = program.years[0];
     }
     let section = null;
     if (yearConfig) {
@@ -288,32 +300,18 @@ export function navigateToYear(yearId) {
     let yearConfig = findYearByLevel(school, program, level);
 
     if (!yearConfig) {
-        // First, check if the current school has the level in a different
-        // program (e.g. SAS Psychology Year 2 when switching from SAS
-        // Neuroscience Year 3). This avoids jumping to another school.
-        if (school.programs) {
-            for (const p of school.programs) {
-                if (p === program) continue;
+        const target = SCHOOLS.find(s => schoolHasLevel(s, level));
+        if (!target) return;
+        school = target;
+        if (target.programs) {
+            for (const p of target.programs) {
                 const y = findYearByLevel(school, p, level);
                 if (y) { program = p; yearConfig = y; break; }
             }
         }
         if (!yearConfig) {
-            const target = SCHOOLS.find(s => schoolHasLevel(s, level));
-            if (!target) return;
-            school = target;
-            // Search all programs for one that has the requested year level,
-            // instead of always picking the first program.
-            if (target.programs) {
-                for (const p of target.programs) {
-                    const y = findYearByLevel(school, p, level);
-                    if (y) { program = p; yearConfig = y; break; }
-                }
-            }
-            if (!yearConfig) {
-                program = target.programs ? target.programs[0] : null;
-                yearConfig = findYearByLevel(school, program, level);
-            }
+            program = target.programs ? target.programs[0] : null;
+            yearConfig = findYearByLevel(school, program, level);
         }
     }
     if (!yearConfig) return;
@@ -407,12 +405,14 @@ export function availableSchools() {
 }
 
 export function availablePrograms() {
-    return state.school?.programs || [];
+    const school = state.school;
+    if (!school || !school.programs) return [];
+    const level = state.year?.level;
+    if (level == null) return school.programs;
+    return school.programs.filter(p => p.years?.some(y => y.level === level));
 }
 
 export function availableYears() {
-    // Every distinct year level across the whole config, so the Year selector
-    // is always visible (Year 2, Year 3, …) no matter which school is active.
     const levels = new Map();
     for (const school of SCHOOLS) {
         if (school.programs) {

@@ -456,6 +456,15 @@ const SUBJECT_ALIASES = [
     { match: /^Cell Physiology(?:\s*-?\s*Elective)?$/i, name: 'Cell Physiology' },
     { match: /^Analytical Methods(?:\s*&\s*Instrumentation)?$/i, name: 'Analytical Methods' },
     { match: /^Psychiatry\s*(?:&|and)\s*Mood\s*Disorders?$/i, name: 'Psychiatry & Mood disorders' },
+
+    // SAS Year 2 Psychology. The sheet may use abbreviations, spacing
+    // differences, "&" vs "and", or minor punctuation variants — the aliases
+    // fold them onto the clean canonical names. "Community Psychology" is
+    // already handled by the course normalizer (SCDS Year 3 elective).
+    { match: /^Psychopathology(?:\s*(?:I{1,3}|IV|V))?$/i, name: 'Psychopathology' },
+    { match: /^Psych(?:ology)?\s*(?:Behind|on)\s*(?:Social\s*)?Media$/i, name: 'Psychology Behind Social Media' },
+    { match: /^(?:Intro(?:duction)?(?:\s+to)?)?\s*Cognitive\s*Neuroscience$/i, name: 'Introduction to Cognitive Neuroscience' },
+    { match: /^Research\s*(?:Method(?:ology|s)?|Methods)$/i, name: 'Research Methodology' },
 ];
 
 // Normalize room names for comparison: uppercase, hyphens equivalent to

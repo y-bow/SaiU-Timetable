@@ -41,6 +41,7 @@ function buildSchoolAliasMap() {
             map.set('SCHOOL OF SCIENCES', 'sas');
             map.set('SCIENCES', 'sas');
             map.set('NEUROSCIENCE', 'sas');
+            map.set('PSYCHOLOGY', 'sas');
         }
     }
     return map;

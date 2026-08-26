@@ -322,21 +322,42 @@ await check('SCDS-3 newly added elective (minor) is parsed with its teacher', ()
     assert.equal(c.section, 1);
 });
 
-console.log('--- SOB Year 1 config: BBA ---');
+console.log('--- SOB BBA config ---');
 
-await check('SOB Year 1 has BBA section', () => {
-    const sob = SCHOOLS.find(s => s.id === 'sob');
+const sob = SCHOOLS.find(s => s.id === 'sob');
+
+await check('SOB school exists with BBA and B.Com programmes', () => {
     assert.ok(sob, 'SOB school exists');
-    const year1 = sob.years.find(y => y.id === 'sob-year1');
-    assert.ok(year1, 'SOB Year 1 exists');
-    assert.deepStrictEqual(year1.sections, ['BBA']);
+    assert.equal(sob.shortName, 'SOB');
+    assert.ok(sob.programs, 'SOB uses a program hierarchy');
+    assert.equal(sob.programs.length, 2, 'two programmes');
+    const bba = sob.programs.find(p => p.id === 'bba');
+    assert.ok(bba, 'BBA programme exists');
+    assert.equal(bba.label, 'BBA');
+    const bcom = sob.programs.find(p => p.id === 'bcom');
+    assert.ok(bcom, 'B.Com programme exists');
+    assert.equal(bcom.label, 'B.Com');
 });
 
-await check('SOB Year 1 BBA courses are correct', () => {
-    const sob = SCHOOLS.find(s => s.id === 'sob');
-    const year1 = sob.years.find(y => y.id === 'sob-year1');
-    const bba = year1.sectionCourses['BBA'];
-    assert.deepStrictEqual(bba, [
+await check('SOB BBA has Year 1 and Year 2 configs', () => {
+    const bba = sob.programs.find(p => p.id === 'bba');
+    assert.equal(bba.years.length, 2, 'two year configs');
+    const year1 = bba.years[0];
+    assert.equal(year1.id, 'sob-bba-year1');
+    assert.equal(year1.label, 'Year 1');
+    assert.equal(year1.level, 1);
+    assert.equal(year1.sections, null);
+    const year2 = bba.years[1];
+    assert.equal(year2.id, 'sob-bba-year2');
+    assert.equal(year2.label, 'Year 2');
+    assert.equal(year2.level, 2);
+    assert.equal(year2.sections, null);
+});
+
+await check('SOB BBA Year 1 courses are correct', () => {
+    const bba = sob.programs.find(p => p.id === 'bba');
+    const year1 = bba.years.find(y => y.level === 1);
+    assert.deepStrictEqual(year1.mandatoryCourses, [
         'Fundamentals of Business',
         'Financial Management',
         'Business Mathematics and Stats',
@@ -344,58 +365,72 @@ await check('SOB Year 1 BBA courses are correct', () => {
         'ICD',
         'Frontiers of AI',
     ]);
+    assert.equal(year1.electives, null);
 });
 
-await check('SOB Year 1 has no B.Com', () => {
-    const sob = SCHOOLS.find(s => s.id === 'sob');
-    const year1 = sob.years.find(y => y.id === 'sob-year1');
-    assert.ok(!year1.sectionCourses['B.Com'], 'no B.Com section courses');
-    assert.ok(!year1.sections.includes('B.Com'), 'no B.Com in sections');
+await check('SOB B.Com has Year 1 and Year 2 configs', () => {
+    const bcom = sob.programs.find(p => p.id === 'bcom');
+    assert.equal(bcom.years.length, 2, 'two year configs');
+    const year1 = bcom.years[0];
+    assert.equal(year1.id, 'sob-bcom-year1');
+    assert.equal(year1.label, 'Year 1');
+    assert.equal(year1.level, 1);
+    assert.equal(year1.sections, null);
+    const year2 = bcom.years[1];
+    assert.equal(year2.id, 'sob-bcom-year2');
+    assert.equal(year2.label, 'Year 2');
+    assert.equal(year2.level, 2);
+    assert.equal(year2.sections, null);
+});
+
+await check('SOB B.Com Year 1 courses match BBA Year 1 (shared)', () => {
+    const bcom = sob.programs.find(p => p.id === 'bcom');
+    const year1 = bcom.years.find(y => y.level === 1);
+    const bba = sob.programs.find(p => p.id === 'bba');
+    const bbaYear1 = bba.years.find(y => y.level === 1);
+    assert.deepStrictEqual(year1.mandatoryCourses, bbaYear1.mandatoryCourses);
 });
 
 console.log('--- SOB Year 2 config: BBA / B.Com split ---');
 
-await check('SOB Year 2 has BBA and B.Com sections', () => {
-    const sob = SCHOOLS.find(s => s.id === 'sob');
-    assert.ok(sob, 'SOB school exists');
-    const year2 = sob.years.find(y => y.id === 'sob-year2');
-    assert.deepStrictEqual(year2.sections, ['BBA', 'B.Com']);
+await check('SOB BBA Year 2 courses are correct', () => {
+    const bba = sob.programs.find(p => p.id === 'bba');
+    const year2 = bba.years.find(y => y.level === 2);
+    const mandatory = year2.mandatoryCourses;
+    assert.ok(mandatory.includes('Corporate and Business Law'), 'BBA has Corporate and Business Law');
+    assert.ok(mandatory.includes('Operations Research'), 'BBA has Operations Research');
+    assert.ok(mandatory.includes('Human Resource Management'), 'BBA has Human Resource Management');
+    assert.ok(mandatory.includes('Principles in Financial Management'), 'BBA has Principles in Financial Management');
+    assert.ok(mandatory.includes('Principles of Financial Management'), 'BBA has Principles of Financial Management');
+    assert.ok(!mandatory.includes('Financial Reporting and Analysis'), 'BBA does NOT have Financial Reporting and Analysis');
 });
 
-await check('SOB Year 2 BBA courses are correct', () => {
-    const sob = SCHOOLS.find(s => s.id === 'sob');
-    const year2 = sob.years.find(y => y.id === 'sob-year2');
-    const bba = year2.sectionCourses['BBA'];
-    assert.ok(bba.includes('Corporate and Business Law'), 'BBA has Corporate and Business Law');
-    assert.ok(bba.includes('Operations Research'), 'BBA has Operations Research');
-    assert.ok(bba.includes('Human Resource Management'), 'BBA has Human Resource Management');
-    assert.ok(bba.includes('Principles in Financial Management'), 'BBA has Principles in Financial Management');
-    assert.ok(bba.includes('Principles of Financial Management'), 'BBA has Principles of Financial Management');
-    assert.ok(!bba.includes('Financial Reporting and Analysis'), 'BBA does NOT have Financial Reporting and Analysis');
+await check('SOB B.Com Year 2 courses are correct', () => {
+    const bcom = sob.programs.find(p => p.id === 'bcom');
+    const year2 = bcom.years.find(y => y.level === 2);
+    const mandatory = year2.mandatoryCourses;
+    assert.ok(mandatory.includes('Corporate and Business Law'), 'B.Com has Corporate and Business Law');
+    assert.ok(mandatory.includes('Human Resource Management'), 'B.Com has Human Resource Management');
+    assert.ok(mandatory.includes('Principles in Financial Management'), 'B.Com has Principles in Financial Management');
+    assert.ok(mandatory.includes('Principles of Financial Management'), 'B.Com has Principles of Financial Management');
+    assert.ok(mandatory.includes('Financial Reporting and Analysis'), 'B.Com has Financial Reporting and Analysis');
+    assert.ok(!mandatory.includes('Operations Research'), 'B.Com does NOT have Operations Research');
 });
 
-await check('SOB Year 2 B.Com courses are correct', () => {
-    const sob = SCHOOLS.find(s => s.id === 'sob');
-    const year2 = sob.years.find(y => y.id === 'sob-year2');
-    const bcom = year2.sectionCourses['B.Com'];
-    assert.ok(bcom.includes('Corporate and Business Law'), 'B.Com has Corporate and Business Law');
-    assert.ok(bcom.includes('Human Resource Management'), 'B.Com has Human Resource Management');
-    assert.ok(bcom.includes('Principles in Financial Management'), 'B.Com has Principles in Financial Management');
-    assert.ok(bcom.includes('Principles of Financial Management'), 'B.Com has Principles of Financial Management');
-    assert.ok(bcom.includes('Financial Reporting and Analysis'), 'B.Com has Financial Reporting and Analysis');
-    assert.ok(!bcom.includes('Operations Research'), 'B.Com does NOT have Operations Research');
-});
-
-await check('shared courses appear in both BBA and B.Com', () => {
-    const sob = SCHOOLS.find(s => s.id === 'sob');
-    const year2 = sob.years.find(y => y.id === 'sob-year2');
-    const bba = year2.sectionCourses['BBA'];
-    const bcom = year2.sectionCourses['B.Com'];
+await check('shared courses appear in both BBA and B.Com Year 2', () => {
+    const bba = sob.programs.find(p => p.id === 'bba');
+    const bcom = sob.programs.find(p => p.id === 'bcom');
+    const bbaYear2 = bba.years.find(y => y.level === 2);
+    const bcomYear2 = bcom.years.find(y => y.level === 2);
     const shared = ['Corporate and Business Law', 'Human Resource Management', 'Principles in Financial Management'];
     for (const c of shared) {
-        assert.ok(bba.includes(c), `BBA has shared course: ${c}`);
-        assert.ok(bcom.includes(c), `B.Com has shared course: ${c}`);
+        assert.ok(bbaYear2.mandatoryCourses.includes(c), `BBA has shared course: ${c}`);
+        assert.ok(bcomYear2.mandatoryCourses.includes(c), `B.Com has shared course: ${c}`);
     }
+});
+
+await check('SOB shows the programme selector', () => {
+    assert.equal(shouldShowProgram(sob), true, 'programme selector is shown for SOB');
 });
 
 console.log('--- parseCSV (grid): SCDS-3 ALL electives parsing ---');
@@ -633,9 +668,13 @@ await check('SAS Year 3 courses do NOT appear in any other school/programme/year
 });
 
 await check('SAS courses never appear under another programme of the same school', () => {
+    // SAS has two programmes (Neuroscience, Psychology); each has its own
+    // year config. No course should leak across programmes.
     const neuro = sas.programs.find(p => p.id === 'neuroscience');
-    assert.equal(sas.programs.length, 1, 'SAS has exactly one programme');
-    assert.deepStrictEqual(neuro.years, [neuro.years[0]], 'single programme, single year');
+    const psych = sas.programs.find(p => p.id === 'psychology');
+    assert.ok(neuro && psych, 'both programmes exist');
+    assert.equal(neuro.years.length, 1, 'single year in Neuroscience');
+    assert.equal(psych.years.length, 1, 'single year in Psychology');
 });
 
 await check('SAS shows the programme selector so Neuroscience is an explicit, selectable level', () => {
@@ -735,6 +774,203 @@ await check('SAS Year 3: a non-SAS cell (SCDS course) is skipped', () => {
     assert.ok(!out.some(x => x.subject === 'Deep Learning'), 'SCDS course is not pulled into SAS Year 3');
 });
 
+console.log('--- SAS Year 2 Psychology config ---');
+
+const SAS_PSYCH_MANDATORY = [
+    'Psychopathology',
+    'Community Psychology',
+    'Psychology Behind Social Media',
+    'Introduction to Cognitive Neuroscience',
+    'Research Methodology',
+];
+
+await check('SAS has a Psychology programme with Year 2', () => {
+    assert.ok(sas, 'SAS school exists');
+    const psych = sas.programs.find(p => p.id === 'psychology');
+    assert.ok(psych, 'Psychology programme exists');
+    assert.equal(psych.label, 'Psychology');
+    assert.equal(psych.years.length, 1, 'one year config');
+    const year2 = psych.years[0];
+    assert.equal(year2.id, 'sas-psych-2');
+    assert.equal(year2.label, 'Year 2');
+    assert.equal(year2.level, 2);
+    assert.equal(year2.parser, 'grid');
+});
+
+await check('SAS Psychology Year 2 has exactly the 5 mandatory courses and no electives', () => {
+    const psych = sas.programs.find(p => p.id === 'psychology');
+    const year2 = psych.years[0];
+    assert.deepStrictEqual(year2.mandatoryCourses, SAS_PSYCH_MANDATORY);
+    assert.equal(year2.electives, null);
+});
+
+await check('SAS Psychology courses do NOT duplicate definitions in course-normalizer', () => {
+    // Community Psychology is shared with SCDS Year 3 — resolveCourse should
+    // return exactly one canonical match (no ambiguity).
+    const res = resolveCourse('Community Psychology');
+    assert.ok(res, 'Community Psychology resolves');
+    assert.equal(res.ambiguous, false, 'not ambiguous');
+    assert.equal(res.canonical, 'community-psychology');
+});
+
+await check('SAS shows the programme selector with both Neuroscience and Psychology', () => {
+    assert.equal(shouldShowProgram(sas), true, 'programme selector is shown for SAS');
+    const labels = sas.programs.map(p => p.label);
+    assert.ok(labels.includes('Neuroscience'), 'Neuroscience programme listed');
+    assert.ok(labels.includes('Psychology'), 'Psychology programme listed');
+});
+
+console.log('--- parseCSV (grid): SAS Year 2 Psychology ---');
+const SAS_PSYCH_GRID = [
+    'MONDAY,09:15 AM - 10:10 AM,Psychopathology         Dr. Jemima',
+    ',10:15 AM - 11:10 AM,Community Psychology         Dr. Mridula',
+    ',11:15 AM - 12:10 PM,Psychology Behind Social Media         Dr. Angel',
+    'TUESDAY,09:15 AM - 10:10 AM,Introduction to Cognitive Neuroscience         Dr. Sivan',
+    ',10:15 AM - 11:10 AM,Research Methodology         Dr. Rao',
+].join('\n');
+
+await check('SAS Year 2 Psychology: all five mandatory courses parse', () => {
+    const out = parseCSV(SAS_PSYCH_GRID, 'grid', SAS_PSYCH_MANDATORY, null, null);
+    for (const name of SAS_PSYCH_MANDATORY) {
+        const c = out.find(x => x.subject === name);
+        assert.ok(c, `${name} parsed`);
+        assert.equal(c.elective, undefined, `${name} is not tagged as elective`);
+    }
+});
+
+await check('SAS Year 2 Psychology: mandatory courses carry stable canonical courseIds', () => {
+    const out = parseCSV(SAS_PSYCH_GRID, 'grid', SAS_PSYCH_MANDATORY, null, null);
+    assert.equal(out.find(x => x.subject === 'Psychopathology').courseId, 'psychopathology');
+    assert.equal(out.find(x => x.subject === 'Community Psychology').courseId, 'community-psychology');
+    assert.equal(out.find(x => x.subject === 'Psychology Behind Social Media').courseId, 'psychology-behind-social-media');
+    assert.equal(out.find(x => x.subject === 'Introduction to Cognitive Neuroscience').courseId, 'introduction-to-cognitive-neuroscience');
+    assert.equal(out.find(x => x.subject === 'Research Methodology').courseId, 'research-methodology');
+});
+
+await check('SAS Year 2 Psychology: a non-SAS cell (SCDS course) is skipped', () => {
+    const mixed = [
+        'MONDAY,09:15 AM - 10:10 AM,Psychopathology         Dr. Jemima',
+        ',10:15 AM - 11:10 AM,Deep Learning',
+    ].join('\n');
+    const out = parseCSV(mixed, 'grid', SAS_PSYCH_MANDATORY, null, null);
+    assert.ok(out.some(x => x.subject === 'Psychopathology'), 'SAS Psychology course parsed');
+    assert.ok(!out.some(x => x.subject === 'Deep Learning'), 'SCDS course is not pulled into SAS Year 2 Psychology');
+});
+
+await check('SAS Year 2 Psychology: alias "Research Methods" maps to Research Methodology', () => {
+    const variant = [
+        'MONDAY,09:15 AM - 10:10 AM,Research Methods         Dr. Rao',
+    ].join('\n');
+    const out = parseCSV(variant, 'grid', SAS_PSYCH_MANDATORY, null, null);
+    const c = out.find(x => x.courseId === 'research-methodology');
+    assert.ok(c, 'Research Methods alias parsed');
+    assert.equal(c.subject, 'Research Methodology', 'canonical name used');
+});
+
+await check('SAS Year 2 Psychology: alias "Cognitive Neuroscience" maps to Introduction to Cognitive Neuroscience', () => {
+    const variant = [
+        'MONDAY,09:15 AM - 10:10 AM,Cognitive Neuroscience         Dr. Sivan',
+    ].join('\n');
+    const out = parseCSV(variant, 'grid', SAS_PSYCH_MANDATORY, null, null);
+    const c = out.find(x => x.courseId === 'introduction-to-cognitive-neuroscience');
+    assert.ok(c, 'Cognitive Neuroscience alias parsed');
+    assert.equal(c.subject, 'Introduction to Cognitive Neuroscience', 'canonical name used');
+});
+
+await check('SAS Year 2 Psychology: alias "Psychopathology II" maps to Psychopathology', () => {
+    const variant = [
+        'MONDAY,09:15 AM - 10:10 AM,Psychopathology  II       Dr. Jemima',
+    ].join('\n');
+    const out = parseCSV(variant, 'grid', SAS_PSYCH_MANDATORY, null, null);
+    const c = out.find(x => x.courseId === 'psychopathology');
+    assert.ok(c, 'Psychopathology II alias parsed');
+    assert.equal(c.subject, 'Psychopathology', 'canonical name used');
+    // The student grid parser splits at the first 2+ space run, so the Roman
+    // numeral suffix "II" stays with the faculty side. The teacher parser
+    // (splitTeacherCell) uses the LAST 2+ space run and handles this correctly.
+    assert.ok(c.faculty.includes('Dr.'), 'teacher is correctly extracted');
+});
+
+console.log('--- SAS Year 2 Biological Sciences config ---');
+
+const SAS_BIOSCI_MANDATORY = [
+    'Applied Biological Sciences',
+    'Microbiology',
+    'Environmental Biotechnology',
+];
+
+await check('SAS has a Biological Sciences programme with Year 2', () => {
+    assert.ok(sas, 'SAS school exists');
+    const biosci = sas.programs.find(p => p.id === 'biological-sciences');
+    assert.ok(biosci, 'Biological Sciences programme exists');
+    assert.equal(biosci.label, 'Biological Sciences');
+    assert.equal(biosci.years.length, 1, 'one year config');
+    const year2 = biosci.years[0];
+    assert.equal(year2.id, 'sas-biosci-2');
+    assert.equal(year2.label, 'Year 2');
+    assert.equal(year2.level, 2);
+    assert.equal(year2.parser, 'grid');
+});
+
+await check('SAS Biological Sciences Year 2 has exactly the 3 mandatory courses and no electives', () => {
+    const biosci = sas.programs.find(p => p.id === 'biological-sciences');
+    const year2 = biosci.years[0];
+    assert.deepStrictEqual(year2.mandatoryCourses, SAS_BIOSCI_MANDATORY);
+    assert.equal(year2.electives, null);
+});
+
+await check('SAS Biological Sciences courses do NOT duplicate definitions in course-normalizer', () => {
+    for (const name of SAS_BIOSCI_MANDATORY) {
+        const res = resolveCourse(name);
+        assert.ok(res, `${name} resolves`);
+        assert.equal(res.ambiguous, false, `${name} is not ambiguous`);
+    }
+    assert.equal(resolveCourse('Applied Biological Sciences').canonical, 'applied-biological-sciences');
+    assert.equal(resolveCourse('Microbiology').canonical, 'microbiology');
+    assert.equal(resolveCourse('Environmental Biotechnology').canonical, 'environmental-biotechnology');
+});
+
+await check('SAS shows the programme selector with all three programmes', () => {
+    assert.equal(shouldShowProgram(sas), true, 'programme selector is shown for SAS');
+    const labels = sas.programs.map(p => p.label);
+    assert.ok(labels.includes('Neuroscience'), 'Neuroscience programme listed');
+    assert.ok(labels.includes('Psychology'), 'Psychology programme listed');
+    assert.ok(labels.includes('Biological Sciences'), 'Biological Sciences programme listed');
+});
+
+console.log('--- parseCSV (grid): SAS Year 2 Biological Sciences ---');
+const SAS_BIOSCI_GRID = [
+    'MONDAY,09:15 AM - 10:10 AM,Applied Biological Sciences         Dr. Nair',
+    ',10:15 AM - 11:10 AM,Microbiology         Dr. Gupta',
+    'TUESDAY,09:15 AM - 10:10 AM,Environmental Biotechnology         Dr. Sharma',
+].join('\n');
+
+await check('SAS Year 2 Biological Sciences: all three mandatory courses parse', () => {
+    const out = parseCSV(SAS_BIOSCI_GRID, 'grid', SAS_BIOSCI_MANDATORY, null, null);
+    for (const name of SAS_BIOSCI_MANDATORY) {
+        const c = out.find(x => x.subject === name);
+        assert.ok(c, `${name} parsed`);
+        assert.equal(c.elective, undefined, `${name} is not tagged as elective`);
+    }
+});
+
+await check('SAS Year 2 Biological Sciences: mandatory courses carry stable canonical courseIds', () => {
+    const out = parseCSV(SAS_BIOSCI_GRID, 'grid', SAS_BIOSCI_MANDATORY, null, null);
+    assert.equal(out.find(x => x.subject === 'Applied Biological Sciences').courseId, 'applied-biological-sciences');
+    assert.equal(out.find(x => x.subject === 'Microbiology').courseId, 'microbiology');
+    assert.equal(out.find(x => x.subject === 'Environmental Biotechnology').courseId, 'environmental-biotechnology');
+});
+
+await check('SAS Year 2 Biological Sciences: a non-SAS cell (SCDS course) is skipped', () => {
+    const mixed = [
+        'MONDAY,09:15 AM - 10:10 AM,Applied Biological Sciences         Dr. Nair',
+        ',10:15 AM - 11:10 AM,Deep Learning',
+    ].join('\n');
+    const out = parseCSV(mixed, 'grid', SAS_BIOSCI_MANDATORY, null, null);
+    assert.ok(out.some(x => x.subject === 'Applied Biological Sciences'), 'SAS Biological Sciences course parsed');
+    assert.ok(!out.some(x => x.subject === 'Deep Learning'), 'SCDS course is not pulled into SAS Year 2 Biological Sciences');
+});
+
 console.log('--- SOT Year 1 Biotechnology config ---');
 
 const sot = SCHOOLS.find(s => s.id === 'sot');
@@ -827,10 +1063,11 @@ await check('SOT Year 2 has exactly the 6 mandatory courses and no electives', (
 });
 
 await check('SOT Year 2 exclusive courses do NOT appear in any other school/programme/year', () => {
-    // "Frontiers of AI" (SOT Year 1) and "Operations Research" (SOB Year 2)
-    // are pre-existing shared courses. The three new SOT Year 2 courses must
+    // "Frontiers of AI" (SOT Year 1), "Operations Research" (SOB Year 2),
+    // "Microbiology" and "Environmental Biotechnology" (SAS Biological Sciences)
+    // are pre-existing shared courses. The remaining SOT Year 2 courses must
     // not be added to any other programme.
-    const exclusive = SOT2_MANDATORY.filter(name => !['Frontiers of AI', 'Operations Research'].includes(name));
+    const exclusive = SOT2_MANDATORY.filter(name => !['Frontiers of AI', 'Operations Research', 'Microbiology', 'Environmental Biotechnology'].includes(name));
     const sot2Courses = new Set(exclusive);
     for (const school of SCHOOLS) {
         if (school.id === 'sot') continue;

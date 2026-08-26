@@ -159,6 +159,9 @@ const COURSE_DEFINITIONS = [
     { canonical: 'environmental-biotechnology', display: 'Environmental Biotechnology' },
     { canonical: 'microbiology', display: 'Microbiology' },
 
+    // SAS Year 2 Biological Sciences
+    { canonical: 'applied-biological-sciences', display: 'Applied Biological Sciences' },
+
     // SAS Year 3 Neuroscience (shared grid sheet)
     { canonical: 'biostatistics', display: 'Biostatistics' },
     // The earlier sheet spelling "Cell Physiology - Elective" (dash + suffix)
