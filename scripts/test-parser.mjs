@@ -400,8 +400,7 @@ await check('SOB BBA Year 2 courses are correct', () => {
     assert.ok(mandatory.includes('Corporate and Business Law'), 'BBA has Corporate and Business Law');
     assert.ok(mandatory.includes('Operations Research'), 'BBA has Operations Research');
     assert.ok(mandatory.includes('Human Resource Management'), 'BBA has Human Resource Management');
-    assert.ok(mandatory.includes('Principles in Financial Management'), 'BBA has Principles in Financial Management');
-    assert.ok(mandatory.includes('Principles of Financial Management'), 'BBA has Principles of Financial Management');
+    assert.ok(mandatory.includes('Principles of Financial Management / Introduction to BFSI & Financial Technology'), 'BBA has Principles of Financial Management / Introduction to BFSI & Financial Technology');
     assert.ok(!mandatory.includes('Financial Reporting and Analysis'), 'BBA does NOT have Financial Reporting and Analysis');
 });
 
@@ -411,8 +410,7 @@ await check('SOB B.Com Year 2 courses are correct', () => {
     const mandatory = year2.mandatoryCourses;
     assert.ok(mandatory.includes('Corporate and Business Law'), 'B.Com has Corporate and Business Law');
     assert.ok(mandatory.includes('Human Resource Management'), 'B.Com has Human Resource Management');
-    assert.ok(mandatory.includes('Principles in Financial Management'), 'B.Com has Principles in Financial Management');
-    assert.ok(mandatory.includes('Principles of Financial Management'), 'B.Com has Principles of Financial Management');
+    assert.ok(mandatory.includes('Principles of Financial Management / Introduction to BFSI & Financial Technology'), 'B.Com has Principles of Financial Management / Introduction to BFSI & Financial Technology');
     assert.ok(mandatory.includes('Financial Reporting and Analysis'), 'B.Com has Financial Reporting and Analysis');
     assert.ok(!mandatory.includes('Operations Research'), 'B.Com does NOT have Operations Research');
 });
@@ -422,7 +420,7 @@ await check('shared courses appear in both BBA and B.Com Year 2', () => {
     const bcom = sob.programs.find(p => p.id === 'bcom');
     const bbaYear2 = bba.years.find(y => y.level === 2);
     const bcomYear2 = bcom.years.find(y => y.level === 2);
-    const shared = ['Corporate and Business Law', 'Human Resource Management', 'Principles in Financial Management'];
+    const shared = ['Corporate and Business Law', 'Human Resource Management', 'Principles of Financial Management / Introduction to BFSI & Financial Technology'];
     for (const c of shared) {
         assert.ok(bbaYear2.mandatoryCourses.includes(c), `BBA has shared course: ${c}`);
         assert.ok(bcomYear2.mandatoryCourses.includes(c), `B.Com has shared course: ${c}`);
@@ -447,7 +445,7 @@ const SCDS3_ALL_ELECTIVES = [
     { id: 'forensic-psychology', label: 'Forensic Psychology' },
     { id: 'community-psychology', label: 'Community Psychology' },
     { id: 'fundamentals-of-business-organization-and-management', label: 'Fundamentals of Business Organization & Management' },
-    { id: 'principles-in-financial-management', label: 'Principles in Financial Management' },
+    { id: 'principles-in-financial-management', label: 'Principles of Financial Management / Introduction to BFSI & Financial Technology' },
 ];
 const SCDS3_MANDATORY_COURSES = ['Deep Learning', 'Theory of Computation'];
 
@@ -543,7 +541,7 @@ await check('SCDS-3: PFM abbreviation is expanded and matched', () => {
     const out = parseCSV(SCDS3_ALL_GRID, 'grid', SCDS3_MANDATORY_COURSES, SCDS3_ALL_ELECTIVES, null);
     const c = out.find(x => x.elective === 'principles-in-financial-management' && x.day === 'Monday');
     assert.ok(c, 'PFM parsed');
-    assert.equal(c.subject, 'Principles in Financial Management');
+    assert.equal(c.subject, 'Principles of Financial Management / Introduction to BFSI & Financial Technology');
     assert.equal(c.faculty, 'Prof. Dr.Mehta');
 });
 
@@ -558,7 +556,7 @@ await check('SCDS-3: "Principles of Financial Management" (with "of") is matched
     const out = parseCSV(SCDS3_ALL_GRID, 'grid', SCDS3_MANDATORY_COURSES, SCDS3_ALL_ELECTIVES, null);
     const c = out.find(x => x.elective === 'principles-in-financial-management' && x.day === 'Tuesday');
     assert.ok(c, '"Principles of Financial Management" matched');
-    assert.equal(c.subject, 'Principles in Financial Management');
+    assert.equal(c.subject, 'Principles of Financial Management / Introduction to BFSI & Financial Technology');
     assert.equal(c.faculty, 'Prof. Dr.Singh');
 });
 

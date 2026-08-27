@@ -129,7 +129,7 @@ export const SCHOOLS = [
                     { id: 'forensic-psychology', label: 'Forensic Psychology' },
                     { id: 'community-psychology', label: 'Community Psychology' },
                     { id: 'fundamentals-of-business-organization-and-management', label: 'Fundamentals of Business Organization & Management' },
-                    { id: 'principles-in-financial-management', label: 'Principles in Financial Management' },
+                    { id: 'principles-in-financial-management', label: 'Principles of Financial Management / Introduction to BFSI & Financial Technology' },
                     { id: 'conflict-in-contemporary-international-relations', label: 'Conflicts in Contemporary International Relations' },
                 ],
             },
@@ -199,8 +199,7 @@ export const SCHOOLS = [
                             'Corporate and Business Law',
                             'Operations Research',
                             'Human Resource Management',
-                            'Principles in Financial Management',
-                            'Principles of Financial Management',
+                            'Principles of Financial Management / Introduction to BFSI & Financial Technology',
                         ],
                         electives: [
                             { id: 'forensic-psychology', label: 'Forensic Psychology' },
@@ -241,8 +240,7 @@ export const SCHOOLS = [
                         mandatoryCourses: [
                             'Corporate and Business Law',
                             'Human Resource Management',
-                            'Principles in Financial Management',
-                            'Principles of Financial Management',
+                            'Principles of Financial Management / Introduction to BFSI & Financial Technology',
                             'Financial Reporting and Analysis',
                         ],
                         electives: [

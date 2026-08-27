@@ -424,7 +424,7 @@ const SUBJECT_ALIASES = [
     { match: /^IFA$/i, name: 'Introduction to Financial Accounting' },
     { match: /^CT$/i, name: 'Critical Thinking' },
     { match: /^(?:FBO|FOB|Fundamentals of Business Organization and Management)$/i, name: 'Fundamentals of Business Organization & Management' },
-    { match: /^(?:PFM|PIFM|Principles of Financial Management)$/i, name: 'Principles in Financial Management' },
+    { match: /^(?:PFM|PIFM|Principles of Financial Management|Principles in Financial Management)$/i, name: 'Principles of Financial Management / Introduction to BFSI & Financial Technology' },
     { match: /^FP$/i, name: 'Forensic Psychology' },
 
     // SCDS Year 1 mandatory courses. Abbreviations and minor formatting
@@ -524,14 +524,17 @@ function splitClassCell(cell) {
     // isolated a teacher, the trailing word(s) may be the teacher glued to the
     // course name (e.g. "Forensic Psychology Dr Mridula").  Try progressively
     // shorter prefixes of the subject to see if any is a known course — the
-    // remainder is the teacher.
+    // remainder is the teacher. Skipped when the remainder starts with "/":
+    // the slash is part of the course name, not a teacher separator.
     if (!faculty && subject) {
         const words = subject.split(/\s+/);
         for (let len = words.length - 1; len >= 2; len--) {
             const prefix = words.slice(0, len).join(' ');
             const res = resolveCourse(prefix);
             if (res && res.matched) {
-                faculty = words.slice(len).join(' ');
+                const rest = words.slice(len).join(' ');
+                if (/^\//.test(rest)) continue;
+                faculty = rest;
                 subject = prefix;
                 break;
             }
@@ -719,13 +722,19 @@ export function splitSubjectFaculty(cell) {
     // remainder is the teacher. Skipped when the WHOLE subject is already a
     // known course (e.g. "Cell Physiology - Elective"): peeling a prefix here
     // would truncate a legitimate course name and invent a phantom teacher.
+    // Also skipped when the remainder starts with "/": the slash is part of
+    // the course name (e.g. "Principles in Financial Management /
+    // Introduction to BFSI & Financial Technology Ajit Nag"), not a teacher
+    // separator.
     if (!faculty && subject && !resolveCourse(subject).matched) {
         const words = subject.split(/\s+/);
         for (let len = words.length - 1; len >= 2; len--) {
             const prefix = words.slice(0, len).join(' ');
             const res = resolveCourse(prefix);
             if (res && res.matched) {
-                faculty = words.slice(len).join(' ');
+                const rest = words.slice(len).join(' ');
+                if (/^\//.test(rest)) continue;
+                faculty = rest;
                 subject = prefix;
                 break;
             }
@@ -1037,14 +1046,18 @@ function splitTeacherCell(cell) {
     // Single-space-separated teacher: when neither a space-run, dash, nor
     // parenthesized teacher isolated a faculty, the trailing word(s) may be
     // the teacher glued to the course name.  Try progressively shorter
-    // prefixes of the subject to see if any is a known course.
+    // prefixes of the subject to see if any is a known course. Skipped when
+    // the remainder starts with "/": the slash is part of the course name,
+    // not a teacher separator.
     if (!faculty && subject) {
         const words = subject.split(/\s+/);
         for (let len = words.length - 1; len >= 2; len--) {
             const prefix = words.slice(0, len).join(' ');
             const res = resolveCourse(prefix);
             if (res && res.matched) {
-                faculty = words.slice(len).join(' ');
+                const rest = words.slice(len).join(' ');
+                if (/^\//.test(rest)) continue;
+                faculty = rest;
                 subject = prefix;
                 break;
             }

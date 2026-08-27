@@ -410,14 +410,16 @@ function applyRoomChange(c) {
 // ============================================================
 
 function render() {
+    // Guard: if the timetable for the currently-selected year hasn't arrived
+    // yet, keep the loading skeleton visible instead of briefly flashing the
+    // error card.  This fires when render() is called (e.g. from navigation
+    // events) while load() is still in-flight for the new year.
+    if (loadedFor !== (nav.getYear()?.id ?? null)) {
+        return;
+    }
     ui.hideLoading();
     renderNavigation();
     const day = selectedDay || contextDay();
-
-    if (loadedFor !== (nav.getYear()?.id ?? null)) {
-        ui.renderError();
-        return;
-    }
 
     ui.renderSuccess();
     const now = nowMinutes();

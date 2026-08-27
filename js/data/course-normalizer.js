@@ -140,7 +140,7 @@ const COURSE_DEFINITIONS = [
     { canonical: 'corporate-and-business-law', display: 'Corporate and Business Law' },
     { canonical: 'operations-research', display: 'Operations Research' },
     { canonical: 'human-resource-management', display: 'Human Resource Management' },
-    { canonical: 'principles-in-financial-management', display: 'Principles in Financial Management', aliases: ['PFM', 'PIFM', 'Principles of Financial Management'] },
+    { canonical: 'principles-in-financial-management', display: 'Principles of Financial Management / Introduction to BFSI & Financial Technology', aliases: ['PFM', 'PIFM', 'Principles in Financial Management', 'Principles of Financial Management'] },
 
     // SOT Biotechnology (shared grid sheet). "Critical Thinking" is
     // already registered above (SCDS Year 3); "Frontiers of AI" and
