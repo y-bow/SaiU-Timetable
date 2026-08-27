@@ -1338,6 +1338,69 @@ await check('"Emering Tools and Applications" does not falsely match a partial n
     assert.equal(c.subject, 'Emering Tools and Applications');
 });
 
+// -------------------------------------------------------------------
+// SOB Year 2: course name contains "/" — must NOT be split
+// -------------------------------------------------------------------
+
+await check('splitSubjectFaculty: "/" inside course name is NOT treated as a separator', () => {
+    // Raw cell from the live SOB timetable sheet:
+    const raw = 'Principles of Financial Management  /  Introduction to BFSI & Financial Technology               Ajit Nag';
+    const { subject, faculty } = splitSubjectFaculty(raw);
+    assert.equal(subject,
+        'Principles of Financial Management / Introduction to BFSI & Financial Technology',
+        'full course name preserved including "/"');
+    assert.equal(faculty, 'Prof. Ajit Nag', 'teacher extracted cleanly');
+});
+
+await check('parseCSV: SOB Year 2 "/" course parses correctly end-to-end', () => {
+    // Simulate the real grid row with room row
+    const csv = [
+        'THURSDAY,03.00 PM - 03.55 PM,Principles of Financial Management  /  Introduction to BFSI & Financial Technology               Ajit Nag',
+        ',,AB1 - 104',
+    ].join('\n');
+    const mandatory = [
+        'Principles of Financial Management / Introduction to BFSI & Financial Technology',
+    ];
+    const out = parseCSV(csv, 'grid', mandatory);
+    assert.equal(out.length, 1, 'exactly one class parsed');
+    const c = out[0];
+    assert.equal(c.subject,
+        'Principles of Financial Management / Introduction to BFSI & Financial Technology',
+        'full course name with "/" preserved');
+    assert.equal(c.faculty, 'Prof. Ajit Nag', 'teacher is Ajit Nag');
+    assert.equal(c.day, 'Thursday');
+    assert.equal(c.startTime, '15:00');
+    assert.equal(c.endTime, '15:55');
+});
+
+await check('splitSubjectFaculty: course with "/" AND multiple-word teacher', () => {
+    // The real sheet cell does NOT have "Prof." — that is added by normalizeFacultyName.
+    const raw = 'Principles of Financial Management  /  Introduction to BFSI & Financial Technology               Ajit Nag';
+    const { subject, faculty } = splitSubjectFaculty(raw);
+    assert.equal(subject,
+        'Principles of Financial Management / Introduction to BFSI & Financial Technology',
+        'full course name preserved');
+    assert.equal(faculty, 'Prof. Ajit Nag', 'teacher extracted with normalized title');
+});
+
+await check('splitSubjectFaculty: normal SOB cell still works', () => {
+    // Normal cell: "Corporate and Business Law                                Anand Shrivas"
+    const raw = 'Corporate and Business Law                                Anand Shrivas';
+    const { subject, faculty } = splitSubjectFaculty(raw);
+    assert.equal(subject, 'Corporate and Business Law');
+    assert.equal(faculty, 'Prof. Anand Shrivas');
+});
+
+await check('splitSubjectFaculty: FBO with internal multi-space still works', () => {
+    // "Fundamentals of Business Organization  & Management  Subramaniam"
+    const raw = 'Fundamentals of Business Organization  & Management  Subramaniam';
+    const { subject, faculty } = splitSubjectFaculty(raw);
+    assert.equal(subject,
+        'Fundamentals of Business Organization & Management',
+        'full FBO course name preserved');
+    assert.equal(faculty, 'Prof. Subramaniam', 'teacher extracted');
+});
+
 console.log(`\n${passed} passed, ${failed} failed`);
 rmSync(dir, { recursive: true, force: true });
 if (failed) process.exit(1);

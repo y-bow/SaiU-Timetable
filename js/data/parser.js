@@ -518,6 +518,14 @@ function splitClassCell(cell) {
         const parts = text.split(/\s{2,}/).map(p => p.trim()).filter(Boolean);
         subject = parts[0] || '';
         faculty = parts.slice(1).join(' ');
+        // A multi-space run INSIDE a course name containing "/" splits at the
+        // run and pushes the "/" plus the rest of the name into faculty.
+        // Discard the erroneous split so the single-space fallback below can
+        // recover the full name and the true teacher.
+        if (faculty && /^\//.test(faculty.trim())) {
+            subject = text.replace(/\s+/g, ' ').trim();
+            faculty = '';
+        }
     }
 
     // Single-space-separated teacher: when neither a dash nor a space-run
@@ -688,6 +696,18 @@ export function splitSubjectFaculty(cell) {
         .filter(p => !/^\(Sec\s*\d+\)$/i.test(p));
     let subject = (parts[0] || '').replace(/\s*\(Sec\s*\d+\)/i, '').trim();
     let faculty = parts.slice(1).join(' ');
+
+    // A multi-space run INSIDE a course name that contains "/" (e.g.
+    // "Management  /  Introduction to BFSI") splits the name at the run,
+    // pushing the "/" and the rest of the course into `faculty`.  The "/" is
+    // part of the course, not a subject/teacher separator.  Discard the
+    // erroneous multi-space split so the single-space / known-course-prefix
+    // logic below can recover the full course name and isolate the true
+    // teacher.
+    if (faculty && /^\//.test(faculty.trim())) {
+        subject = text.replace(/\s+/g, ' ').trim();
+        faculty = '';
+    }
 
     // "Subject - Teacher" dash format (single or double spaces around the dash,
     // e.g. "Image Processing - Dr Aasy"). Used only when the multi-space split
@@ -1022,6 +1042,14 @@ function splitTeacherCell(cell) {
         if (last) {
             subject = text.slice(0, last.index).replace(/\s+/g, ' ').trim();
             faculty = text.slice(last.index + last[0].length).trim();
+            // A multi-space run INSIDE a course name containing "/" splits at
+            // the run and pushes the "/" plus the rest of the name into
+            // faculty.  Discard the erroneous split so the single-space
+            // fallback below can recover the full name and the true teacher.
+            if (faculty && /^\//.test(faculty.trim())) {
+                subject = text.replace(/\s+/g, ' ').trim();
+                faculty = '';
+            }
         } else {
             // 3. Dash separation: "Subject - Teacher" (single spaces). A
             //    trailing course number ("Economics - 1") is not a teacher.
