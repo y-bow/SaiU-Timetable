@@ -101,7 +101,7 @@ export const SCHOOLS = [
                             { id: 'aravind', label: 'Section 3', name: 'Aravind', faculty: 'Aravind', section: 3 },
                         ],
                     },
-                    { id: 'fundamentals-of-business-organization-and-management', label: 'Fundamentals of Business Organization & Management' },
+                    { id: 'introduction-to-financial-accounting', label: 'Introduction to Financial Accounting' },
                 ],
             },
             {
