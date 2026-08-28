@@ -1,24 +1,24 @@
-import { CONFIG } from './config.js?v=2026-08-25-001';
-import { parseCSV, parseRoomOccupancy, offeringKey } from '../data/parser.js?v=2026-08-25-001';
-import { compareTimetables, classIdentity, setChangeDetectorDebug } from '../data/change-detector.js?v=2026-08-25-001';
-import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen } from '../services/storage.js?v=2026-08-25-001';
-import * as nav from '../ui/navigation.js?v=2026-08-25-001';
-import * as ui from '../ui/ui.js?v=2026-08-25-001';
-import { checkArjunSinghTransition, resetArjunSinghTransition } from '../ui/easter-eggs.js?v=2026-08-25-001';
-import * as labSection from '../ui/lab-section.js?v=2026-08-25-001';
-import { loadMergedYear2Timetable } from '../services/lab-fetch.js?v=2026-08-25-001';
-import { matchesEmergingToolsSection } from '../data/lab-parser.js?v=2026-08-25-001';
-import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-08-25-001';
-import { init as initAnalytics, trackEvent } from '../services/analytics.js?v=2026-08-25-001';
-import { dispatchTimetableChanges, setN8nDebug } from '../services/n8n.js?v=2026-08-25-001';
+import { CONFIG } from './config.js?v=2026-08-28-001';
+import { parseCSV, parseRoomOccupancy, offeringKey } from '../data/parser.js?v=2026-08-28-001';
+import { compareTimetables, classIdentity, setChangeDetectorDebug } from '../data/change-detector.js?v=2026-08-28-001';
+import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen } from '../services/storage.js?v=2026-08-28-001';
+import * as nav from '../ui/navigation.js?v=2026-08-28-001';
+import * as ui from '../ui/ui.js?v=2026-08-28-001';
+import { checkArjunSinghTransition, resetArjunSinghTransition } from '../ui/easter-eggs.js?v=2026-08-28-001';
+import * as labSection from '../ui/lab-section.js?v=2026-08-28-001';
+import { loadMergedYear2Timetable } from '../services/lab-fetch.js?v=2026-08-28-001';
+import { matchesEmergingToolsSection } from '../data/lab-parser.js?v=2026-08-28-001';
+import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-08-28-001';
+import { init as initAnalytics, trackEvent } from '../services/analytics.js?v=2026-08-28-001';
+import { dispatchTimetableChanges, setN8nDebug } from '../services/n8n.js?v=2026-08-28-001';
 // Localhost-only dev console harness for timetable change notifications
 // (window.testRoomChangeNotification / testTimeChangeNotification /
 // testInvalidRoomChange). This side-effect import executes the module, which
 // attaches the functions itself; the module self-gates on localhost, so the
 // production build is never affected.
-import '../services/timetable-test-harness.js?v=2026-08-25-001';
-import { initAiAssistant } from '../ui/ai-assistant.js?v=2026-08-25-001';
-import { initFreeRooms } from '../ui/free-rooms.js?v=2026-08-25-001';
+import '../services/timetable-test-harness.js?v=2026-08-28-001';
+import { initAiAssistant } from '../ui/ai-assistant.js?v=2026-08-28-001';
+import { initFreeRooms } from '../ui/free-rooms.js?v=2026-08-28-001';
 
 /**
  * App bootstrap, fetch, and interactivity.
@@ -756,6 +756,15 @@ async function initServiceWorkerUpdate() {
     const hadController = !!navigator.serviceWorker.controller;
 
     try {
+        // Attach the controllerchange listener BEFORE registering. If the new
+        // service worker activates during the await register() call, the event
+        // would otherwise be lost — causing the page to never reload.
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (!hadController) return; // first install — no reload needed
+            const version = controllerBuildId() || CONFIG.BUILD_ID;
+            reloadOnce(version);
+        });
+
         const reg = await navigator.serviceWorker.register('./sw.js?v=' + encodeURIComponent(CONFIG.BUILD_ID));
 
         const askToActivate = (worker) => {
@@ -763,13 +772,6 @@ async function initServiceWorkerUpdate() {
                 worker.postMessage({ type: 'SKIP_WAITING' });
             }
         };
-
-        // A new worker takes control → reload once to run the new version.
-        navigator.serviceWorker.addEventListener('controllerchange', () => {
-            if (!hadController) return; // first install — no reload needed
-            const version = controllerBuildId() || CONFIG.BUILD_ID;
-            reloadOnce(version);
-        });
 
         // Worker already waiting from a previous session → activate now.
         askToActivate(reg.waiting);
@@ -791,6 +793,10 @@ async function initServiceWorkerUpdate() {
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden) reg.update().catch(() => {});
         });
+
+        // When the device comes back online, probe for a new service worker
+        // immediately — useful on mobile where the tab may be suspended.
+        window.addEventListener('online', () => reg.update().catch(() => {}));
 
     } catch (err) {
         console.warn('[PWA] Service Worker registration/update failed:', err);

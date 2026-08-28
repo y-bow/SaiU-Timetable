@@ -11,11 +11,11 @@
  * never invented — the timeline simply shows the classes that exist.
  */
 
-import { loadTeacherIndex } from '../services/teacher-fetch.js?v=2026-08-25-001';
-import { CONFIG } from '../core/config.js?v=2026-08-25-001';
-import { initAiAssistant } from '../ui/ai-assistant.js?v=2026-08-25-001';
-import { toMinutes, minutesToLabel, minutesToClock, todayName, WEEKDAYS, labSubjectLabel } from '../core/utils.js?v=2026-08-25-001';
-import { confirmTeacherMerge, dismissTeacherMerge } from '../data/teacher-identity.js?v=2026-08-25-001';
+import { loadTeacherIndex } from '../services/teacher-fetch.js?v=2026-08-28-001';
+import { CONFIG } from '../core/config.js?v=2026-08-28-001';
+import { initAiAssistant } from '../ui/ai-assistant.js?v=2026-08-28-001';
+import { toMinutes, minutesToLabel, minutesToClock, todayName, WEEKDAYS, labSubjectLabel } from '../core/utils.js?v=2026-08-28-001';
+import { confirmTeacherMerge, dismissTeacherMerge } from '../data/teacher-identity.js?v=2026-08-28-001';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -504,6 +504,15 @@ async function initServiceWorkerUpdate() {
     const hadController = !!navigator.serviceWorker.controller;
 
     try {
+        // Attach the controllerchange listener BEFORE registering. If the new
+        // service worker activates during the await register() call, the event
+        // would otherwise be lost — causing the page to never reload.
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (!hadController) return;
+            const version = controllerBuildId() || CONFIG.BUILD_ID;
+            reloadOnce(version);
+        });
+
         const reg = await navigator.serviceWorker.register('./sw.js?v=' + encodeURIComponent(CONFIG.BUILD_ID));
 
         const askToActivate = (worker) => {
@@ -511,12 +520,6 @@ async function initServiceWorkerUpdate() {
                 worker.postMessage({ type: 'SKIP_WAITING' });
             }
         };
-
-        navigator.serviceWorker.addEventListener('controllerchange', () => {
-            if (!hadController) return;
-            const version = controllerBuildId() || CONFIG.BUILD_ID;
-            reloadOnce(version);
-        });
 
         askToActivate(reg.waiting);
 
@@ -534,6 +537,10 @@ async function initServiceWorkerUpdate() {
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden) reg.update().catch(() => {});
         });
+
+        // When the device comes back online, probe for a new service worker
+        // immediately — useful on mobile where the tab may be suspended.
+        window.addEventListener('online', () => reg.update().catch(() => {}));
     } catch { /* registration failed — page works without SW */ }
 }
 

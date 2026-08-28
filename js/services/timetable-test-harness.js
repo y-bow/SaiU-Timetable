@@ -34,9 +34,9 @@
  * dedupe inside dispatchTimetableChanges().
  */
 
-import { compareTimetables } from '../data/change-detector.js?v=2026-08-25-001';
-import { buildN8nEvent, sendN8nEvent } from './n8n.js?v=2026-08-25-001';
-import { CONFIG } from '../core/config.js?v=2026-08-25-001';
+import { compareTimetables } from '../data/change-detector.js?v=2026-08-28-001';
+import { buildN8nEvent, sendN8nEvent } from './n8n.js?v=2026-08-28-001';
+import { CONFIG } from '../core/config.js?v=2026-08-28-001';
 
 // Snapshot A — a fixed, self-contained Deep Learning class. Only the fields
 // the change detector and the n8n event builder actually consume matter;
