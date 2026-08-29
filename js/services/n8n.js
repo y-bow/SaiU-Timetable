@@ -412,3 +412,125 @@ export function sendTestEvent(event) {
         detectedAt: event.detectedAt || new Date().toISOString(),
     });
 }
+
+// ---------------------------------------------------------------------------
+// Temporary webhook test harness (dev-only, easy to remove)
+//
+// Exposes:
+//   window.testTimetableChangeWebhook()          — sends all 3 test payloads
+//   window.testTimetableChangeWebhookSingle(type) — sends one test payload
+//
+// Gated behind a localhost check so production visitors never see these
+// functions. To remove after verification, delete everything from the
+// HACKING/TEST HARNESS comment below to the end of the file.
+// ---------------------------------------------------------------------------
+
+const DEV_HOSTS_HARNESS = ['localhost', '127.0.0.1', '::1', '0.0.0.0'];
+const isDevHost = () => {
+    try { return DEV_HOSTS_HARNESS.includes(window.location.hostname); } catch { return false; }
+};
+
+const TAG = '[Webhook Test]';
+const TEST_URL = 'https://hivelabstimetable.app.n8n.cloud/webhook/timetable-change';
+
+function log(tag, msg) { console.log(`${TAG} ${tag} ${msg}`); }
+
+function makePayload(type) {
+    const ts = () => new Date().toISOString();
+    const base = {
+        school: 'SOB',
+        section: 2,
+        date: '2026-08-29',
+        day: 'Saturday',
+    };
+    switch (type) {
+        case 'room_changed':
+            return {
+                ...base,
+                type,
+                changeId: 'TEST-ROOM-CHANGE-001',
+                course: 'Test Course - Room Change',
+                startTime: '10:00',
+                endTime: '11:00',
+                oldRoom: 'TBA',
+                newRoom: 'Computer Lab',
+                detectedAt: ts(),
+            };
+        case 'time_changed':
+            return {
+                ...base,
+                type,
+                changeId: 'TEST-TIME-CHANGE-001',
+                course: 'Test Course - Time Change',
+                startTime: '11:00',
+                endTime: '12:00',
+                oldStartTime: '11:00',
+                oldEndTime: '12:00',
+                newStartTime: '12:00',
+                newEndTime: '13:00',
+                detectedAt: ts(),
+            };
+        case 'class_cancelled':
+            return {
+                ...base,
+                type,
+                changeId: 'TEST-CANCELLED-001',
+                course: 'Test Course - Cancellation',
+                startTime: '14:00',
+                endTime: '15:00',
+                detectedAt: ts(),
+            };
+        default:
+            return null;
+    }
+}
+
+async function sendOneTest(type) {
+    const payload = makePayload(type);
+    if (!payload) {
+        log(type, `UNKNOWN TYPE — valid types: room_changed, time_changed, class_cancelled`);
+        return;
+    }
+    log(type, 'Sending...');
+    let res;
+    try {
+        res = await fetch(TEST_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+    } catch (err) {
+        log(type, `FAILED`);
+        log('Network error:', String(err?.message || err));
+        return;
+    }
+    let body;
+    try { body = await res.text(); } catch { body = ''; }
+    log(`HTTP ${res.status}`, body || '(empty body)');
+    if (res.ok) {
+        log(type, 'SUCCESS');
+    } else {
+        log(type, 'FAILED');
+    }
+}
+
+/**
+ * Send all three test payloads (room_changed, time_changed, class_cancelled).
+ * Available only on localhost / 127.0.0.1.
+ */
+async function testTimetableChangeWebhookAll() {
+    for (const type of ['room_changed', 'time_changed', 'class_cancelled']) {
+        await sendOneTest(type);
+    }
+}
+
+function installWebhookTestHarness() {
+    if (!isDevHost()) return;
+    window.testTimetableChangeWebhook = testTimetableChangeWebhookAll;
+    window.testTimetableChangeWebhookSingle = sendOneTest;
+}
+
+// --- END OF WEBHOOK TEST HARNESS ---
+// Remove from here to the end of the file after verification.
+
+installWebhookTestHarness();
