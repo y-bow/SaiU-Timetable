@@ -63,10 +63,9 @@ const FACULTY_ALIASES = [
     // and Analysis, SOB Year 2). Normalize to the current canonical name.
     { match: /^surya\s+krish$/i, name: 'Surya C' },
     // Dr. Pankaj Jain (Digital Healthcare, SOAI Year 2). The sheet may use
-    // "Pankaj", "Pankaj Jain", "dr.pankaj jain", or "Dr. Pankaj Jain". Fold
+    // "Pankaj", "Pankaj Jain", "dr.pankaj", or "Dr. Pankaj Jain". Fold
     // every variant onto the titled form.
-    { match: /^(?:dr\.?\s*)?pankaj\s+jain$/i, name: 'Dr.Pankaj Jain' },
-    { match: /^pankaj$/i, name: 'Dr.Pankaj Jain' },
+    { match: /^(?:dr\.?\s*)?pankaj(?:\s+jain)?$/i, name: 'Dr.Pankaj Jain' },
 ];
 
 export function normalizeFacultyName(faculty) {
