@@ -72,7 +72,7 @@ export const CONFIG = {
     // service (js/services/timetable-ai.js), webhook and n8n workflow stay
     // fully intact. To restore the AI UI later, flip this single value back
     // to true.
-    AI_UI_ENABLED: false,
+    AI_UI_ENABLED: true,
 
     // The chat panel and its launch buttons are rendered when isAiEnabled()
     // (js/services/timetable-ai.js) returns true, which is:
