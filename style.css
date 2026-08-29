@@ -1307,6 +1307,30 @@ input { font-family: inherit; }
 .ai-launch-btn:hover { border-color: var(--primary); filter: brightness(1.1); }
 .ai-launch-btn:active { transform: scale(0.97); }
 
+/* Mobile floating action button for AI */
+.ai-fab {
+    display: none;
+    position: fixed;
+    bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+    right: 20px;
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: var(--primary-text);
+    border: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    z-index: 400;
+    place-items: center;
+    cursor: pointer;
+    transition: transform 200ms ease, box-shadow 200ms ease, opacity var(--fast);
+}
+.ai-fab:active { transform: scale(0.92); }
+.ai-fab.panel-open { opacity: 0; pointer-events: none; }
+
+@media (max-width: 767px) {
+    .ai-fab { display: grid; }
+}
+
 @media (min-width: 768px) {
     .ai-sheet {
         top: 0; bottom: 0; left: auto;

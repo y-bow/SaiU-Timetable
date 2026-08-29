@@ -109,6 +109,27 @@ function ensureDom() {
         sendQuestion(inputEl.value);
     });
     inputEl.addEventListener('input', updateSendState);
+
+    ensureMobileFab();
+}
+
+let mobileFab = null;
+
+function ensureMobileFab() {
+    if (mobileFab || !window.matchMedia('(max-width: 767px)').matches) return;
+    mobileFab = document.createElement('button');
+    mobileFab.type = 'button';
+    mobileFab.id = 'ai-fab';
+    mobileFab.className = 'ai-fab';
+    mobileFab.setAttribute('aria-label', 'Ask SaiU AI');
+    mobileFab.setAttribute('aria-haspopup', 'dialog');
+    mobileFab.innerHTML = SPARK_ICON;
+    mobileFab.addEventListener('click', openPanel);
+    document.body.appendChild(mobileFab);
+}
+
+function removeMobileFab() {
+    if (mobileFab) { mobileFab.remove(); mobileFab = null; }
 }
 
 function ensureLaunchButtons() {
@@ -171,6 +192,7 @@ function openPanel() {
     panel.classList.add('open');
     panel.setAttribute('aria-hidden', 'false');
     document.body.style.overflow = 'hidden';
+    if (mobileFab) mobileFab.classList.add('panel-open');
     focusTrapCleanup = trapFocus(panel, closePanel);
     if (!welcomed) {
         welcomed = true;
@@ -185,6 +207,7 @@ function closePanel() {
     panel.classList.remove('open');
     panel.setAttribute('aria-hidden', 'true');
     document.body.style.overflow = '';
+    if (mobileFab) mobileFab.classList.remove('panel-open');
     if (focusTrapCleanup) {
         focusTrapCleanup();
         focusTrapCleanup = null;
