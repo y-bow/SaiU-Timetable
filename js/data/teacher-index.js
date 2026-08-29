@@ -47,7 +47,7 @@ import {
     buildIdentityResolution,
     loadTeacherConfirmations,
     teacherSearchText,
-} from './teacher-identity.js?v=2026-08-28-001';
+} from './teacher-identity.js?v=2026-08-30-001';
 
 const TEACHER_SPLIT_RE = /\s*(?:[,;/]|\band\b|&)\s*/gi;
 

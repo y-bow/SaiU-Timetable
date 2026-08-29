@@ -202,6 +202,10 @@ export const TEACHER_ALIASES = [
     // fragments this teacher across spellings. Formatting differences
     // (case, title, extra whitespace, punctuation) fold away before matching.
     { match: /^(?:roopam(?:\s+(?:sah|shah))?|rupam\s+(?:sah|shah))$/i, id: 'rupam-shah', displayName: 'Prof. Rupam Shah' },
+    // Dr. Pankaj Jain (Frontiers of ML, Digital Healthcare). Normalize every
+    // variant ("Pankaj", "Pankaj Jain", "Dr.Pankaj", "Dr. Pankaj Jain") to
+    // one canonical identity.
+    { match: /^(?:dr\.?\s*)?pankaj(?:\s+jain)?$/i, id: 'pankaj-jain', displayName: 'Prof. Dr.Pankaj Jain' },
 ];
 
 // ---------------------------------------------------------------------------

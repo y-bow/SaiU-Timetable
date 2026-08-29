@@ -15,7 +15,7 @@ import { loadTeacherIndex } from '../services/teacher-fetch.js?v=2026-08-28-001'
 import { CONFIG } from '../core/config.js?v=2026-08-28-001';
 import { initAiAssistant } from '../ui/ai-assistant.js?v=2026-08-28-001';
 import { toMinutes, minutesToLabel, minutesToClock, todayName, WEEKDAYS, labSubjectLabel } from '../core/utils.js?v=2026-08-28-001';
-import { confirmTeacherMerge, dismissTeacherMerge } from '../data/teacher-identity.js?v=2026-08-28-001';
+import { confirmTeacherMerge, dismissTeacherMerge } from '../data/teacher-identity.js?v=2026-08-30-001';
 
 const $ = (sel) => document.querySelector(sel);
 
