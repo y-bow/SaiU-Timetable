@@ -190,7 +190,7 @@ function coreFields(c, ctx, changeType) {
         detectedAt: new Date().toISOString(),
         date: dateForWeekday(c.day),
         day: c.day ?? null,
-        course: c.subject ?? null,
+        course: c.displayName ?? c.subject ?? null,
         courseId: c.courseId ?? null,
         faculty: c.faculty ?? undefined,
         year: c.year != null ? c.year : (ctx.year != null ? ctx.year : null),

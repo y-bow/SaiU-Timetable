@@ -264,8 +264,23 @@ function getRoomCacheKey() {
 }
 
 async function load({ silent = false, background = false } = {}) {
+    const year = nav.getYear();
     const sheetUrl = nav.getSheetUrl();
+
+    if (!background) {
+        console.log('[Timetable] load()', {
+            school: nav.getSchool()?.id,
+            year: year?.id,
+            section: selectedSection,
+            online: navigator.onLine,
+            url: sheetUrl,
+            background,
+            silent,
+        });
+    }
+
     if (!sheetUrl) {
+        console.warn('[Timetable] No sheet URL — navigation state not resolved');
         classes = [];
         roomOccupancy = [];
         loadedFor = null;
@@ -275,10 +290,17 @@ async function load({ silent = false, background = false } = {}) {
 
     const cacheKey = getCacheKey();
     const cached = readCache(cacheKey);
+
+    if (!background) {
+        console.log('[Timetable] Cache:', cached
+            ? `hit (${cached.classes.length} classes, saved ${new Date(cached.savedAt).toLocaleString()})`
+            : 'miss');
+    }
+
     if (cached && cached.classes) {
         classes = cached.classes;
         roomOccupancy = cached.roomOccupancy || [];
-        loadedFor = nav.getYear()?.id ?? null;
+        loadedFor = year?.id ?? null;
         if (cached.savedAt) lastUpdated = new Date(cached.savedAt);
         syncSections();
         render();
@@ -290,11 +312,21 @@ async function load({ silent = false, background = false } = {}) {
 
     ui.setRefreshSpinning(!silent);
     try {
+        if (!background) console.log('[Timetable] Fetching:', sheetUrl);
+
         const res = await fetch(sheetUrl);
+
+        if (!background) console.log('[Timetable] Response:', res.status, res.statusText);
+
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const text = await res.text();
         const parsed = parseCSV(text, nav.getParserType(), nav.getMandatoryCourses(), nav.getElectives(), nav.getRooms());
-        if (!parsed.length) throw new Error('No classes parsed');
+        if (!parsed.length) {
+            console.error('[Timetable] Parse returned 0 classes');
+            throw new Error('No classes parsed');
+        }
+
+        if (!background) console.log('[Timetable] Parsed:', parsed.length, 'classes');
 
         // Room occupancy: scans the ENTIRE CSV without school/year
         // filtering, so Free Rooms knows about every occupied room.
@@ -302,7 +334,6 @@ async function load({ silent = false, background = false } = {}) {
 
         // SCDS Year 2: merge the separate lab timetables (DAA/FDE/Emg Lab)
         // under the main sheet classes so labs appear on the same timeline.
-        const year = nav.getYear();
         classes = year && year.id === 'scds-2'
             ? (await loadMergedYear2Timetable(parsed)).classes
             : parsed;
@@ -324,9 +355,34 @@ async function load({ silent = false, background = false } = {}) {
         render();
         trackEvent('timetable_refreshed', { source: background ? 'background' : silent ? 'manual' : 'initial' });
         if (!silent) ui.showToast('Timetable refreshed');
-    } catch {
-        if (!cached) ui.renderError();
-        if (!silent) ui.showToast('Offline — showing cached schedule');
+    } catch (err) {
+        const isOffline = !navigator.onLine;
+
+        console.error('[Timetable] Load failed:', err?.message || err);
+        console.error('[Timetable] Online:', isOffline ? 'offline' : 'online');
+        console.error('[Timetable] Cached data:', cached ? `${cached.classes.length} classes available` : 'none');
+
+        if (cached && cached.classes) {
+            // Cached data is already displayed (set before the fetch started).
+            // Show a non-blocking toast — the timetable remains visible.
+            if (!silent) {
+                ui.showToast(isOffline
+                    ? 'Offline — showing cached schedule'
+                    : "Couldn't refresh timetable. Showing cached schedule.");
+            }
+        } else {
+            // No cached data — show error card with an appropriate message.
+            if (isOffline) {
+                ui.renderError({
+                    title: "You're offline",
+                    message: 'Check your connection and try again. Your timetable will be cached once loaded.',
+                });
+            } else {
+                ui.renderError({
+                    message: "Couldn't load this timetable. Please try again.",
+                });
+            }
+        }
     } finally {
         ui.setRefreshSpinning(false);
     }

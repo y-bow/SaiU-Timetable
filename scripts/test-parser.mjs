@@ -400,7 +400,7 @@ await check('SOB BBA Year 2 courses are correct', () => {
     assert.ok(mandatory.includes('Corporate and Business Law'), 'BBA has Corporate and Business Law');
     assert.ok(mandatory.includes('Operations Research'), 'BBA has Operations Research');
     assert.ok(mandatory.includes('Human Resource Management'), 'BBA has Human Resource Management');
-    assert.ok(mandatory.includes('Principles of Financial Management / Introduction to BFSI & Financial Technology'), 'BBA has Principles of Financial Management / Introduction to BFSI & Financial Technology');
+    assert.ok(mandatory.includes('Principles of Financial Management'), 'BBA has Principles of Financial Management');
     assert.ok(!mandatory.includes('Financial Reporting and Analysis'), 'BBA does NOT have Financial Reporting and Analysis');
 });
 
@@ -410,7 +410,7 @@ await check('SOB B.Com Year 2 courses are correct', () => {
     const mandatory = year2.mandatoryCourses;
     assert.ok(mandatory.includes('Corporate and Business Law'), 'B.Com has Corporate and Business Law');
     assert.ok(mandatory.includes('Human Resource Management'), 'B.Com has Human Resource Management');
-    assert.ok(mandatory.includes('Principles of Financial Management / Introduction to BFSI & Financial Technology'), 'B.Com has Principles of Financial Management / Introduction to BFSI & Financial Technology');
+    assert.ok(mandatory.includes('Principles of Financial Management'), 'B.Com has Principles of Financial Management');
     assert.ok(mandatory.includes('Financial Reporting and Analysis'), 'B.Com has Financial Reporting and Analysis');
     assert.ok(!mandatory.includes('Operations Research'), 'B.Com does NOT have Operations Research');
 });
@@ -420,7 +420,7 @@ await check('shared courses appear in both BBA and B.Com Year 2', () => {
     const bcom = sob.programs.find(p => p.id === 'bcom');
     const bbaYear2 = bba.years.find(y => y.level === 2);
     const bcomYear2 = bcom.years.find(y => y.level === 2);
-    const shared = ['Corporate and Business Law', 'Human Resource Management', 'Principles of Financial Management / Introduction to BFSI & Financial Technology'];
+    const shared = ['Corporate and Business Law', 'Human Resource Management', 'Principles of Financial Management'];
     for (const c of shared) {
         assert.ok(bbaYear2.mandatoryCourses.includes(c), `BBA has shared course: ${c}`);
         assert.ok(bcomYear2.mandatoryCourses.includes(c), `B.Com has shared course: ${c}`);
@@ -445,7 +445,7 @@ const SCDS3_ALL_ELECTIVES = [
     { id: 'forensic-psychology', label: 'Forensic Psychology' },
     { id: 'community-psychology', label: 'Community Psychology' },
     { id: 'fundamentals-of-business-organization-and-management', label: 'Fundamentals of Business Organization & Management' },
-    { id: 'principles-in-financial-management', label: 'Principles of Financial Management / Introduction to BFSI & Financial Technology' },
+    { id: 'principles-in-financial-management', label: 'Principles of Financial Management' },
 ];
 const SCDS3_MANDATORY_COURSES = ['Deep Learning', 'Theory of Computation'];
 
@@ -541,7 +541,7 @@ await check('SCDS-3: PFM abbreviation is expanded and matched', () => {
     const out = parseCSV(SCDS3_ALL_GRID, 'grid', SCDS3_MANDATORY_COURSES, SCDS3_ALL_ELECTIVES, null);
     const c = out.find(x => x.elective === 'principles-in-financial-management' && x.day === 'Monday');
     assert.ok(c, 'PFM parsed');
-    assert.equal(c.subject, 'Principles of Financial Management / Introduction to BFSI & Financial Technology');
+    assert.equal(c.subject, 'Principles of Financial Management');
     assert.equal(c.faculty, 'Prof. Dr.Mehta');
 });
 
@@ -556,7 +556,7 @@ await check('SCDS-3: "Principles of Financial Management" (with "of") is matched
     const out = parseCSV(SCDS3_ALL_GRID, 'grid', SCDS3_MANDATORY_COURSES, SCDS3_ALL_ELECTIVES, null);
     const c = out.find(x => x.elective === 'principles-in-financial-management' && x.day === 'Tuesday');
     assert.ok(c, '"Principles of Financial Management" matched');
-    assert.equal(c.subject, 'Principles of Financial Management / Introduction to BFSI & Financial Technology');
+    assert.equal(c.subject, 'Principles of Financial Management');
     assert.equal(c.faculty, 'Prof. Dr.Singh');
 });
 
@@ -1176,6 +1176,17 @@ await check('SOT Year 1: "Frontiers of AI Sem1" drops the Sem1 tag', () => {
     assert.equal(c.faculty, '', 'no phantom teacher invented');
 });
 
+await check('SOT Year 1: "Frontiers of AI Sem 1 Dr. Pankaj Jain" strips bare Sem 1 and keeps teacher', () => {
+    const variant = [
+        'MONDAY,09:15 AM - 10:10 AM,Frontiers of AI Sem 1 Dr. Pankaj Jain',
+    ].join('\n');
+    const out = parseCSV(variant, 'grid', SOT_MANDATORY, SOT_ELECTIVES, null);
+    const c = out.find(x => x.courseId === 'frontiers-of-ai');
+    assert.ok(c, 'course parsed');
+    assert.equal(c.subject, 'Frontiers of AI', 'Sem 1 tag stripped');
+    assert.equal(c.faculty, 'Prof. Dr.Pankaj Jain', 'teacher preserved, not "Prof. Sem 1 Dr.Pankaj Jain"');
+});
+
 await check('SOT Year 1: "Indian Constitution and Democracy - Sem1" ("and" for "&") still matches', () => {
     const variant = [
         'MONDAY,09:15 AM - 10:10 AM,Indian Constitution and Democracy - Sem1',
@@ -1359,14 +1370,14 @@ await check('parseCSV: SOB Year 2 "/" course parses correctly end-to-end', () =>
         ',,AB1 - 104',
     ].join('\n');
     const mandatory = [
-        'Principles of Financial Management / Introduction to BFSI & Financial Technology',
+        'Principles of Financial Management',
     ];
     const out = parseCSV(csv, 'grid', mandatory);
     assert.equal(out.length, 1, 'exactly one class parsed');
     const c = out[0];
     assert.equal(c.subject,
-        'Principles of Financial Management / Introduction to BFSI & Financial Technology',
-        'full course name with "/" preserved');
+        'Principles of Financial Management',
+        'course name expanded to default display name');
     assert.equal(c.faculty, 'Prof. Ajit Nag', 'teacher is Ajit Nag');
     assert.equal(c.day, 'Thursday');
     assert.equal(c.startTime, '15:00');
@@ -1379,7 +1390,7 @@ await check('splitSubjectFaculty: course with "/" AND multiple-word teacher', ()
     const { subject, faculty } = splitSubjectFaculty(raw);
     assert.equal(subject,
         'Principles of Financial Management / Introduction to BFSI & Financial Technology',
-        'full course name preserved');
+        'full course name preserved (splitSubjectFaculty returns raw subject, alias expansion happens later)');
     assert.equal(faculty, 'Prof. Ajit Nag', 'teacher extracted with normalized title');
 });
 

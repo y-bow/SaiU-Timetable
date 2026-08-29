@@ -85,7 +85,7 @@ function buildTimetablePayload(classes, ctx = {}) {
         year: c.year != null ? c.year : (ctx.year ?? null),
         section: c.section != null ? c.section : (ctx.section ?? null),
         labGroup: ctx.labGroup ?? null,
-        course: c.subject ?? c.course ?? null,
+        course: c.displayName ?? c.subject ?? c.course ?? null,
         courseId: c.courseId ?? null,
         day: c.day ?? null,
         date: dateForWeekday(c.day),

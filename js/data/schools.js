@@ -129,7 +129,7 @@ export const SCHOOLS = [
                     { id: 'forensic-psychology', label: 'Forensic Psychology' },
                     { id: 'community-psychology', label: 'Community Psychology' },
                     { id: 'fundamentals-of-business-organization-and-management', label: 'Fundamentals of Business Organization & Management' },
-                    { id: 'principles-in-financial-management', label: 'Principles of Financial Management / Introduction to BFSI & Financial Technology' },
+                    { id: 'principles-in-financial-management', label: 'Principles of Financial Management' },
                     { id: 'conflict-in-contemporary-international-relations', label: 'Conflicts in Contemporary International Relations' },
                 ],
             },
@@ -157,6 +157,8 @@ export const SCHOOLS = [
                 ],
                 electives: [
                     { id: 'intelligent-embedded-systems', label: 'Intelligent Embedded Systems' },
+                    { id: 'principles-in-financial-management', label: 'Introduction to BFSI & Financial Technology' },
+                    { id: 'digital-healthcare', label: 'Digital Healthcare' },
                 ],
             },
         ],
@@ -199,7 +201,7 @@ export const SCHOOLS = [
                             'Corporate and Business Law',
                             'Operations Research',
                             'Human Resource Management',
-                            'Principles of Financial Management / Introduction to BFSI & Financial Technology',
+                            'Principles of Financial Management',
                         ],
                         electives: [
                             { id: 'forensic-psychology', label: 'Forensic Psychology' },
@@ -240,7 +242,7 @@ export const SCHOOLS = [
                         mandatoryCourses: [
                             'Corporate and Business Law',
                             'Human Resource Management',
-                            'Principles of Financial Management / Introduction to BFSI & Financial Technology',
+                            'Principles of Financial Management',
                             'Financial Reporting and Analysis',
                         ],
                         electives: [

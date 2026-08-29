@@ -569,7 +569,7 @@ export function renderTimeline(nowMin, day, ctx, query = '') {
     timeline.innerHTML = '';
 
     if (q) {
-        const matches = today.filter((c) => [c.subject, c.faculty, c.room].join(' ').toLowerCase().includes(q));
+        const matches = today.filter((c) => [c.displayName, c.subject, c.faculty, c.room].join(' ').toLowerCase().includes(q));
         if (!matches.length) {
             $('#timeline-stats').textContent = '';
             timeline.innerHTML = `<li class="tl-search-empty">No classes match "${escapeHtml(query.trim())}".</li>`;
@@ -661,7 +661,7 @@ function buildTimeline(timeline, items, nowMin, skipBreaks, dayStatus = 'today',
             <div class="tl-card">
                 <div class="tl-card-top">
                     <div>
-                        <div class="tl-subject">${escapeHtml(c.lab ? labSubjectLabel(c.subject) : c.subject)}${c.lab ? '<span class="badge badge-lab tl-lab-tag">Lab</span>' : ''}</div>
+                        <div class="tl-subject">${escapeHtml(c.lab ? labSubjectLabel(c.displayName || c.subject) : (c.displayName || c.subject))}${c.lab ? '<span class="badge badge-lab tl-lab-tag">Lab</span>' : ''}</div>
                         <div class="tl-meta">
                             ${c.faculty && status !== 'completed' ? `<span class="tl-faculty">${escapeHtml(c.faculty)}</span>` : ''}
                             <span class="tl-room">${ICONS.mapPin}<span>${escapeHtml(c.room || 'Room TBA')}</span></span>
@@ -756,12 +756,12 @@ export function renderEmpty() {
     $('.retry-btn')?.classList.add('hidden');
 }
 
-export function renderError() {
+export function renderError({ title, message } = {}) {
     hideLoading(); hideAll();
     $('.state-card')?.classList.remove('hidden');
     $('#empty-icon').innerHTML = ICONS.circleAlert;
-    $('#state-title').textContent = "Couldn't load the timetable";
-    $('#state-message').textContent = 'Check your connection and try again. Your last known schedule is still cached offline.';
+    $('#state-title').textContent = title || "Couldn't load the timetable";
+    $('#state-message').textContent = message || 'Check your connection and try again.';
     $('.retry-btn')?.classList.remove('hidden');
 }
 

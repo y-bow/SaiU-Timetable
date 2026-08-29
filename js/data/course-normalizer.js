@@ -130,6 +130,7 @@ const COURSE_DEFINITIONS = [
     { canonical: 'frontiers-of-machine-learning', display: 'Frontiers of Machine Learning' },
     { canonical: 'discrete-mathematics', display: 'Discrete Mathematics', aliases: ['Discrete Mathematics & Set Theory'] },
     { canonical: 'image-processing', display: 'Image Processing' },
+    { canonical: 'digital-healthcare', display: 'Digital Healthcare' },
 
     // SOB BBA Year 1 (sheet: AB2-211 / AB1-103 columns)
     { canonical: 'fundamentals-of-business', display: 'Fundamentals of Business' },
@@ -140,7 +141,7 @@ const COURSE_DEFINITIONS = [
     { canonical: 'corporate-and-business-law', display: 'Corporate and Business Law' },
     { canonical: 'operations-research', display: 'Operations Research' },
     { canonical: 'human-resource-management', display: 'Human Resource Management' },
-    { canonical: 'principles-in-financial-management', display: 'Principles of Financial Management / Introduction to BFSI & Financial Technology', aliases: ['PFM', 'PIFM', 'Principles in Financial Management', 'Principles of Financial Management'] },
+    { canonical: 'principles-in-financial-management', display: 'Principles of Financial Management', aliases: ['PFM', 'PIFM', 'Principles in Financial Management', 'Principles of Financial Management', 'Introduction to BFSI & Financial Technology', 'Principles of Financial Management / Introduction to BFSI & Financial Technology'] },
 
     // SOT Biotechnology (shared grid sheet). "Critical Thinking" is
     // already registered above (SCDS Year 3); "Frontiers of AI" and

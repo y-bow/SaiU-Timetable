@@ -142,7 +142,7 @@ function renderTeacherDebug(rec) {
         })
         .map((c) => `
             <li>
-                <b>${escapeHtml(c.subject)}</b> · ${escapeHtml(c.day)} ${minutesToClock(toMinutes(c.startTime))}–${minutesToClock(toMinutes(c.endTime))}
+                <b>${escapeHtml(c.displayName || c.subject)}</b> · ${escapeHtml(c.day)} ${minutesToClock(toMinutes(c.startTime))}–${minutesToClock(toMinutes(c.endTime))}
                 · room ${escapeHtml(c.room || 'TBA')}
                 · sec ${c.section ?? '-'}${c.lab ? ' · Lab' : ''}
                 ${(c.contexts || []).length ? ` · <i>${c.contexts.map((x) => escapeHtml(x)).join(', ')}</i>` : ''}
@@ -249,7 +249,7 @@ function buildItem(c, startMin, endMin) {
         <div class="tl-card">
             <div class="tl-card-top">
                 <div>
-                    <div class="tl-subject">${escapeHtml(c.lab ? labSubjectLabel(c.subject) : c.subject)}</div>
+                    <div class="tl-subject">${escapeHtml(c.lab ? labSubjectLabel(c.displayName || c.subject) : (c.displayName || c.subject))}</div>
                     <div class="tl-meta">
                         <span class="tl-faculty">${escapeHtml(c.teacher)}</span>
                         <span class="tl-room">${ICONS.pin}<span>${escapeHtml(c.room || 'Room TBA')}</span></span>

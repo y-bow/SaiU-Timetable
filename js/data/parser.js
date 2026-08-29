@@ -62,6 +62,11 @@ const FACULTY_ALIASES = [
     // Surya Krish is an older sheet spelling for Surya C (Financial Reporting
     // and Analysis, SOB Year 2). Normalize to the current canonical name.
     { match: /^surya\s+krish$/i, name: 'Surya C' },
+    // Dr. Pankaj Jain (Digital Healthcare, SOAI Year 2). The sheet may use
+    // "Pankaj", "Pankaj Jain", "dr.pankaj jain", or "Dr. Pankaj Jain". Fold
+    // every variant onto the titled form.
+    { match: /^(?:dr\.?\s*)?pankaj\s+jain$/i, name: 'Dr.Pankaj Jain' },
+    { match: /^pankaj$/i, name: 'Dr.Pankaj Jain' },
 ];
 
 export function normalizeFacultyName(faculty) {
@@ -198,6 +203,7 @@ function groupElectiveOfferings(classes) {
                 out.push({
                     day: c.day,
                     subject: c.subject,
+                    displayName: c.displayName,
                     startTime: c.startTime,
                     endTime: c.endTime,
                     elective: c.elective,
@@ -341,7 +347,7 @@ function parseGridCSV(text, mandatoryCourses = null, electives = null, rooms = n
                     startTime: times.start,
                     endTime: times.end,
                     courseId: elective ? elective.id : resolveCourseId(name),
-                    ...(elective ? { elective: elective.id } : {}),
+                    ...(elective ? { elective: elective.id, displayName: elective.label } : {}),
                     ...(isLab ? { lab: true } : {}),
                 });
             } else if (mandatoryList || electiveList) {
@@ -370,7 +376,7 @@ function parseGridCSV(text, mandatoryCourses = null, electives = null, rooms = n
                     startTime: times.start,
                     endTime: times.end,
                     courseId: elective ? elective.id : resolveCourseId(name),
-                    ...(elective ? { elective: elective.id } : {}),
+                    ...(elective ? { elective: elective.id, displayName: elective.label } : {}),
                     ...(isLab ? { lab: true } : {}),
                 });
             }
@@ -424,7 +430,7 @@ const SUBJECT_ALIASES = [
     { match: /^IFA$/i, name: 'Introduction to Financial Accounting' },
     { match: /^CT$/i, name: 'Critical Thinking' },
     { match: /^(?:FBO|FOB|Fundamentals of Business Organization and Management)$/i, name: 'Fundamentals of Business Organization & Management' },
-    { match: /^(?:PFM|PIFM|Principles of Financial Management|Principles in Financial Management)$/i, name: 'Principles of Financial Management / Introduction to BFSI & Financial Technology' },
+    { match: /^(?:PFM|PIFM|Principles of Financial Management|Principles in Financial Management|Introduction to BFSI\s*(?:&|and)\s*Financial Technology|Principles of Financial Management\s*\/\s*Introduction to BFSI\s*(?:&|and)\s*Financial Technology)$/i, name: 'Principles of Financial Management' },
     { match: /^FP$/i, name: 'Forensic Psychology' },
 
     // SCDS Year 1 mandatory courses. Abbreviations and minor formatting
@@ -642,7 +648,7 @@ function parseGridCSVRooms(text, electives = null, rooms = null) {
                 startTime: times.start,
                 endTime: times.end,
                 courseId: elective ? elective.id : resolveCourseId(name),
-                ...(elective ? { elective: elective.id } : {}),
+                ...(elective ? { elective: elective.id, displayName: elective.label } : {}),
                 ...(isLab ? { lab: true } : {}),
             });
         }
@@ -807,6 +813,9 @@ function stripClassMarkers(text) {
         // "Sem N" in parens ("(Sem 1)") is the same semester marker as the
         // dash form above; drop it too.
         .replace(/\s*\(\s*Sem(?:ester)?\s*\.?\s*\d+\s*\)\s*/gi, ' ')
+        // Bare "Sem N" without dashes or parens (e.g. "Frontiers of AI
+        // Sem 1 Dr Pankaj Jain") — strip the semester token entirely.
+        .replace(/\bSem(?:ester)?\s*\.?\s*\d+\b/gi, ' ')
         // Shared-course qualifier used by the main sheet: "Critical Thinking
         // (SAS/SoAI/SoB/SoT/SCDS)" means the course is shared across schools —
         // the school list is not part of the course name.
@@ -936,12 +945,14 @@ function parseListCSV(text, electives = null) {
         // cell or a differently-spelled name still finds its elective.
         const { base: baseName, isLab } = splitLabSuffix(subject);
         let elective = null;
+        let electiveLabel = null;
         if (electiveList) {
             const subjLower = baseName.trim().toLowerCase();
             for (const e of electiveList) {
                 const name = e.label.trim().toLowerCase();
                 if (subjLower === name || subjLower.startsWith(name)) {
                     elective = e.id;
+                    electiveLabel = e.label;
                     break;
                 }
             }
@@ -949,7 +960,7 @@ function parseListCSV(text, electives = null) {
                 const res = resolveCourse(baseName);
                 if (res && res.canonical) {
                     for (const e of electiveList) {
-                        if (e.id === res.canonical) { elective = e.id; break; }
+                        if (e.id === res.canonical) { elective = e.id; electiveLabel = e.label; break; }
                     }
                 }
             }
@@ -964,7 +975,7 @@ function parseListCSV(text, electives = null) {
             startTime: times.start,
             endTime: times.end,
             courseId: elective || resolveCourseId(subject),
-            ...(elective ? { elective } : {}),
+            ...(elective ? { elective, displayName: electiveLabel } : {}),
             ...(isLab ? { lab: true } : {}),
         });
     }
