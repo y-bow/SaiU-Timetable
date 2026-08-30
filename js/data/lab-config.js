@@ -1,10 +1,10 @@
 /**
- * Year 2 SCDS lab timetable sources.
+ * SCDS lab timetable sources.
  *
- * The main SCDS timetable is one Google Sheet. Year 2 also has separate lab
- * schedules (DAA Lab, FDE Lab, Emerging Tools Lab), each as its own TAB inside
- * the same spreadsheet. Each tab is fetched/parsed independently, then merged
- * with the main timetable in JavaScript (see js/services/lab-fetch.js and the
+ * The main SCDS timetable is one Google Sheet. Years 1 and 2 also have
+ * separate lab schedules, each as its own TAB inside the same spreadsheet.
+ * Each tab is fetched/parsed independently, then merged with the main
+ * timetable in JavaScript (see js/services/lab-fetch.js and the
  * mergeTimelines helper in js/data/lab-parser.js).
  *
  * This module is the single place that knows *which* lab tabs exist. The
@@ -13,9 +13,14 @@
  *
  * The tabs use a simple LIST layout (Day | Time | Section) — unlike the main
  * grid sheet — so `parseLabList` in js/data/lab-parser.js reads them.
- * DAA / FDE labs are mandatory and keyed to a lab-section number (1-8); the
- * Emerging Tools Lab is tied to the Emerging Tools course offerings instead
- * (see electiveId in js/data/schools.js).
+ *
+ * Year 2: DAA / FDE labs are mandatory and keyed to a lab-section number
+ * (1-8); the Emerging Tools Lab is tied to the Emerging Tools course
+ * offerings instead (see electiveId in js/data/schools.js).
+ *
+ * Year 1: CS121 (Programming in C Lab) and CS128 (Engineering Foundations
+ * and Application Lab) are mandatory labs without section selectors. Year 1
+ * has no section structure, so labs use `sectionLess: true`.
  */
 
 // The lecture/elective that the Emerging Tools Lab belongs to. Selecting the
@@ -99,10 +104,66 @@ export const YEAR_2_LAB_SOURCES = {
 };
 
 /**
- * Flat, ordered list of all lab sources. Deterministic (object key order).
+ * Flat, ordered list of all Year 2 lab sources. Deterministic (object key order).
  */
 export function getYear2LabSources() {
     return Object.values(YEAR_2_LAB_SOURCES).filter((s) => s.enabled !== false);
+}
+
+// ---------------------------------------------------------------------------
+// Year 1 SCDS lab sources
+// ---------------------------------------------------------------------------
+
+export const YEAR_1_LAB_SOURCES = {
+    CS121_LAB: {
+        source: 'cs121-lab',
+        yearId: 'scds-1',
+        year: 1,
+        school: 'scds',
+        sheetId: SPREADSHEET_ID,
+        sheet: 'Programming in C Lab (CS121) Schedule',
+        course: 'Programming in C Lab',
+        subjectAliases: [
+            /^cs121\b/i,
+            /programming\s+in\s+c\s+lab\b/i,
+            /programming\s+in\s+c\b/i,
+            /^c\s+lab\b/i,
+        ],
+        isElective: false,
+        electiveId: null,
+        rooms: null,
+        fixedRoom: '',
+        sectionLess: true,
+    },
+
+    CS128_LAB: {
+        source: 'cs128-lab',
+        yearId: 'scds-1',
+        year: 1,
+        school: 'scds',
+        sheetId: SPREADSHEET_ID,
+        sheet: 'Engineering Foundations and Appli (CS128) Schedule',
+        course: 'Engineering Foundations and Application Lab',
+        subjectAliases: [
+            /^cs128\b/i,
+            /engineering\s+foundations?\b/i,
+            /^ef\s+lab\b/i,
+            /foundations?\s+and\s+application\s+lab\b/i,
+            /foundations?\s+and\s+application\b/i,
+        ],
+        isElective: false,
+        electiveId: null,
+        rooms: null,
+        fixedRoom: '',
+        sectionLess: true,
+    },
+};
+
+/**
+ * Flat, ordered list of all Year 1 lab sources.
+ */
+export function getYear1LabSources() {
+    return Object.values(YEAR_1_LAB_SOURCES).filter((s) => s.enabled !== false);
 }
 
 /**
@@ -137,9 +198,17 @@ export function isMissingSheetId(source) {
 }
 
 /**
- * Whether the active year config is Year 2 SCDS — the only year the lab
- * sources apply to. Used to decide when to fetch/merge the lab sheets.
+ * Whether the active year config is Year 2 SCDS — the only year the Year 2 lab
+ * sources apply to. Used to decide when to fetch/merge the Year 2 lab sheets.
  */
 export function isYear2SCDS(yearConfig) {
     return !!yearConfig && yearConfig.id === 'scds-2';
+}
+
+/**
+ * Whether the active year config is Year 1 SCDS — the year the Year 1 lab
+ * sources apply to. Used to decide when to fetch/merge the Year 1 lab sheets.
+ */
+export function isYear1SCDS(yearConfig) {
+    return !!yearConfig && yearConfig.id === 'scds-1';
 }

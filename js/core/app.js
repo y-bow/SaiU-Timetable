@@ -1,24 +1,24 @@
-import { CONFIG } from './config.js?v=2026-08-30-001';
-import { parseCSV, parseRoomOccupancy, offeringKey } from '../data/parser.js?v=2026-08-30-001';
-import { compareTimetables, classIdentity, setChangeDetectorDebug } from '../data/change-detector.js?v=2026-08-30-001';
-import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen } from '../services/storage.js?v=2026-08-30-001';
-import * as nav from '../ui/navigation.js?v=2026-08-30-001';
-import * as ui from '../ui/ui.js?v=2026-08-30-001';
-import { checkArjunSinghTransition, resetArjunSinghTransition } from '../ui/easter-eggs.js?v=2026-08-30-001';
-import * as labSection from '../ui/lab-section.js?v=2026-08-30-001';
-import { loadMergedYear2Timetable } from '../services/lab-fetch.js?v=2026-08-30-001';
-import { matchesEmergingToolsSection } from '../data/lab-parser.js?v=2026-08-30-001';
-import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-08-30-001';
-import { init as initAnalytics, trackEvent } from '../services/analytics.js?v=2026-08-30-001';
-import { dispatchTimetableChanges, setN8nDebug } from '../services/n8n.js?v=2026-08-30-001';
+import { CONFIG } from './config.js?v=2026-08-30-002';
+import { parseCSV, parseRoomOccupancy, offeringKey } from '../data/parser.js?v=2026-08-30-002';
+import { compareTimetables, classIdentity, setChangeDetectorDebug } from '../data/change-detector.js?v=2026-08-30-002';
+import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen } from '../services/storage.js?v=2026-08-30-002';
+import * as nav from '../ui/navigation.js?v=2026-08-30-002';
+import * as ui from '../ui/ui.js?v=2026-08-30-002';
+import { checkArjunSinghTransition, resetArjunSinghTransition } from '../ui/easter-eggs.js?v=2026-08-30-002';
+import * as labSection from '../ui/lab-section.js?v=2026-08-30-002';
+import { loadMergedYear1Timetable, loadMergedYear2Timetable } from '../services/lab-fetch.js?v=2026-08-30-002';
+import { matchesEmergingToolsSection } from '../data/lab-parser.js?v=2026-08-30-002';
+import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-08-30-002';
+import { init as initAnalytics, trackEvent } from '../services/analytics.js?v=2026-08-30-002';
+import { dispatchTimetableChanges, setN8nDebug } from '../services/n8n.js?v=2026-08-30-002';
 // Localhost-only dev console harness for timetable change notifications
 // (window.testRoomChangeNotification / testTimeChangeNotification /
 // testInvalidRoomChange). This side-effect import executes the module, which
 // attaches the functions itself; the module self-gates on localhost, so the
 // production build is never affected.
-import '../services/timetable-test-harness.js?v=2026-08-30-001';
-import { initAiAssistant } from '../ui/ai-assistant.js?v=2026-08-30-001';
-import { initFreeRooms } from '../ui/free-rooms.js?v=2026-08-30-001';
+import '../services/timetable-test-harness.js?v=2026-08-30-002';
+import { initAiAssistant } from '../ui/ai-assistant.js?v=2026-08-30-002';
+import { initFreeRooms } from '../ui/free-rooms.js?v=2026-08-30-002';
 
 /**
  * App bootstrap, fetch, and interactivity.
@@ -66,11 +66,14 @@ function sectionClasses() {
             const resolved = resolveOffering(c);
             return resolved ? [resolved] : [];
         }
-        // Mandatory labs (DAA/FDE) depend on the resolved LAB section. The lab
-        // group ("Same section as above" → normal section, "Section 8 — Combined
-        // Lab" → 8) is a separate idea from the classroom section, resolved
-        // against it only for the "same" choice.
-        if (c.lab) return c.section === labSection.getResolvedLabSection(selectedSection) ? [c] : [];
+        // Mandatory labs (DAA/FDE/CS121/CS128) depend on the resolved LAB
+        // section. Year 2 has a lab-group selector ("Same section as above" or
+        // "Section 8 — Combined Lab"); Year 1 has no section structure, so
+        // labs pass through unconditionally.
+        if (c.lab) {
+            if (!hasSections) return [c];
+            return c.section === labSection.getResolvedLabSection(selectedSection) ? [c] : [];
+        }
         // Mandatory sectioned classes depend on the selected section.
         if (hasSections) {
             if (selectedSection == null) return [];
@@ -332,11 +335,15 @@ async function load({ silent = false, background = false } = {}) {
         // filtering, so Free Rooms knows about every occupied room.
         const occ = parseRoomOccupancy(text);
 
-        // SCDS Year 2: merge the separate lab timetables (DAA/FDE/Emg Lab)
-        // under the main sheet classes so labs appear on the same timeline.
-        classes = year && year.id === 'scds-2'
-            ? (await loadMergedYear2Timetable(parsed)).classes
-            : parsed;
+        // SCDS Year 1 + Year 2: merge separate lab timetables under the main
+        // sheet classes so labs appear on the same timeline.
+        if (year && year.id === 'scds-2') {
+            classes = (await loadMergedYear2Timetable(parsed)).classes;
+        } else if (year && year.id === 'scds-1') {
+            classes = (await loadMergedYear1Timetable(parsed)).classes;
+        } else {
+            classes = parsed;
+        }
         roomOccupancy = occ;
 
         loadedFor = year?.id ?? null;

@@ -1,5 +1,5 @@
 /**
- * Year 2 lab timetable parser (DAA Lab, FDE Lab, Emerging Tools Lab).
+ * Year lab timetable parser (Year 1 + Year 2).
  *
  * The lab sheets are expected to use the SAME grid layout as the main SCDS
  * sheet: rows carry a DAY + TIME in the first two columns, class cells sit in
@@ -30,8 +30,8 @@
  * the smart change detector and the cache always operate on those raw records.
  */
 
-import { parseTimeRange, normalizeFacultyName } from './parser.js?v=2026-08-30-001';
-import { resolveCourse } from './course-normalizer.js?v=2026-08-30-001';
+import { parseTimeRange, normalizeFacultyName } from './parser.js?v=2026-08-30-002';
+import { resolveCourse } from './course-normalizer.js?v=2026-08-30-002';
 
 const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
 
@@ -344,11 +344,13 @@ export function parseLabSheet(csv, config) {
  * Convert raw lab records into the app's timetable class shape.
  *
  * RAW RECORDS ARE THE SOURCE OF TRUTH — one lab class per slot, never merged.
- * Mandatory labs (DAA, FDE) become flat class objects carrying `lab: true` and
- * the lab-section number found in the sheet. A lab cell WITHOUT any section is
- * dropped (each lab tab always keys a section, so there is nothing to show for
- * a sectionless cell). Back-to-back sessions of one continuous lab stay as
- * separate per-slot records.
+ * Mandatory labs (DAA, FDE, CS121, CS128) become flat class objects carrying
+ * `lab: true` and the lab-section number found in the sheet. Year 2 labs
+ * without a section marker are dropped (each Year 2 lab tab always keys a
+ * section). Year 1 labs (`sectionLess: true`) keep records even without a
+ * section — they use `section: 1` as a default since Year 1 has no section
+ * structure. Back-to-back sessions of one continuous lab stay as separate
+ * per-slot records.
  *
  * The Emerging Tools Lab is an elective tied to the Emerging Tools course
  * offering: each row becomes a flat class carrying `elective` + its own
@@ -366,7 +368,7 @@ export function recordsToAppClasses(records, config, ctx = {}) {
     if (config.isElective) return toFlatElectiveClasses(records, config);
 
     return records
-        .filter((r) => r.section != null)
+        .filter((r) => config.sectionLess ? true : r.section != null)
         .map((r) => {
             const res = resolveCourse(r.course);
             return {
@@ -375,7 +377,7 @@ export function recordsToAppClasses(records, config, ctx = {}) {
                 subject: r.subject,
                 faculty: r.faculty || '',
                 room: config.fixedRoom || r.room || '',
-                section: r.section,
+                section: r.section ?? (config.sectionLess ? 1 : null),
                 startTime: r.startTime,
                 endTime: r.endTime,
                 course: r.course,
@@ -383,7 +385,7 @@ export function recordsToAppClasses(records, config, ctx = {}) {
                 year: r.year,
                 school: r.school,
                 source: r.source,
-                _hasSection: true,
+                _hasSection: r.section != null,
             };
         });
 }

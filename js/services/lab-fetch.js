@@ -1,14 +1,15 @@
 import {
+    getYear1LabSources,
     getYear2LabSources,
     labSheetUrl,
     labCacheKey,
     isMissingSheetId,
-} from '../data/lab-config.js?v=2026-08-30-001';
+} from '../data/lab-config.js?v=2026-08-30-002';
 import {
     parseLabCSV,
     recordsToAppClasses,
     mergeTimelines,
-} from '../data/lab-parser.js?v=2026-08-30-001';
+} from '../data/lab-parser.js?v=2026-08-30-002';
 
 /**
  * Year 2 lab timetable fetching + merging.
@@ -115,5 +116,51 @@ export async function syncYear2Labs(ctx = {}) {
  */
 export async function loadMergedYear2Timetable(mainClasses, ctx = {}) {
     const { classes: labClasses, statuses } = await syncYear2Labs(ctx);
+    return { classes: mergeTimelines(mainClasses, labClasses), labClasses, statuses };
+}
+
+// ---------------------------------------------------------------------------
+// Year 1 SCDS lab timetable fetching + merging
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch and parse every Year 1 lab source. Always resolves; every returned
+ * entry carries a per-source status. Errors in one source never affect others.
+ *
+ * @returns {Promise<{classes: Array<object>, statuses: Record<string,string>,
+ *                    sources: Array<object>}>}
+ */
+export async function syncYear1Labs(ctx = {}) {
+    const sources = getYear1LabSources();
+    const settled = await Promise.allSettled(sources.map((src) => fetchLabSource(src)));
+
+    const classes = [];
+    const statuses = {};
+    const ok = [];
+
+    for (const s of settled) {
+        if (s.status !== 'fulfilled') continue;
+        const { source, status, records } = s.value;
+        statuses[source.source] = status;
+        if (status === 'unconfigured' || status === 'error') continue;
+        const appClasses = recordsToAppClasses(records, source, ctx);
+        ok.push(source);
+        classes.push(...appClasses);
+    }
+    return { classes, statuses, sources: ok };
+}
+
+/**
+ * Convenience: fetch all Year 1 labs and merge them under the given main
+ * timetable classes.
+ *
+ * @param {Array<object>} mainClasses classes already parsed from the main SCDS
+ *   sheet (e.g. output of parseCSV).
+ * @param {{}} [ctx]
+ * @returns {Promise<{classes: Array<object>, labClasses: Array<object>,
+ *                    statuses: Record<string,string>}>}
+ */
+export async function loadMergedYear1Timetable(mainClasses, ctx = {}) {
+    const { classes: labClasses, statuses } = await syncYear1Labs(ctx);
     return { classes: mergeTimelines(mainClasses, labClasses), labClasses, statuses };
 }
