@@ -18,19 +18,6 @@
     <meta name="twitter:image" content="https://y-bow.github.io/SaiU-Timetable/icons/app/white-icon-512.png">
     <meta name="theme-color" content="#0D0D0D">
 
-    <script>
-        (function () {
-            var LIVE = '2026-08-30-005';
-            fetch('js/generated/build.js?v=' + Date.now(), { cache: 'no-store' })
-                .then(function (r) { return r.ok ? r.text() : null; })
-                .then(function (t) {
-                    if (!t) return;
-                    var m = t.match(/__TT_BUILD_ID__\s*=\s*['"]([^'"]+)['"]/);
-                    if (m && m[1] !== LIVE) location.reload();
-                })
-                .catch(function () {});
-        })();
-    </script>
     <script src="js/generated/build.js?v=2026-08-30-005" defer></script>
     <link rel="preload" href="style.css?v=2026-08-30-005" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="style.css?v=2026-08-30-005"></noscript>
