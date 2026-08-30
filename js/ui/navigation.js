@@ -159,12 +159,10 @@ export function initNavigation() {
         yearConfig = resolveYearConfig(school, program, saved.yearId);
         if (yearConfig) year = yearConfig;
     }
-    // If no valid year, only pick a year when it is the SOLE available year —
-    // making the transition explicit rather than silently falling through to an
-    // arbitrary years[0] that may change the global year level.
+    // If no valid year, pick the first available year for the current school/program.
     if (!yearConfig && school) {
         const years = program ? (program.years || []) : (school.years || []);
-        if (years.length === 1) {
+        if (years.length) {
             yearConfig = years[0];
             year = yearConfig;
         }
