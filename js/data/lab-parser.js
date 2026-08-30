@@ -30,8 +30,8 @@
  * the smart change detector and the cache always operate on those raw records.
  */
 
-import { parseTimeRange, normalizeFacultyName } from './parser.js?v=2026-08-30-002';
-import { resolveCourse } from './course-normalizer.js?v=2026-08-30-002';
+import { parseTimeRange, normalizeFacultyName } from './parser.js?v=2026-08-30-004';
+import { resolveCourse } from './course-normalizer.js?v=2026-08-30-004';
 
 const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
 
@@ -190,6 +190,11 @@ function expandSubject(rawSubject, config) {
 // marker, and the faculty tail.
 const LIST_ENTRY_RE = /^(.*?)\s+sec\s*\.?\s*(\d+)\s*(?:[-|]\s*)?(.*)$/i;
 
+// Year 1 lab entries look like "Programming in C LAB - Sem1 - Ujjwal   (AI Lab)"
+// or "EFA LAB - Sem1 - Joy". They carry a semester marker instead of a section
+// number, and may include a room in trailing parentheses.
+const YEAR1_CELL_RE = /^(.+?)\s*-\s*Sem\d+\s*-\s*(.+?)(?:\s{2,}\((.+?)\))?\s*$/;
+
 /**
  * Parse ONE lab tab's CSV into raw lab records. The lab tabs use a simple
  * LIST layout — Day | Time | Section — unlike the main grid sheet. The day
@@ -223,9 +228,11 @@ export function parseLabList(csv, config) {
         if (!times) continue; // annotation / reference rows, not class rows
 
         const m = LIST_ENTRY_RE.exec(sectionCell);
-        const rawSubject = m ? m[1] : sectionCell;
+        const y1 = !m ? YEAR1_CELL_RE.exec(sectionCell) : null;
+        const rawSubject = m ? m[1] : (y1 ? y1[1] : sectionCell);
         const section = m ? parseInt(m[2], 10) : null;
-        const rawFaculty = m ? m[3] : '';
+        const rawFaculty = m ? m[3] : (y1 ? y1[2] : '');
+        const roomFromCell = y1 ? (y1[3] || '') : '';
 
         const canonical = expandSubject(rawSubject, config);
         if (!canonical) continue;
@@ -235,7 +242,7 @@ export function parseLabList(csv, config) {
             subject: canonical,
             course: config.course,
             faculty: capsNames(normalizeFacultyName(rawFaculty)),
-            room: '',
+            room: config.fixedRoom || roomFromCell || '',
             section: Number.isFinite(section) && section > 0 ? section : null,
             offering: null,
             startTime: times.start,
@@ -340,6 +347,13 @@ export function parseLabSheet(csv, config) {
 
 // --- App-shaped conversion -------------------------------------------------
 
+function normalizeYear1Room(room, isSectionLess) {
+    if (!isSectionLess) return room || '';
+    if (!room) return 'AB1 - Computer Lab';
+    if (/ai\s*lab/i.test(room)) return 'AB1 - AI Lab';
+    return room;
+}
+
 /**
  * Convert raw lab records into the app's timetable class shape.
  *
@@ -376,7 +390,7 @@ export function recordsToAppClasses(records, config, ctx = {}) {
                 day: r.day,
                 subject: r.subject,
                 faculty: r.faculty || '',
-                room: config.fixedRoom || r.room || '',
+                room: config.fixedRoom || normalizeYear1Room(r.room, config.sectionLess),
                 section: r.section ?? (config.sectionLess ? 1 : null),
                 startTime: r.startTime,
                 endTime: r.endTime,

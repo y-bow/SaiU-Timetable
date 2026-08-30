@@ -34,7 +34,7 @@
  * dedupe inside dispatchTimetableChanges().
  */
 
-import { compareTimetables } from '../data/change-detector.js?v=2026-08-30-002';
+import { compareTimetables } from '../data/change-detector.js?v=2026-08-30-004';
 import { buildN8nEvent, sendN8nEvent } from './n8n.js?v=2026-08-30-002';
 import { CONFIG } from '../core/config.js?v=2026-08-30-002';
 

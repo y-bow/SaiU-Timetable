@@ -301,6 +301,12 @@ export async function sendN8nEvent(event) {
         debugLog(event, 'disabled');
         return { status: 'disabled' };
     }
+    try {
+        console.log('[Timetable Webhook] Sending');
+        console.log('[Timetable Webhook] URL:', url);
+        console.log('[Timetable Webhook] Type:', event.changeType);
+        console.log('[Timetable Webhook] Payload:', JSON.stringify(event, null, 2));
+    } catch { /* logging must never throw */ }
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
     try {
@@ -310,10 +316,20 @@ export async function sendN8nEvent(event) {
             body: JSON.stringify(event),
             signal: controller.signal,
         });
+        let body = '';
+        try { body = await res.text(); } catch { /* ignore */ }
         const status = res.ok ? 'sent' : `http_${res.status}`;
+        try {
+            console.log('[Timetable Webhook] Response status:', res.status);
+            console.log('[Timetable Webhook] Response body:', body || '(empty)');
+        } catch { /* logging must never throw */ }
         debugLog(event, status);
         return { status };
-    } catch {
+    } catch (err) {
+        try {
+            console.error('[Timetable Webhook] FAILED');
+            console.error('[Timetable Webhook] Error:', String(err?.message || err));
+        } catch { /* logging must never throw */ }
         debugLog(event, 'failed');
         return { status: 'failed' };
     } finally {
@@ -488,10 +504,13 @@ function makePayload(type) {
 async function sendOneTest(type) {
     const payload = makePayload(type);
     if (!payload) {
-        log(type, `UNKNOWN TYPE — valid types: room_changed, time_changed, class_cancelled`);
+        console.log('[Timetable Webhook] UNKNOWN TYPE — valid types: room_changed, time_changed, class_cancelled');
         return;
     }
-    log(type, 'Sending...');
+    console.log('[Timetable Webhook] Sending');
+    console.log('[Timetable Webhook] URL:', TEST_URL);
+    console.log('[Timetable Webhook] Type:', type);
+    console.log('[Timetable Webhook] Payload:', JSON.stringify(payload, null, 2));
     let res;
     try {
         res = await fetch(TEST_URL, {
@@ -500,23 +519,24 @@ async function sendOneTest(type) {
             body: JSON.stringify(payload),
         });
     } catch (err) {
-        log(type, `FAILED`);
-        log('Network error:', String(err?.message || err));
+        console.error('[Timetable Webhook] FAILED');
+        console.error('[Timetable Webhook] Error:', String(err?.message || err));
         return;
     }
     let body;
     try { body = await res.text(); } catch { body = ''; }
-    log(`HTTP ${res.status}`, body || '(empty body)');
+    console.log('[Timetable Webhook] Response status:', res.status);
+    console.log('[Timetable Webhook] Response body:', body || '(empty body)');
     if (res.ok) {
-        log(type, 'SUCCESS');
+        console.log('[Timetable Webhook] SUCCESS');
     } else {
-        log(type, 'FAILED');
+        console.log('[Timetable Webhook] FAILED');
     }
 }
 
 /**
  * Send all three test payloads (room_changed, time_changed, class_cancelled).
- * Available only on localhost / 127.0.0.1.
+ * Available on any host for debugging. Remove after verification.
  */
 async function testTimetableChangeWebhookAll() {
     for (const type of ['room_changed', 'time_changed', 'class_cancelled']) {
@@ -525,7 +545,6 @@ async function testTimetableChangeWebhookAll() {
 }
 
 function installWebhookTestHarness() {
-    if (!isDevHost()) return;
     window.testTimetableChangeWebhook = testTimetableChangeWebhookAll;
     window.testTimetableChangeWebhookSingle = sendOneTest;
 }

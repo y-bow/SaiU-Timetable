@@ -39,7 +39,7 @@ export const CONFIG = {
     // Set to false to disable all n8n change-notification requests. The
     // timetable works exactly as before; no webhook traffic is sent. To
     // re-enable, flip back to true.
-    N8N_ENABLED: false,
+    N8N_ENABLED: true,
 
     // The n8n "Webhook" node URL. Keep empty to disable the integration: the
     // timetable then works exactly as before and no network requests are made.
