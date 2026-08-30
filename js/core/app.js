@@ -1,24 +1,24 @@
-import { CONFIG } from './config.js?v=2026-08-30-008';
-import { parseCSV, parseRoomOccupancy, offeringKey } from '../data/parser.js?v=2026-08-30-008';
-import { compareTimetables, classIdentity, setChangeDetectorDebug } from '../data/change-detector.js?v=2026-08-30-008';
-import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen } from '../services/storage.js?v=2026-08-30-008';
-import * as nav from '../ui/navigation.js?v=2026-08-30-008';
-import * as ui from '../ui/ui.js?v=2026-08-30-008';
-import { checkArjunSinghTransition, resetArjunSinghTransition } from '../ui/easter-eggs.js?v=2026-08-30-008';
-import * as labSection from '../ui/lab-section.js?v=2026-08-30-008';
-import { loadMergedYear1Timetable, loadMergedYear2Timetable } from '../services/lab-fetch.js?v=2026-08-30-008';
-import { matchesEmergingToolsSection } from '../data/lab-parser.js?v=2026-08-30-008';
-import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-08-30-008';
-import { init as initAnalytics, trackEvent } from '../services/analytics.js?v=2026-08-30-008';
-import { dispatchTimetableChanges, setN8nDebug } from '../services/n8n.js?v=2026-08-30-008';
+import { CONFIG } from './config.js?v=2026-08-30-009';
+import { parseCSV, parseRoomOccupancy, offeringKey } from '../data/parser.js?v=2026-08-30-009';
+import { compareTimetables, classIdentity, setChangeDetectorDebug } from '../data/change-detector.js?v=2026-08-30-009';
+import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen } from '../services/storage.js?v=2026-08-30-009';
+import * as nav from '../ui/navigation.js?v=2026-08-30-009';
+import * as ui from '../ui/ui.js?v=2026-08-30-009';
+import { checkArjunSinghTransition, resetArjunSinghTransition } from '../ui/easter-eggs.js?v=2026-08-30-009';
+import * as labSection from '../ui/lab-section.js?v=2026-08-30-009';
+import { loadMergedYear1Timetable, loadMergedYear2Timetable } from '../services/lab-fetch.js?v=2026-08-30-009';
+import { matchesEmergingToolsSection } from '../data/lab-parser.js?v=2026-08-30-009';
+import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-08-30-009';
+import { init as initAnalytics, trackEvent } from '../services/analytics.js?v=2026-08-30-009';
+import { dispatchTimetableChanges, setN8nDebug } from '../services/n8n.js?v=2026-08-30-009';
 // Localhost-only dev console harness for timetable change notifications
 // (window.testRoomChangeNotification / testTimeChangeNotification /
 // testInvalidRoomChange). This side-effect import executes the module, which
 // attaches the functions itself; the module self-gates on localhost, so the
 // production build is never affected.
-import '../services/timetable-test-harness.js?v=2026-08-30-008';
-import { initAiAssistant } from '../ui/ai-assistant.js?v=2026-08-30-008';
-import { initFreeRooms } from '../ui/free-rooms.js?v=2026-08-30-008';
+import '../services/timetable-test-harness.js?v=2026-08-30-009';
+import { initAiAssistant } from '../ui/ai-assistant.js?v=2026-08-30-009';
+import { initFreeRooms } from '../ui/free-rooms.js?v=2026-08-30-009';
 
 /**
  * App bootstrap, fetch, and interactivity.
@@ -637,13 +637,97 @@ function initPullToRefresh() {
 }
 
 // ============================================================
+// Emergency PWA Cache Reset
+// ============================================================
+
+/**
+ * One-time hard PWA reset triggered by the "Try again" / reload button when
+ * the timetable is stuck in a broken state (stale SW cache, poisoned
+ * Cache Storage, etc.).
+ *
+ * Sequence:  disable button → unregister SWs → clear app caches →
+ *            clear stale localStorage → navigate with cache-buster.
+ *
+ * Navigation preferences (school/year/section/electives) are preserved so
+ * the user's selections survive the reset.
+ */
+async function emergencyPWARefresh() {
+    // Guard: if the URL already carries a forceRefresh param the reset is
+    // already in progress (or completed) — fall through to normal load().
+    if (new URLSearchParams(location.search).has('forceRefresh')) {
+        console.log('[Timetable PWA] forceRefresh param present — loading normally');
+        load();
+        return;
+    }
+
+    const btn = $('.retry-btn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Refreshing…'; }
+
+    try {
+        console.log('[Timetable PWA] Emergency refresh started');
+
+        // 1. Unregister every service worker for this origin.
+        if ('serviceWorker' in navigator) {
+            const regs = await navigator.serviceWorker.getRegistrations();
+            for (const r of regs) await r.unregister();
+            console.log('[Timetable PWA] Service workers unregistered');
+        }
+
+        // 2. Delete only caches belonging to this app (saiu-*).
+        if ('caches' in window) {
+            const all = await caches.keys();
+            const mine = all.filter(n => n.startsWith('saiu-'));
+            await Promise.all(mine.map(n => caches.delete(n)));
+            console.log('[Timetable PWA] Application caches cleared');
+        }
+
+        // 3. Clear stale timetable / room / analytics caches from localStorage
+        //    while preserving user navigation preferences (tt-nav-*) and the
+        //    section-modal-seen flag.
+        const STALE_KEYS = new Set([
+            'tt-timetable-cache-v1',
+            'tt-room-map-v3',
+            'tt-n8n-sent-v1',
+            'tt-section',
+        ]);
+        const stalePrefixes = ['tt-cache-', 'tt-rooms-'];
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+            const k = localStorage.key(i);
+            if (k && (STALE_KEYS.has(k) || stalePrefixes.some(p => k.startsWith(p)))) {
+                localStorage.removeItem(k);
+            }
+        }
+
+        // 4. Clear the version-probe and update-reload session guards so the
+        //    fresh page can re-detect the SW version cleanly.
+        try {
+            sessionStorage.removeItem('tt-probe-v');
+            sessionStorage.removeItem('tt-update-reload');
+        } catch { /* private mode */ }
+
+        console.log('[Timetable PWA] Loading fresh application');
+
+        // 5. Navigate to the same page with a unique cache-busting param.
+        //    The param is checked on entry (top of this function) to prevent
+        //    the reset from firing more than once.
+        const url = new URL(location.href);
+        url.searchParams.set('forceRefresh', Date.now());
+        location.href = url.toString();
+    } catch (err) {
+        console.error('[Timetable PWA] Emergency refresh failed:', err);
+        if (btn) { btn.disabled = false; btn.textContent = 'Try again'; }
+        load();
+    }
+}
+
+// ============================================================
 // Actions
 // ============================================================
 
 function initActions() {
     const refresh = () => load({ silent: true });
     $('#refresh-btn-mobile')?.addEventListener('click', refresh);
-    $('.retry-btn')?.addEventListener('click', () => load());
+    $('.retry-btn')?.addEventListener('click', () => emergencyPWARefresh());
 
     $('#feedback-btn')?.addEventListener('click', () => {
         trackEvent('feedback_click');

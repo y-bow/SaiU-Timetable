@@ -31,7 +31,7 @@ const isDevHost = DEV_HOSTS.includes(self.location.hostname);
 
 // Replaced by scripts/build.mjs on every build — the file's bytes change every
 // deployment so the Service Worker update is always detected.
-const BUILD_ID = '2026-08-30-008';
+const BUILD_ID = '2026-08-30-009';
 
 // Versioned cache names. Old caches are deleted on activate so stale assets
 // never survive a deployment. Both names change every build.

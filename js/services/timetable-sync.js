@@ -1,8 +1,8 @@
-import { CONFIG } from '../core/config.js?v=2026-08-30-008';
-import { parseCSV } from '../data/parser.js?v=2026-08-30-008';
-import * as nav from '../ui/navigation.js?v=2026-08-30-008';
-import { toMinutes, minutesToClock, todayName, WEEKDAYS } from '../core/utils.js?v=2026-08-30-008';
-import { loadMergedYear1Timetable, loadMergedYear2Timetable } from './lab-fetch.js?v=2026-08-30-008';
+import { CONFIG } from '../core/config.js?v=2026-08-30-009';
+import { parseCSV } from '../data/parser.js?v=2026-08-30-009';
+import * as nav from '../ui/navigation.js?v=2026-08-30-009';
+import { toMinutes, minutesToClock, todayName, WEEKDAYS } from '../core/utils.js?v=2026-08-30-009';
+import { loadMergedYear1Timetable, loadMergedYear2Timetable } from './lab-fetch.js?v=2026-08-30-009';
 
 /**
  * Background timetable sync for the Breakout game page (game.html).
