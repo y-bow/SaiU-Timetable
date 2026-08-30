@@ -203,7 +203,7 @@ self.addEventListener('fetch', (event) => {
   // Timetable data (Google Sheets): network-first, offline falls back to
   // the last successfully fetched copy.
   if (url.hostname.endsWith('docs.google.com') && url.pathname.includes('/spreadsheets')) {
-    event.respondWith(networkFirst(request, SHEET_CACHE));
+    event.respondWith(networkFirst(request, SHEET_CACHE, null, { cache: 'no-store' }));
     return;
   }
 
