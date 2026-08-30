@@ -1,24 +1,24 @@
-import { CONFIG } from './config.js?v=2026-08-30-010';
-import { parseCSV, parseRoomOccupancy, offeringKey } from '../data/parser.js?v=2026-08-30-010';
-import { compareTimetables, classIdentity, setChangeDetectorDebug } from '../data/change-detector.js?v=2026-08-30-010';
-import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen } from '../services/storage.js?v=2026-08-30-010';
-import * as nav from '../ui/navigation.js?v=2026-08-30-010';
-import * as ui from '../ui/ui.js?v=2026-08-30-010';
-import { checkArjunSinghTransition, resetArjunSinghTransition } from '../ui/easter-eggs.js?v=2026-08-30-010';
-import * as labSection from '../ui/lab-section.js?v=2026-08-30-010';
-import { loadMergedYear1Timetable, loadMergedYear2Timetable } from '../services/lab-fetch.js?v=2026-08-30-010';
-import { matchesEmergingToolsSection } from '../data/lab-parser.js?v=2026-08-30-010';
-import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-08-30-010';
-import { init as initAnalytics, trackEvent } from '../services/analytics.js?v=2026-08-30-010';
-import { dispatchTimetableChanges, setN8nDebug } from '../services/n8n.js?v=2026-08-30-010';
+import { CONFIG } from './config.js?v=2026-08-30-012';
+import { parseCSV, parseRoomOccupancy, offeringKey } from '../data/parser.js?v=2026-08-30-012';
+import { compareTimetables, classIdentity, setChangeDetectorDebug } from '../data/change-detector.js?v=2026-08-30-012';
+import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen } from '../services/storage.js?v=2026-08-30-012';
+import * as nav from '../ui/navigation.js?v=2026-08-30-012';
+import * as ui from '../ui/ui.js?v=2026-08-30-012';
+import { checkArjunSinghTransition, resetArjunSinghTransition } from '../ui/easter-eggs.js?v=2026-08-30-012';
+import * as labSection from '../ui/lab-section.js?v=2026-08-30-012';
+import { loadMergedYear1Timetable, loadMergedYear2Timetable } from '../services/lab-fetch.js?v=2026-08-30-012';
+import { matchesEmergingToolsSection } from '../data/lab-parser.js?v=2026-08-30-012';
+import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-08-30-012';
+import { init as initAnalytics, trackEvent } from '../services/analytics.js?v=2026-08-30-012';
+import { dispatchTimetableChanges, setN8nDebug } from '../services/n8n.js?v=2026-08-30-012';
 // Localhost-only dev console harness for timetable change notifications
 // (window.testRoomChangeNotification / testTimeChangeNotification /
 // testInvalidRoomChange). This side-effect import executes the module, which
 // attaches the functions itself; the module self-gates on localhost, so the
 // production build is never affected.
-import '../services/timetable-test-harness.js?v=2026-08-30-010';
-import { initAiAssistant } from '../ui/ai-assistant.js?v=2026-08-30-010';
-import { initFreeRooms } from '../ui/free-rooms.js?v=2026-08-30-010';
+import '../services/timetable-test-harness.js?v=2026-08-30-012';
+import { initAiAssistant } from '../ui/ai-assistant.js?v=2026-08-30-012';
+import { initFreeRooms } from '../ui/free-rooms.js?v=2026-08-30-012';
 
 /**
  * App bootstrap, fetch, and interactivity.
@@ -1033,6 +1033,11 @@ function init() {
     initPWA();
     setN8nDebug(!!CONFIG.N8N_DEBUG);
     setChangeDetectorDebug(!!CONFIG.N8N_DEBUG);
+    // Register navigation listeners BEFORE initNavigation() so the
+    // navchange handler is in place when emit() fires inside
+    // initNavigation().  Without this, fresh users (no saved state) see
+    // an empty sidebar because renderNavigation() is never called.
+    initNavigationListeners();
     nav.initNavigation();
     migrateLegacySection();
     selectedSection = nav.getState().section;
@@ -1044,7 +1049,6 @@ function init() {
     ui.initInteractions?.();
     initPullToRefresh();
     initActions();
-    initNavigationListeners();
     initAutoRefresh();
     initAiAssistant({ getClasses: () => classes, getContext: n8nContext });
     initFreeRooms({
