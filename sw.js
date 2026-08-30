@@ -32,7 +32,7 @@ const isDevHost = DEV_HOSTS.includes(self.location.hostname);
 
 // Replaced by scripts/build.mjs on every build — the file's bytes change every
 // deployment so the Service Worker update is always detected.
-const BUILD_ID = '2026-08-30-005';
+const BUILD_ID = '2026-08-30-006';
 
 const CACHE_NAME = 'saiu-timetable-v' + BUILD_ID;
 const SHEET_CACHE = 'timetable-sheet-v1';
@@ -203,7 +203,7 @@ self.addEventListener('fetch', (event) => {
   // Timetable data (Google Sheets): network-first, offline falls back to
   // the last successfully fetched copy.
   if (url.hostname.endsWith('docs.google.com') && url.pathname.includes('/spreadsheets')) {
-    event.respondWith(networkFirst(request, SHEET_CACHE));
+    event.respondWith(networkFirst(request, SHEET_CACHE, null, { cache: 'no-store' }));
     return;
   }
 
