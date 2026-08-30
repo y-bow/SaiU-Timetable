@@ -1,24 +1,24 @@
-import { CONFIG } from './config.js?v=2026-08-30-006';
-import { parseCSV, parseRoomOccupancy, offeringKey } from '../data/parser.js?v=2026-08-30-006';
-import { compareTimetables, classIdentity, setChangeDetectorDebug } from '../data/change-detector.js?v=2026-08-30-006';
-import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen } from '../services/storage.js?v=2026-08-30-006';
-import * as nav from '../ui/navigation.js?v=2026-08-30-006';
-import * as ui from '../ui/ui.js?v=2026-08-30-006';
-import { checkArjunSinghTransition, resetArjunSinghTransition } from '../ui/easter-eggs.js?v=2026-08-30-006';
-import * as labSection from '../ui/lab-section.js?v=2026-08-30-006';
-import { loadMergedYear1Timetable, loadMergedYear2Timetable } from '../services/lab-fetch.js?v=2026-08-30-006';
-import { matchesEmergingToolsSection } from '../data/lab-parser.js?v=2026-08-30-006';
-import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-08-30-006';
-import { init as initAnalytics, trackEvent } from '../services/analytics.js?v=2026-08-30-006';
-import { dispatchTimetableChanges, setN8nDebug } from '../services/n8n.js?v=2026-08-30-006';
+import { CONFIG } from './config.js?v=2026-08-30-008';
+import { parseCSV, parseRoomOccupancy, offeringKey } from '../data/parser.js?v=2026-08-30-008';
+import { compareTimetables, classIdentity, setChangeDetectorDebug } from '../data/change-detector.js?v=2026-08-30-008';
+import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen } from '../services/storage.js?v=2026-08-30-008';
+import * as nav from '../ui/navigation.js?v=2026-08-30-008';
+import * as ui from '../ui/ui.js?v=2026-08-30-008';
+import { checkArjunSinghTransition, resetArjunSinghTransition } from '../ui/easter-eggs.js?v=2026-08-30-008';
+import * as labSection from '../ui/lab-section.js?v=2026-08-30-008';
+import { loadMergedYear1Timetable, loadMergedYear2Timetable } from '../services/lab-fetch.js?v=2026-08-30-008';
+import { matchesEmergingToolsSection } from '../data/lab-parser.js?v=2026-08-30-008';
+import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-08-30-008';
+import { init as initAnalytics, trackEvent } from '../services/analytics.js?v=2026-08-30-008';
+import { dispatchTimetableChanges, setN8nDebug } from '../services/n8n.js?v=2026-08-30-008';
 // Localhost-only dev console harness for timetable change notifications
 // (window.testRoomChangeNotification / testTimeChangeNotification /
 // testInvalidRoomChange). This side-effect import executes the module, which
 // attaches the functions itself; the module self-gates on localhost, so the
 // production build is never affected.
-import '../services/timetable-test-harness.js?v=2026-08-30-006';
-import { initAiAssistant } from '../ui/ai-assistant.js?v=2026-08-30-006';
-import { initFreeRooms } from '../ui/free-rooms.js?v=2026-08-30-006';
+import '../services/timetable-test-harness.js?v=2026-08-30-008';
+import { initAiAssistant } from '../ui/ai-assistant.js?v=2026-08-30-008';
+import { initFreeRooms } from '../ui/free-rooms.js?v=2026-08-30-008';
 
 /**
  * App bootstrap, fetch, and interactivity.
@@ -317,11 +317,28 @@ async function load({ silent = false, background = false } = {}) {
     try {
         if (!background) console.log('[Timetable] Fetching:', sheetUrl);
 
-        const res = await fetch(sheetUrl);
+        // Retry transient failures (5xx, 429, network errors) up to 2 times.
+        // Mobile networks and Google Sheets rate-limiting make single-shot
+        // fetches unreliable; a short retry loop covers most transient errors
+        // without adding noticeable latency for the common fast path.
+        let res = null;
+        const MAX_FETCH_RETRIES = 2;
+        const RETRY_BASE_MS = 500;
+        for (let attempt = 0; attempt <= MAX_FETCH_RETRIES; attempt++) {
+            try {
+                res = await fetch(sheetUrl);
+                if (!background) console.log('[Timetable] Response:', res.status, res.statusText, `attempt ${attempt + 1}`);
+                if (res.ok || (res.status < 500 && res.status !== 429)) break;
+            } catch (fetchErr) {
+                if (attempt === MAX_FETCH_RETRIES) throw fetchErr;
+                if (!background) console.warn(`[Timetable] Fetch attempt ${attempt + 1} failed, retrying…`);
+            }
+            if (attempt < MAX_FETCH_RETRIES) {
+                await new Promise(r => setTimeout(r, RETRY_BASE_MS * Math.pow(2, attempt)));
+            }
+        }
 
-        if (!background) console.log('[Timetable] Response:', res.status, res.statusText);
-
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res || !res.ok) throw new Error(`HTTP ${res?.status ?? 'no response'}`);
         const text = await res.text();
         const parsed = parseCSV(text, nav.getParserType(), nav.getMandatoryCourses(), nav.getElectives(), nav.getRooms());
         if (!parsed.length) {

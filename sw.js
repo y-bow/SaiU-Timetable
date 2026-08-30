@@ -31,7 +31,7 @@ const isDevHost = DEV_HOSTS.includes(self.location.hostname);
 
 // Replaced by scripts/build.mjs on every build — the file's bytes change every
 // deployment so the Service Worker update is always detected.
-const BUILD_ID = '2026-08-30-006';
+const BUILD_ID = '2026-08-30-008';
 
 // Versioned cache names. Old caches are deleted on activate so stale assets
 // never survive a deployment. Both names change every build.
@@ -119,6 +119,66 @@ async function precache() {
 }
 
 const cacheable = (response) => response && (response.ok || response.type === 'opaque');
+
+/**
+ * Network-first fetch for Google Sheets with retry and content validation.
+ *
+ * Google Sheets can return transient errors (5xx, 429) or redirect to a
+ * consent page (HTML 200) on some mobile networks. We:
+ *   1. Retry up to 3 times on network failure or 5xx/429.
+ *   2. Validate the Content-Type before caching — only cache responses that
+ *      look like CSV/text data, never HTML consent pages.
+ *   3. Fall back to the last good cached copy on total failure.
+ */
+async function sheetsNetworkFirst(request) {
+  const MAX_RETRIES = 3;
+  const RETRY_DELAY = 400; // ms — doubles each retry
+
+  let lastError = null;
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    try {
+      const response = await fetch(request, { cache: 'no-store' });
+
+      if (response.ok) {
+        const ct = (response.headers.get('content-type') || '').toLowerCase();
+        // Google Sheets CSV export returns text/csv or text/plain.
+        // An HTML consent page or AML error page returns text/html —
+        // never cache those as timetable data.
+        const isCSV = ct.includes('text/csv') || ct.includes('text/plain');
+        if (isCSV) {
+          const copy = response.clone();
+          const cache = await caches.open(DATA_CACHE);
+          await cache.put(request, copy);
+          return response;
+        }
+        // Non-CSV 200 (likely consent page) — don't cache, serve as-is
+        // so the app can handle the error.
+        return response;
+      }
+
+      // Non-ok (429, 5xx) — retry on next iteration
+      if (response.status === 429 || response.status >= 500) {
+        lastError = new Error(`HTTP ${response.status}`);
+        if (attempt < MAX_RETRIES - 1) {
+          await new Promise(r => setTimeout(r, RETRY_DELAY * Math.pow(2, attempt)));
+          continue;
+        }
+      }
+      // Other non-ok (4xx) — don't retry, serve as-is
+      return response;
+    } catch (err) {
+      lastError = err;
+      if (attempt < MAX_RETRIES - 1) {
+        await new Promise(r => setTimeout(r, RETRY_DELAY * Math.pow(2, attempt)));
+      }
+    }
+  }
+
+  // All retries exhausted — try the cache
+  const cached = await caches.match(request);
+  if (cached) return cached;
+  throw lastError || new Error('Google Sheets request failed after retries');
+}
 
 async function cacheFirst(request, cacheName) {
   const cached = await caches.match(request);
@@ -218,8 +278,13 @@ self.addEventListener('fetch', (event) => {
   // Timetable data (Google Sheets): network-first with cache: 'no-store'
   // to bypass the browser HTTP cache. The old cached response in DATA_CACHE
   // serves as an offline fallback only.
+  //
+  // Google Sheets may return a 302 redirect to a consent/AML page or serve
+  // HTML instead of CSV on certain networks / regions. We validate the
+  // response Content-Type before caching so a non-CSV page never poisons
+  // the DATA_CACHE (which would break the app on subsequent offline loads).
   if (url.hostname.endsWith('docs.google.com') && url.pathname.includes('/spreadsheets')) {
-    event.respondWith(networkFirst(request, DATA_CACHE, null, { cache: 'no-store' }));
+    event.respondWith(sheetsNetworkFirst(request));
     return;
   }
 
