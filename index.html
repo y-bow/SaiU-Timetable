@@ -33,6 +33,36 @@
         }
     }
     </script>
+    <script>
+        // PWA version probe: detect stale service-worker cache on mobile PWAs.
+        // Fetches the live build.js with a unique query string (always misses
+        // the SW cache) and compares its BUILD_ID against the version embedded
+        // in this HTML. On mismatch, unregisters the old SW and reloads once;
+        // sessionStorage keyed to the stale version prevents reload loops.
+        (function () {
+            var MY = '2026-08-30-005';
+            try {
+                var key = 'tt-probe-v';
+                if (sessionStorage.getItem(key) === MY) return;
+                fetch('js/generated/build.js?t=' + encodeURIComponent(MY), { cache: 'no-store' })
+                    .then(function (r) { return r.ok ? r.text() : null; })
+                    .then(function (t) {
+                        if (!t) return;
+                        var m = t.match(/__TT_BUILD_ID__\s*=\s*['"]([^'"]+)['"]/);
+                        if (m && m[1] !== MY) {
+                            sessionStorage.setItem(key, MY);
+                            navigator.serviceWorker.getRegistrations
+                                ? navigator.serviceWorker.getRegistrations().then(function (regs) {
+                                    regs.forEach(function (r) { r.unregister(); });
+                                    location.reload();
+                                })
+                                : location.reload();
+                        }
+                    })
+                    .catch(function () {});
+            } catch (_) {}
+        })();
+    </script>
     <script src="js/generated/build.js?v=2026-08-30-005" defer></script>
     <link rel="preload" href="style.css?v=2026-08-30-005" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="style.css?v=2026-08-30-005"></noscript>
