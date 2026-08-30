@@ -4,12 +4,12 @@ import {
     labSheetUrl,
     labCacheKey,
     isMissingSheetId,
-} from '../data/lab-config.js?v=2026-08-30-009';
+} from '../data/lab-config.js?v=2026-08-30-010';
 import {
     parseLabCSV,
     recordsToAppClasses,
     mergeTimelines,
-} from '../data/lab-parser.js?v=2026-08-30-009';
+} from '../data/lab-parser.js?v=2026-08-30-010';
 
 /**
  * Year 2 lab timetable fetching + merging.
