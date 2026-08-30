@@ -6,47 +6,51 @@
 //   - The build id below is injected by scripts/build.mjs on every build. That
 //     changes this file's bytes each deployment, so browsers always detect
 //     a new Service Worker and install it.
-//   - A unique cache version is created per build (saiu-timetable-v{ID}).
-//     Old caches are deleted on activate, so stale assets never survive.
+//   - Two separate versioned caches are maintained:
+//       saiu-static-{BUILD_ID}  — precached app shell (HTML, JS, CSS, icons)
+//       saiu-data-{BUILD_ID}    — timetable data (Google Sheets responses)
+//   - On activation ALL old caches are deleted. Only the current version's
+//     caches survive, so stale assets never persist across deployments.
 //   - HTML (navigations) is NETWORK-FIRST: the latest page is always
 //     fetched when online; the cached copy is only an offline fallback.
 //   - Static assets (CSS/JS/icons/fonts) use versioned URLs (?v=BUILD_ID),
 //     so Cache-First is safe: a new build references new URLs and the old
-//     ones are purged with the old cache. A consistent version is served.
-//   - Timetable data (Google Sheets) is NETWORK-FIRST with cache fallback.
+//     ones are purged with the old cache.
+//   - Timetable data (Google Sheets) is NETWORK-FIRST with cache fallback
+//     and cache: 'no-store' to bypass the browser HTTP cache entirely.
 //
 // Application Cache vs User Preferences:
-//   - This worker only ever manages the Cache Storage API (the application
-//     cache). On activation it deletes every cache except the current
-//     versioned build cache and the timetable-sheet cache.
-//   - User preferences (selected school/program/year/section/electives/day)
-//     live in localStorage under `tt-*` keys. Service workers cannot even
-//     access localStorage, so cache purging can never touch them — updates
-//     replace cached assets while every user selection survives.
+//   - This worker only manages the Cache Storage API. On activation it
+//     deletes every cache except the current versioned static + data caches.
+//   - User preferences live in localStorage under `tt-*` keys. Service
+//     workers cannot access localStorage, so cache purging never touches them.
 //
-// Local / dev hosts must NEVER be controlled by a service worker. A stale
-// worker serves the cached app shell (cache-first), so edits made while
-// developing with Live Server (or any local static server) never appear.
+// Local / dev hosts must NEVER be controlled by a service worker.
 const DEV_HOSTS = ['localhost', '127.0.0.1', '::1', '0.0.0.0'];
 const isDevHost = DEV_HOSTS.includes(self.location.hostname);
 
 // Replaced by scripts/build.mjs on every build — the file's bytes change every
 // deployment so the Service Worker update is always detected.
-const BUILD_ID = '2026-08-30-005';
+const BUILD_ID = '2026-08-30-006';
 
-const CACHE_NAME = 'saiu-timetable-v' + BUILD_ID;
-const SHEET_CACHE = 'timetable-sheet-v1';
+// Versioned cache names. Old caches are deleted on activate so stale assets
+// never survive a deployment. Both names change every build.
+const STATIC_CACHE = 'saiu-static-' + BUILD_ID;
+const DATA_CACHE   = 'saiu-data-'   + BUILD_ID;
 
 const versioned = (url) => `${url}?v=${BUILD_ID}`;
 
 // Precached on install. URLs are versioned so a new build always fetches
 // the newest files and the old cache is removed on activation.
 const ASSETS = [
+  // HTML pages (precached as offline fallbacks — fetched without ?v=)
   'index.html',
   '404.html',
   'teachers.html',
+  // Versioned static assets
   versioned('style.css'),
   versioned('manifest.json'),
+  versioned('manifest-light.json'),
   versioned('js/generated/build.js'),
   versioned('js/core/config.js'),
   versioned('js/data/parser.js'),
@@ -70,11 +74,13 @@ const ASSETS = [
   versioned('js/ui/display.js'),
   versioned('js/ui/lab-section.js'),
   versioned('js/ui/ai-assistant.js'),
+  versioned('js/ui/free-rooms.js'),
   versioned('js/core/spring.js'),
   versioned('js/core/app.js'),
   versioned('js/ui/easter-eggs.js'),
   versioned('js/game/breakout.js'),
   versioned('js/teachers/teacher-app.js'),
+  // Icons
   versioned('icons/favicon/favicon-32.png'),
   versioned('icons/favicon/favicon-48.png'),
   versioned('icons/favicon/favicon-192.png'),
@@ -86,18 +92,22 @@ const ASSETS = [
   versioned('icons/app/black-icon-maskable-192.png'),
   versioned('icons/app/black-icon-maskable-512.png'),
   versioned('icons/app/apple-touch-icon.png'),
-  versioned('manifest-light.json'),
 ];
 
 const FONT_CSS = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap';
 
 // --- Helpers ---------------------------------------------------------------
 
+function log(...args) {
+  console.log('[SW ' + BUILD_ID + ']', ...args);
+}
+
 async function precache() {
-  const cache = await caches.open(CACHE_NAME);
-  // addAll would abort the whole install if a single asset fails
-  // (e.g. a transient network error). One bad asset must not block
-  // the update, so each URL is cached independently.
+  log('precache: storing', ASSETS.length, 'assets in', STATIC_CACHE);
+  const cache = await caches.open(STATIC_CACHE);
+  // addAll would abort the whole install if a single asset fails.
+  // One bad asset must not block the update, so each URL is cached
+  // independently.
   await Promise.allSettled(
     ASSETS.map((url) => cache.add(url).catch(() => {}))
   );
@@ -155,6 +165,7 @@ self.addEventListener('install', (event) => {
     self.skipWaiting();
     return;
   }
+  log('install');
   event.waitUntil(precache());
   self.skipWaiting();
 });
@@ -163,7 +174,6 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   if (isDevHost) {
-    // Remove any leftover caches on dev hosts.
     event.waitUntil(
       caches.keys().then((names) => Promise.all(names.map((name) => caches.delete(name))))
     );
@@ -171,18 +181,23 @@ self.addEventListener('activate', (event) => {
   }
   event.waitUntil(
     caches.keys()
-      .then((names) => Promise.all(
-        names.map((name) => (name !== CACHE_NAME && name !== SHEET_CACHE ? caches.delete(name) : null))
-      ))
+      .then((names) => {
+        const keep = new Set([STATIC_CACHE, DATA_CACHE]);
+        const toDelete = names.filter((name) => !keep.has(name));
+        if (toDelete.length) log('activate: deleting old caches:', toDelete);
+        return Promise.all(toDelete.map((name) => caches.delete(name)));
+      })
       // Take control of all open clients immediately so the freshly
       // installed version applies without closing/reopening the app.
       .then(() => self.clients.claim())
+      .then(() => log('activate: clients.claim() done'))
   );
 });
 
 // The page asks the waiting worker to activate right away.
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
+    log('skipWaiting received');
     self.skipWaiting();
   }
 });
@@ -200,10 +215,11 @@ self.addEventListener('fetch', (event) => {
   if (url.hostname.endsWith('googletagmanager.com') || url.hostname.endsWith('google-analytics.com')) return;
   if (url.pathname.endsWith('/sw.js')) return;
 
-  // Timetable data (Google Sheets): network-first, offline falls back to
-  // the last successfully fetched copy.
+  // Timetable data (Google Sheets): network-first with cache: 'no-store'
+  // to bypass the browser HTTP cache. The old cached response in DATA_CACHE
+  // serves as an offline fallback only.
   if (url.hostname.endsWith('docs.google.com') && url.pathname.includes('/spreadsheets')) {
-    event.respondWith(networkFirst(request, SHEET_CACHE, null, { cache: 'no-store' }));
+    event.respondWith(networkFirst(request, DATA_CACHE, null, { cache: 'no-store' }));
     return;
   }
 
@@ -212,23 +228,23 @@ self.addEventListener('fetch', (event) => {
   // cache: 'no-store' ensures the browser's own HTTP cache cannot serve a
   // stale HTML page with outdated ?v= asset references on mobile devices.
   if (request.mode === 'navigate') {
-    event.respondWith(networkFirst(request, CACHE_NAME, 'index.html', { cache: 'no-store' }));
+    event.respondWith(networkFirst(request, STATIC_CACHE, 'index.html', { cache: 'no-store' }));
     return;
   }
 
   // Google Fonts: cache-first (they change infrequently).
   if (url.hostname.endsWith('fonts.googleapis.com') || url.hostname.endsWith('fonts.gstatic.com')) {
-    event.respondWith(cacheFirst(request, CACHE_NAME));
+    event.respondWith(cacheFirst(request, STATIC_CACHE));
     return;
   }
 
   // Same-origin static assets: cache-first. Safe because every referenced
   // URL is versioned (?v=BUILD_ID), so a new build never reuses old files.
   if (url.origin === self.location.origin) {
-    event.respondWith(cacheFirst(request, CACHE_NAME));
+    event.respondWith(cacheFirst(request, STATIC_CACHE));
     return;
   }
 
   // Anything else: network-first with cache fallback.
-  event.respondWith(networkFirst(request, CACHE_NAME));
+  event.respondWith(networkFirst(request, DATA_CACHE));
 });

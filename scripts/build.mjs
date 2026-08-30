@@ -98,8 +98,23 @@ function versionRefs(html, patterns) {
     'manifest\\.json',
     'icons/[A-Za-z0-9._/-]+\\.png',
     'js/core/app\\.js',
-    'js/generated/build\\.js',
   ]);
+
+  // Version the <script src="js/generated/build.js"> tag directly (avoids
+  // matching the probe's fetch('js/generated/build.js?t=...') URL).
+  html = html.replace(
+    /(<script\s+src="js\/generated\/build\.js)(\?v=[^"]*)?"/,
+    `$1?v=${BUILD_ID}"`
+  );
+
+  // Update the PWA version probe's hardcoded MY value so it matches
+  // the current BUILD_ID. The probe compares MY against the live build.js
+  // to detect stale service-worker caches on mobile PWAs.
+  html = html.replace(
+    /var MY = '[^']*'/,
+    `var MY = '${BUILD_ID}'`
+  );
+
   // OG/Twitter image URLs must not have ?v= query strings — social crawlers
   // may not follow them. Strip any that versionRefs accidentally added.
   html = html.replace(/(<meta\s+(?:name|property)="(?:og:image|twitter:image)"[^>]*content="[^"]*?)\?v=[^"]*"/g, '$1"');
