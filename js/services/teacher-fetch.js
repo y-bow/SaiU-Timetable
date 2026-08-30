@@ -30,10 +30,10 @@
  * the whole page down.
  */
 
-import { buildYearMap } from '../data/schools.js?v=2026-08-30-006';
-import { parseTeacherGrid } from '../data/parser.js?v=2026-08-30-006';
-import { buildTeacherIndex } from '../data/teacher-index.js?v=2026-08-30-006';
-import { syncYear2Labs } from './lab-fetch.js?v=2026-08-30-006';
+import { buildYearMap } from '../data/schools.js?v=2026-08-30-005';
+import { parseTeacherGrid } from '../data/parser.js?v=2026-08-30-005';
+import { buildTeacherIndex } from '../data/teacher-index.js?v=2026-08-30-005';
+import { syncYear2Labs } from './lab-fetch.js?v=2026-08-30-005';
 
 export const TEACHER_CACHE_KEY = 'tt-teachers-v3';
 export const MAIN_SHEET_CACHE_KEY = 'tt-teachers-main-sheet-v1';

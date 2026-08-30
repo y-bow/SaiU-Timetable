@@ -188,7 +188,7 @@ export function labSheetUrl(source) {
  */
 export function labCacheKey(source) {
     const yearId = source && source.yearId ? source.yearId : 'scds-2';
-    return `tt-cache-v2-${yearId}-${source.source}`;
+    return `tt-cache-${yearId}-${source.source}`;
 }
 
 /**

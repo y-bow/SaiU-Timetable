@@ -1,5 +1,5 @@
 // ============================================================
-// Breakout ï¿½ canvas, game loop, physics, collision detection,
+// Breakout — canvas, game loop, physics, collision detection,
 // controls and game state for game.html. Loaded as a plain
 // (classic) script and fully isolated from the timetable app.
 // ============================================================
