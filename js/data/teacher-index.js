@@ -41,8 +41,8 @@
  * per-browser confirmations are safely no-ops where storage is unavailable.)
  */
 
-import { normalizeFacultyName } from './parser.js?v=2026-08-28-001';
-import { classIdentity, flattenClasses } from './change-detector.js?v=2026-08-28-001';
+import { normalizeFacultyName } from './parser.js?v=2026-08-30-001';
+import { classIdentity, flattenClasses } from './change-detector.js?v=2026-08-30-001';
 import {
     buildIdentityResolution,
     loadTeacherConfirmations,
