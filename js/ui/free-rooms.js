@@ -82,10 +82,13 @@ function displayRoom(raw) {
 
 /**
  * Rooms to exclude from the free-rooms list: labs and the Moot Court Hall
- * are special-purpose spaces, not bookable classrooms.
+ * are special-purpose spaces, not bookable classrooms. AB2-208 is barred by
+ * permanent exception — it must never be shown as free, even when its
+ * timetable slot is empty. Entries are normalized (uppercase, hyphens →
+ * spaces) so they match the canonical keys produced by normalizeRoom().
  */
 const EXCLUDED_ROOM_PATTERNS = /\b(moot\s*court|lab|faculty\s*conference)\b/i;
-const EXCLUDED_ROOMS = new Set(['AB2-208']);
+const EXCLUDED_ROOMS = new Set(['AB2-208'].map(normalizeRoom));
 
 /**
  * Build the complete room inventory from:

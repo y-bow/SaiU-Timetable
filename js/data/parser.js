@@ -470,6 +470,22 @@ const SUBJECT_ALIASES = [
     { match: /^Psych(?:ology)?\s*(?:Behind|on)\s*(?:Social\s*)?Media$/i, name: 'Psychology Behind Social Media' },
     { match: /^(?:Intro(?:duction)?(?:\s+to)?)?\s*Cognitive\s*Neuroscience$/i, name: 'Introduction to Cognitive Neuroscience' },
     { match: /^Research\s*(?:Method(?:ology|s)?|Methods)$/i, name: 'Research Methodology' },
+
+    // SOL Year 3 (School of Law, 5th Semester). The sheet may spell each
+    // course by its code or full name (with optional " - Sem 5" tag, which the
+    // marker stripping already removes); codes fold onto the clean names.
+    { match: /^SL057$/i, name: 'Human Rights and Duties' },
+    // "Constitutional Law-2" carries a hyphen in the course name itself. The
+    // subject/faculty splitter treats "Subject - Teacher" dashes as separators,
+    // and a " - Sem 5 - " marker strip leaves a trailing dash that is part of
+    // the course name, not a teacher separator. This alias folds that spelling
+    // (and the space-spelled "Constitutional Law 2") back onto the exact name.
+    { match: /^Constitutional\s+Law\s*[-–]?\s*2\s*[-–]?$/i, name: 'Constitutional Law-2' },
+    { match: /^SL021$/i, name: 'Constitutional Law-2' },
+    { match: /^SL023$/i, name: 'Company Law' },
+    { match: /^SL032$/i, name: 'Property Law' },
+    { match: /^SL033$/i, name: 'Law of Evidence' },
+    { match: /^SL024$/i, name: 'Environmental Law' },
 ];
 
 // Normalize room names for comparison: uppercase, hyphens equivalent to

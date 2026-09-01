@@ -169,6 +169,7 @@ const COURSE_DEFINITIONS = [
     // is kept as an alias so it still resolves to this course instead of being
     // mis-split into a subject + a teacher named "Elective".
     { canonical: 'cell-physiology', display: 'Cell Physiology', aliases: ['Cell Physiology - Elective'] },
+    { canonical: 'chemistry', display: 'Chemistry' },
     { canonical: 'clinical-neuroscience', display: 'Clinical Neuroscience' },
     { canonical: 'molecular-neuroscience', display: 'Molecular Neuroscience' },
     // The live sheet spells this course "Analytical Methods & Instrumentation";
@@ -183,6 +184,19 @@ const COURSE_DEFINITIONS = [
     { canonical: 'psychology-behind-social-media', display: 'Psychology Behind Social Media', aliases: ['Psych Behind Social Media', 'Psychology of Social Media'] },
     { canonical: 'introduction-to-cognitive-neuroscience', display: 'Introduction to Cognitive Neuroscience', aliases: ['Intro to Cognitive Neuroscience', 'Cognitive Neuroscience'] },
     { canonical: 'research-methodology', display: 'Research Methodology', aliases: ['Research Methods'] },
+
+    // SOL Year 3 (School of Law, 5th Semester). Each course keeps its exact
+    // name and its course code as an alias so the sheet's code-only cells
+    // still resolve to the course's canonical identity.
+    { canonical: 'human-rights-and-duties', display: 'Human Rights and Duties', aliases: ['SL057', 'HRD'] },
+    { canonical: 'constitutional-law-2', display: 'Constitutional Law-2', aliases: ['SL021'] },
+    { canonical: 'company-law', display: 'Company Law', aliases: ['SL023'] },
+    { canonical: 'property-law', display: 'Property Law', aliases: ['SL032'] },
+    { canonical: 'law-of-evidence', display: 'Law of Evidence', aliases: ['SL033'] },
+    { canonical: 'environmental-law', display: 'Environmental Law', aliases: ['SL024'] },
+
+    // SCDS Year 2 elective
+    { canonical: 'professional-skills-and-career-readiness', display: 'Professional Skills and Career Readiness' },
 ];
 
 // ---------------------------------------------------------------------------

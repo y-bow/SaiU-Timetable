@@ -51,7 +51,7 @@ for (const rel of MODULES) {
 
 const { splitSubjectFaculty, parseCSV } = await import(pathToFileURL(join(dir, 'js/data/parser.js')).href);
 const { buildYearCourseContext, resolveCourse, splitLabSuffix } = await import(pathToFileURL(join(dir, 'js/data/course-normalizer.js')).href);
-const { SCHOOLS, shouldShowProgram } = await import(pathToFileURL(join(dir, 'js/data/schools.js')).href);
+const { SCHOOLS, shouldShowProgram, schoolHasLevel, buildYearMap } = await import(pathToFileURL(join(dir, 'js/data/schools.js')).href);
 
 let passed = 0;
 let failed = 0;
@@ -649,7 +649,10 @@ await check('SAS Year 3 has exactly the 5 mandatory + 1 elective courses', () =>
 });
 
 await check('SAS Year 3 courses do NOT appear in any other school/programme/year', () => {
-    const sasCourses = new Set([...SAS_MANDATORY, ...SAS_ELECTIVES.map(e => e.label)]);
+    // "Cell Physiology" is shared with SCDS Year 3, so it is exempt from the
+    // cross-school exclusion; every other SAS Year 3 course stays exclusive.
+    const shared = new Set(['Cell Physiology']);
+    const sasCourses = new Set([...SAS_MANDATORY, ...SAS_ELECTIVES.map(e => e.label)].filter(n => !shared.has(n)));
     for (const school of SCHOOLS) {
         const yearConfigs = school.programs
             ? school.programs.flatMap(p => p.years)
@@ -1014,11 +1017,11 @@ await check('SOT Year 1 has exactly the 6 mandatory courses and no electives', (
 
 await check('SOT Year 1 exclusive courses do NOT appear in any other school/programme/year', () => {
     // "Critical Thinking" is a pre-existing shared course (already offered by
-    // SCDS Year 3 before SOT was added), and "Frontiers of AI" is shared with
-    // SOB Year 1 — the requirement is that the NEW SOT courses are not added
-    // to any other programme, so only the four SOT-specific courses are
-    // checked for cross-contamination.
-    const exclusive = SOT_MANDATORY.filter(name => !['Critical Thinking', 'Frontiers of AI'].includes(name));
+    // SCDS Year 3 before SOT was added), "Frontiers of AI" is shared with
+    // SOB Year 1, and "Chemistry" is shared with SCDS Year 3 — the requirement
+    // is that the NEW SOT courses are not added to any other programme, so only
+    // the SOT-specific courses are checked for cross-contamination.
+    const exclusive = SOT_MANDATORY.filter(name => !['Critical Thinking', 'Frontiers of AI', 'Chemistry'].includes(name));
     const sotCourses = new Set(exclusive);
     for (const school of SCHOOLS) {
         if (school.id === 'sot') continue;
@@ -1270,6 +1273,217 @@ await check('SOT Year 2: a non-SOT cell (SCDS course) is skipped', () => {
     const out = parseCSV(mixed, 'grid', SOT2_MANDATORY, SOT2_ELECTIVES, null);
     assert.ok(out.some(x => x.subject === 'Microbiology'), 'SOT Year 2 course parsed');
     assert.ok(!out.some(x => x.subject === 'Deep Learning'), 'SCDS course is not pulled into SOT Year 2');
+});
+
+console.log('--- SOL Year 3 config ---');
+
+const sol = SCHOOLS.find(s => s.id === 'sol');
+const SOL_MANDATORY = [
+    'Human Rights and Duties',
+    'Constitutional Law-2',
+    'Company Law',
+    'Property Law',
+    'Law of Evidence',
+    'Environmental Law',
+];
+
+await check('SOL school exists with shortName SOL', () => {
+    assert.ok(sol, 'SOL school exists');
+    assert.equal(sol.shortName, 'SOL');
+});
+
+await check('SOL has exactly one Year 3 config (5th-Semester cohort)', () => {
+    assert.ok(sol.years, 'SOL uses the direct school → year tree');
+    assert.equal(sol.years.length, 1, 'one year config');
+    const year3 = sol.years[0];
+    assert.equal(year3.label, 'Year 3');
+    assert.equal(year3.level, 3);
+    assert.equal(year3.id, 'sol-3');
+    assert.equal(year3.sections, null);
+    assert.equal(year3.parser, 'grid');
+});
+
+await check('SOL appears in the Year 3 school selector', () => {
+    assert.equal(schoolHasLevel(sol, 3), true, 'SOL is shown when Year 3 is selected');
+    assert.equal(schoolHasLevel(sol, 1), false, 'SOL is hidden for Year 1 (no SOL Year 1 yet)');
+    assert.equal(schoolHasLevel(sol, 2), false, 'SOL is hidden for Year 2 (no SOL Year 2 yet)');
+});
+
+await check('SOL Year 3 config is registered in the year map', () => {
+    const map = buildYearMap();
+    const resolved = map.get('sol-3');
+    assert.ok(resolved, 'sol-3 resolves in buildYearMap');
+    assert.equal(resolved.school.id, 'sol');
+    assert.equal(resolved.year.level, 3);
+});
+
+await check('SOL Year 3 has exactly the 6 mandatory courses and no electives', () => {
+    const year3 = sol.years[0];
+    assert.deepStrictEqual(year3.mandatoryCourses, SOL_MANDATORY);
+    assert.equal(year3.electives, null);
+});
+
+await check('SOL Year 3 courses do NOT appear in any other school/programme/year', () => {
+    for (const school of SCHOOLS) {
+        const yearConfigs = school.programs
+            ? school.programs.flatMap(p => p.years)
+            : (school.years || []);
+        for (const year of yearConfigs) {
+            if (school.id === 'sol') continue;
+            const all = [...(year.mandatoryCourses || []), ...(year.electives || []).map(e => e.label)];
+            for (const name of all) {
+                assert.ok(!SOL_MANDATORY.includes(name), `${school.id} / ${year.id} must not contain "${name}"`);
+            }
+        }
+    }
+});
+
+await check('SOL Year 3 courses resolve to stable canonical courseIds', () => {
+    assert.equal(resolveCourse('Human Rights and Duties').canonical, 'human-rights-and-duties');
+    assert.equal(resolveCourse('Constitutional Law-2').canonical, 'constitutional-law-2');
+    assert.equal(resolveCourse('Company Law').canonical, 'company-law');
+    assert.equal(resolveCourse('Property Law').canonical, 'property-law');
+    assert.equal(resolveCourse('Law of Evidence').canonical, 'law-of-evidence');
+    assert.equal(resolveCourse('Environmental Law').canonical, 'environmental-law');
+});
+
+await check('SOL Year 3 course codes resolve to the same canonical courseIds', () => {
+    assert.equal(resolveCourse('SL057').canonical, 'human-rights-and-duties');
+    assert.equal(resolveCourse('SL021').canonical, 'constitutional-law-2');
+    assert.equal(resolveCourse('SL023').canonical, 'company-law');
+    assert.equal(resolveCourse('SL032').canonical, 'property-law');
+    assert.equal(resolveCourse('SL033').canonical, 'law-of-evidence');
+    assert.equal(resolveCourse('SL024').canonical, 'environmental-law');
+});
+
+console.log('--- parseCSV (grid): SOL Year 3 ---');
+// The grid carries the same " - Sem 5 - " semester-marker format the other
+// Year 3 schools (e.g. SCDS-3) use; the parser strips the marker and matches
+// each course against the configured mandatory list.
+const SOL_GRID = [
+    'MONDAY,09:15 AM - 10:10 AM,Human Rights and Duties - Sem 5 - Dr. Rao',
+    ',10:15 AM - 11:10 AM,Constitutional Law-2 - Sem 5 - Dr. Gupta',
+    ',11:15 AM - 12:10 PM,Company Law - Sem 5 - Dr. Mehta',
+    ',12:15 PM - 1:10 PM,Property Law - Sem 5 - Dr. Sharma',
+    'TUESDAY,09:15 AM - 10:10 AM,Law of Evidence - Sem 5 - Dr. Khan',
+    ',10:15 AM - 11:10 AM,Environmental Law - Sem 5 - Dr. Iyer',
+].join('\n');
+
+await check('SOL Year 3: all six mandatory courses parse with Sem 5 markers', () => {
+    const out = parseCSV(SOL_GRID, 'grid', SOL_MANDATORY, null, null);
+    for (const name of SOL_MANDATORY) {
+        const c = out.find(x => x.subject === name);
+        assert.ok(c, `${name} parsed`);
+        assert.equal(c.elective, undefined, `${name} is not tagged as elective`);
+    }
+});
+
+await check('SOL Year 3: mandatory courses carry stable canonical courseIds', () => {
+    const out = parseCSV(SOL_GRID, 'grid', SOL_MANDATORY, null, null);
+    assert.equal(out.find(x => x.subject === 'Human Rights and Duties').courseId, 'human-rights-and-duties');
+    assert.equal(out.find(x => x.subject === 'Constitutional Law-2').courseId, 'constitutional-law-2');
+    assert.equal(out.find(x => x.subject === 'Company Law').courseId, 'company-law');
+    assert.equal(out.find(x => x.subject === 'Property Law').courseId, 'property-law');
+    assert.equal(out.find(x => x.subject === 'Law of Evidence').courseId, 'law-of-evidence');
+    assert.equal(out.find(x => x.subject === 'Environmental Law').courseId, 'environmental-law');
+});
+
+await check('SOL Year 3: course-code cells (SL057 etc.) expand to the clean course names', () => {
+    const coded = [
+        'MONDAY,09:15 AM - 10:10 AM,SL057 - Sem 5 - Dr. Rao',
+        ',10:15 AM - 11:10 AM,SL021 - Sem 5 - Dr. Gupta',
+        ',11:15 AM - 12:10 PM,SL023 - Sem 5 - Dr. Mehta',
+        ',12:15 PM - 1:10 PM,SL032 - Sem 5 - Dr. Sharma',
+        'TUESDAY,09:15 AM - 10:10 AM,SL033 - Sem 5 - Dr. Khan',
+        ',10:15 AM - 11:10 AM,SL024 - Sem 5 - Dr. Iyer',
+    ].join('\n');
+    const out = parseCSV(coded, 'grid', SOL_MANDATORY, null, null);
+    for (const name of SOL_MANDATORY) {
+        assert.ok(out.some(x => x.subject === name), `${name} parsed from its code cell`);
+    }
+});
+
+await check('SOL Year 3: a non-SOL cell (SCDS course) is skipped', () => {
+    const mixed = [
+        'MONDAY,09:15 AM - 10:10 AM,Human Rights and Duties - Sem 5 - Dr. Rao',
+        ',10:15 AM - 11:10 AM,Deep Learning',
+    ].join('\n');
+    const out = parseCSV(mixed, 'grid', SOL_MANDATORY, null, null);
+    assert.ok(out.some(x => x.subject === 'Human Rights and Duties'), 'SOL course parsed');
+    assert.ok(!out.some(x => x.subject === 'Deep Learning'), 'SCDS course is not pulled into SOL Year 3');
+});
+
+console.log('--- SCDS Year 2 elective: Professional Skills and Career Readiness ---');
+
+const scds = SCHOOLS.find(s => s.id === 'scds');
+const scds2 = scds.years.find(y => y.id === 'scds-2');
+
+await check('SCDS Year 2 gains the Professional Skills and Career Readiness elective', () => {
+    assert.ok(scds2.electives, 'scds-2 has an electives list');
+    const e = scds2.electives.find(x => x.id === 'professional-skills-and-career-readiness');
+    assert.ok(e, 'elective is present');
+    assert.equal(e.label, 'Professional Skills and Career Readiness');
+    assert.ok(!e.sections, 'elective is not mandatory and has no section selector');
+});
+
+await check('SCDS Year 2 existing electives are preserved', () => {
+    const ids = scds2.electives.map(x => x.id);
+    assert.ok(ids.includes('intelligent-embedded-systems'), 'Intelligent Embedded Systems kept');
+    assert.ok(ids.includes('emerging-tools-and-applications'), 'Emering Tools kept');
+    assert.ok(ids.includes('introduction-to-financial-accounting'), 'Introduction to Financial Accounting kept');
+    assert.ok(ids.includes('professional-skills-and-career-readiness'), 'new elective added alongside');
+});
+
+await check('Professional Skills and Career Readiness is parsed as an SCDS Year 2 elective', () => {
+    const g = [
+        'MONDAY,09:15 AM - 10:10 AM,Professional Skills and Career Readiness - Sec 1 - Sonar',
+        ',,AB2-101',
+    ].join('\n');
+    const electives = scds2.electives;
+    const out = parseCSV(g, 'grid', null, electives, ['AB2-101']);
+    const c = out.find(x => x.elective === 'professional-skills-and-career-readiness');
+    assert.ok(c, 'elective parsed');
+    assert.equal(c.subject, 'Professional Skills and Career Readiness');
+    assert.equal(c.courseId, 'professional-skills-and-career-readiness');
+    assert.equal(c.faculty, 'Prof. Sonar');
+});
+
+console.log('--- SCDS Year 3: Cell Physiology and Chemistry are separate electives ---');
+
+const scds3 = scds.years.find(y => y.id === 'scds-3');
+
+await check('SCDS Year 3 lists Cell Physiology and Chemistry as two distinct electives', () => {
+    assert.ok(scds3.electives, 'scds-3 has an electives list');
+    const ids = scds3.electives.map(x => x.id);
+    assert.ok(ids.includes('cell-physiology'), 'Cell Physiology is a separate elective');
+    assert.ok(ids.includes('chemistry'), 'Chemistry is a separate elective');
+    assert.ok(!ids.includes('cell-physiology-and-chemistry'), 'the merged Cell Physiology and Chemistry entry is gone');
+    const cellPhy = scds3.electives.find(x => x.id === 'cell-physiology');
+    const chem = scds3.electives.find(x => x.id === 'chemistry');
+    assert.equal(cellPhy.label, 'Cell Physiology');
+    assert.equal(chem.label, 'Chemistry');
+});
+
+await check('Cell Physiology and Chemistry resolve to distinct canonical courseIds', () => {
+    assert.equal(resolveCourse('Cell Physiology').canonical, 'cell-physiology');
+    assert.equal(resolveCourse('Chemistry').canonical, 'chemistry');
+});
+
+await check('Cell Physiology and Chemistry are parsed as separate SCDS Year 3 electives', () => {
+    const g = [
+        'MONDAY,09:15 AM - 10:10 AM,Cell Physiology - Sec 1 - Dr. Rao',
+        ',10:15 AM - 11:10 AM,Chemistry - Sec 1 - Dr. Mehta',
+    ].join('\n');
+    const out = parseCSV(g, 'grid', scds3.mandatoryCourses, scds3.electives, null);
+    const cellPhy = out.find(x => x.elective === 'cell-physiology');
+    const chem = out.find(x => x.elective === 'chemistry');
+    assert.ok(cellPhy, 'Cell Physiology parsed as elective');
+    assert.equal(cellPhy.subject, 'Cell Physiology');
+    assert.equal(cellPhy.courseId, 'cell-physiology');
+    assert.ok(chem, 'Chemistry parsed as elective');
+    assert.equal(chem.subject, 'Chemistry');
+    assert.equal(chem.courseId, 'chemistry');
+    assert.notEqual(cellPhy.subject, chem.subject, 'distinct subjects');
 });
 
 console.log('--- generic lab classification (grid) ---');

@@ -42,6 +42,9 @@ function buildSchoolAliasMap() {
             map.set('SCIENCES', 'sas');
             map.set('NEUROSCIENCE', 'sas');
             map.set('PSYCHOLOGY', 'sas');
+        } else if (school.id === 'sol') {
+            map.set('SCHOOL OF LAW', 'sol');
+            map.set('LAW', 'sol');
         }
     }
     return map;

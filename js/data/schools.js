@@ -102,6 +102,7 @@ export const SCHOOLS = [
                         ],
                     },
                     { id: 'introduction-to-financial-accounting', label: 'Introduction to Financial Accounting' },
+                    { id: 'professional-skills-and-career-readiness', label: 'Professional Skills and Career Readiness' },
                 ],
             },
             {
@@ -131,6 +132,8 @@ export const SCHOOLS = [
                     { id: 'fundamentals-of-business-organization-and-management', label: 'Fundamentals of Business Organization & Management' },
                     { id: 'principles-in-financial-management', label: 'Principles of Financial Management' },
                     { id: 'conflict-in-contemporary-international-relations', label: 'Conflicts in Contemporary International Relations' },
+                    { id: 'cell-physiology', label: 'Cell Physiology' },
+                    { id: 'chemistry', label: 'Chemistry' },
                 ],
             },
         ],
@@ -205,6 +208,7 @@ export const SCHOOLS = [
                         ],
                         electives: [
                             { id: 'forensic-psychology', label: 'Forensic Psychology' },
+                            { id: 'foundation-of-data-engineering', label: 'Foundation of Data Engineering' },
                         ],
                     },
                 ],
@@ -247,6 +251,7 @@ export const SCHOOLS = [
                         ],
                         electives: [
                             { id: 'forensic-psychology', label: 'Forensic Psychology' },
+                            { id: 'foundation-of-data-engineering', label: 'Foundation of Data Engineering' },
                         ],
                     },
                 ],
@@ -303,6 +308,33 @@ export const SCHOOLS = [
                         electives: null,
                     },
                 ],
+            },
+        ],
+    },
+    {
+        id: 'sol',
+        shortName: 'SOL',
+        // School of Law. Uses the direct school → year tree (like SCDS / SOAI).
+        // Year 3 is a single 5th-Semester cohort; every listed course is
+        // mandatory (Law has no elective selector).
+        years: [
+            {
+                id: 'sol-3',
+                label: 'Year 3',
+                level: 3,
+                sections: null,
+                sheetId: '1Jk3KCLqHHzi-jxigIcPpcXZestcxb8Y0BeQLjhiezb8',
+                gid: '0',
+                parser: 'grid',
+                mandatoryCourses: [
+                    'Human Rights and Duties',
+                    'Constitutional Law-2',
+                    'Company Law',
+                    'Property Law',
+                    'Law of Evidence',
+                    'Environmental Law',
+                ],
+                electives: null,
             },
         ],
     },
