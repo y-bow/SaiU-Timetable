@@ -622,7 +622,10 @@ console.log('--- SAS Year 3 Neuroscience config ---');
 
 const sas = SCHOOLS.find(s => s.id === 'sas');
 const SAS_MANDATORY = ['Biostatistics', 'Clinical Neuroscience', 'Molecular Neuroscience', 'Analytical Methods', 'Psychiatry & Mood disorders'];
-const SAS_ELECTIVES = [{ id: 'cell-physiology', label: 'Cell Physiology' }];
+const SAS_ELECTIVES = [
+    { id: 'cell-physiology', label: 'Cell Physiology' },
+    { id: 'chemistry', label: 'Chemistry' },
+];
 
 await check('SAS school exists with the Neuroscience programme', () => {
     assert.ok(sas, 'SAS school exists');
@@ -642,16 +645,17 @@ await check('SAS Neuroscience has exactly one Year 3 config', () => {
     assert.equal(year3.id, 'sas-neuro-3');
 });
 
-await check('SAS Year 3 has exactly the 5 mandatory + 1 elective courses', () => {
+await check('SAS Year 3 has exactly the 5 mandatory + 2 elective courses', () => {
     const year3 = sas.programs.find(p => p.id === 'neuroscience').years[0];
     assert.deepStrictEqual(year3.mandatoryCourses, SAS_MANDATORY);
     assert.deepStrictEqual(year3.electives, SAS_ELECTIVES);
 });
 
 await check('SAS Year 3 courses do NOT appear in any other school/programme/year', () => {
-    // "Cell Physiology" is shared with SCDS Year 3, so it is exempt from the
-    // cross-school exclusion; every other SAS Year 3 course stays exclusive.
-    const shared = new Set(['Cell Physiology']);
+    // "Cell Physiology" and "Chemistry" are shared with other schools, so
+    // they are exempt from the cross-school exclusion; every other SAS Year 3
+    // course stays exclusive.
+    const shared = new Set(['Cell Physiology', 'Chemistry']);
     const sasCourses = new Set([...SAS_MANDATORY, ...SAS_ELECTIVES.map(e => e.label)].filter(n => !shared.has(n)));
     for (const school of SCHOOLS) {
         const yearConfigs = school.programs
@@ -691,6 +695,7 @@ const SAS_GRID = [
     ',12:15 PM - 1:10 PM,Molecular Neuroscience         Dr. Sharma',
     'TUESDAY,09:15 AM - 10:10 AM,Analytical Methods         Dr. Mehta',
     ',10:15 AM - 11:10 AM,Psychiatry & Mood disorders         Dr. Khan',
+    ',11:15 AM - 12:10 PM,Chemistry         Dr. Nair',
 ].join('\n');
 
 await check('SAS Year 3: all five mandatory courses parse', () => {
@@ -718,6 +723,15 @@ await check('SAS Year 3: Cell Physiology is parsed as the elective', () => {
     assert.equal(c.subject, 'Cell Physiology');
     assert.equal(c.courseId, 'cell-physiology');
     assert.equal(c.faculty, 'Prof. Dr.Rao');
+});
+
+await check('SAS Year 3: Chemistry is parsed as the elective', () => {
+    const out = parseCSV(SAS_GRID, 'grid', SAS_MANDATORY, SAS_ELECTIVES, null);
+    const c = out.find(x => x.elective === 'chemistry');
+    assert.ok(c, 'Chemistry parsed');
+    assert.equal(c.subject, 'Chemistry');
+    assert.equal(c.courseId, 'chemistry');
+    assert.equal(c.faculty, 'Prof. Dr.Nair');
 });
 
 await check('SAS Year 3: a bare "Cell Physiology" cell keeps its name and invents no teacher', () => {
@@ -1448,20 +1462,15 @@ await check('Professional Skills and Career Readiness is parsed as an SCDS Year 
     assert.equal(c.faculty, 'Prof. Sonar');
 });
 
-console.log('--- SCDS Year 3: Cell Physiology and Chemistry are separate electives ---');
+console.log('--- Cell Physiology and Chemistry are distinct electives (SAS Year 3) ---');
 
 const scds3 = scds.years.find(y => y.id === 'scds-3');
 
-await check('SCDS Year 3 lists Cell Physiology and Chemistry as two distinct electives', () => {
+await check('SCDS Year 3 no longer lists Cell Physiology or Chemistry as electives', () => {
     assert.ok(scds3.electives, 'scds-3 has an electives list');
     const ids = scds3.electives.map(x => x.id);
-    assert.ok(ids.includes('cell-physiology'), 'Cell Physiology is a separate elective');
-    assert.ok(ids.includes('chemistry'), 'Chemistry is a separate elective');
-    assert.ok(!ids.includes('cell-physiology-and-chemistry'), 'the merged Cell Physiology and Chemistry entry is gone');
-    const cellPhy = scds3.electives.find(x => x.id === 'cell-physiology');
-    const chem = scds3.electives.find(x => x.id === 'chemistry');
-    assert.equal(cellPhy.label, 'Cell Physiology');
-    assert.equal(chem.label, 'Chemistry');
+    assert.ok(!ids.includes('cell-physiology'), 'Cell Physiology is no longer an SCDS Year 3 elective');
+    assert.ok(!ids.includes('chemistry'), 'Chemistry is no longer an SCDS Year 3 elective');
 });
 
 await check('Cell Physiology and Chemistry resolve to distinct canonical courseIds', () => {
@@ -1469,21 +1478,14 @@ await check('Cell Physiology and Chemistry resolve to distinct canonical courseI
     assert.equal(resolveCourse('Chemistry').canonical, 'chemistry');
 });
 
-await check('Cell Physiology and Chemistry are parsed as separate SCDS Year 3 electives', () => {
-    const g = [
-        'MONDAY,09:15 AM - 10:10 AM,Cell Physiology - Sec 1 - Dr. Rao',
-        ',10:15 AM - 11:10 AM,Chemistry - Sec 1 - Dr. Mehta',
-    ].join('\n');
-    const out = parseCSV(g, 'grid', scds3.mandatoryCourses, scds3.electives, null);
-    const cellPhy = out.find(x => x.elective === 'cell-physiology');
-    const chem = out.find(x => x.elective === 'chemistry');
-    assert.ok(cellPhy, 'Cell Physiology parsed as elective');
-    assert.equal(cellPhy.subject, 'Cell Physiology');
-    assert.equal(cellPhy.courseId, 'cell-physiology');
-    assert.ok(chem, 'Chemistry parsed as elective');
-    assert.equal(chem.subject, 'Chemistry');
-    assert.equal(chem.courseId, 'chemistry');
-    assert.notEqual(cellPhy.subject, chem.subject, 'distinct subjects');
+await check('SAS Neuroscience Year 3 lists Cell Physiology and Chemistry as two distinct electives', () => {
+    const year3 = sas.programs.find(p => p.id === 'neuroscience').years[0];
+    assert.ok(year3.electives, 'sas-neuro-3 has an electives list');
+    const ids = year3.electives.map(x => x.id);
+    assert.ok(ids.includes('cell-physiology'), 'Cell Physiology is a separate SAS elective');
+    assert.ok(ids.includes('chemistry'), 'Chemistry is a separate SAS elective');
+    assert.equal(year3.electives.find(x => x.id === 'cell-physiology').label, 'Cell Physiology');
+    assert.equal(year3.electives.find(x => x.id === 'chemistry').label, 'Chemistry');
 });
 
 console.log('--- generic lab classification (grid) ---');

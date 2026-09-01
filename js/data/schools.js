@@ -132,8 +132,6 @@ export const SCHOOLS = [
                     { id: 'fundamentals-of-business-organization-and-management', label: 'Fundamentals of Business Organization & Management' },
                     { id: 'principles-in-financial-management', label: 'Principles of Financial Management' },
                     { id: 'conflict-in-contemporary-international-relations', label: 'Conflicts in Contemporary International Relations' },
-                    { id: 'cell-physiology', label: 'Cell Physiology' },
-                    { id: 'chemistry', label: 'Chemistry' },
                 ],
             },
         ],
@@ -359,9 +357,10 @@ export const SCHOOLS = [
                         sheetId: '1Jk3KCLqHHzi-jxigIcPpcXZestcxb8Y0BeQLjhiezb8',
                         gid: '0',
                         parser: 'grid',
-                        // SAS Year 3 Neuroscience. "Cell Physiology" is the
-                        // only elective — the other five are the courses every
-                        // SAS Neuroscience Year 3 student attends.
+                        // SAS Year 3 Neuroscience. "Cell Physiology" and
+                        // "Chemistry" are the electives — the other five are
+                        // the courses every SAS Neuroscience Year 3 student
+                        // attends.
                         mandatoryCourses: [
                             'Biostatistics',
                             'Clinical Neuroscience',
@@ -371,6 +370,7 @@ export const SCHOOLS = [
                         ],
                         electives: [
                             { id: 'cell-physiology', label: 'Cell Physiology' },
+                            { id: 'chemistry', label: 'Chemistry' },
                         ],
                     },
                 ],

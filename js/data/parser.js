@@ -23,7 +23,7 @@
  * multiple offerings in the sheet is supported with no per-course config.
  */
 
-import { resolveCourse, splitLabSuffix } from './course-normalizer.js?v=2026-09-01-001';
+import { resolveCourse, splitLabSuffix } from './course-normalizer.js?v=2026-09-01-002';
 
 const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
 const SECTION_REGEX = /\(Sec\s*(\d+)\)/i;
@@ -451,9 +451,10 @@ const SUBJECT_ALIASES = [
     { match: /^Indian Constitution\s*(?:&|and)\s*Democracy(?:\s*-\s*Sem(?:ester)?\s*\.?\s*1)?$/i, name: 'Indian Constitution & Democracy' },
     { match: /^Frontiers of AI(?:\s*-?\s*Sem(?:ester)?\s*\.?\s*1)?$/i, name: 'Frontiers of AI' },
 
-    // SAS Year 3 Neuroscience. "Cell Physiology" is the elective course; any
-    // "Cell Physiology - Elective" / "Cell Physiology-Elective" dash-spaced
-    // spelling left in the sheet folds onto it too. "&"↔"and" is
+    // SAS Year 3 Neuroscience. "Cell Physiology" and "Chemistry" are the
+    // elective courses; any "Cell Physiology - Elective" / "Cell
+    // Physiology-Elective" dash-spaced spelling left in the sheet folds onto
+    // it too. "&"↔"and" is
     // normalized exactly like the FBO/PFM courses above, so "Psychiatry and
     // Mood disorders" and "Psychiatry & Mood disorders" are the same course.
     // "Analytical Methods & Instrumentation" is the live sheet's spelling of
