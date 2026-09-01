@@ -513,15 +513,44 @@ input { font-family: inherit; }
     font-variant-numeric: tabular-nums;
 }
 
-/* Floating liquid-glass credit pill, pinned bottom-center of the viewport.
-   Uses the same translucent material + blur as the toast for a unified
-   surface, so it never fights the content beneath it. */
-.main-footer {
+/* Fixed container at the bottom of the viewport that holds the credit
+   pill and responsive ad banners. On mobile it stacks vertically; on
+   tablet / desktop the pill and ad sit side-by-side. */
+.footer-area {
     position: fixed;
     bottom: calc(14px + env(safe-area-inset-bottom, 0px));
     left: 50%;
     transform: translateX(-50%);
     z-index: 50;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    pointer-events: none;
+}
+.footer-area > * { pointer-events: auto; }
+
+/* Tablet & desktop: pill + ad side-by-side. */
+@media (min-width: 768px) {
+    .footer-area {
+        flex-direction: row;
+        gap: 12px;
+    }
+}
+
+/* ---- Responsive ad banners — only one visible at a time ---- */
+.ad-banner { display: none; }
+
+@media (min-width: 768px) {
+    .ad-banner--tablet { display: block; }
+}
+@media (max-width: 767px) {
+    .ad-banner--mobile { display: block; }
+}
+
+/* Liquid-glass credit pill. */
+.main-footer {
+    position: relative;
     pointer-events: auto;
     white-space: nowrap;
     max-width: calc(100vw - 16px);
@@ -539,7 +568,6 @@ input { font-family: inherit; }
     -webkit-backdrop-filter: blur(20px) saturate(180%);
     border: 1px solid rgba(255, 255, 255, 0.10);
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.12), inset 0 -1px 0 rgba(255, 255, 255, 0.04);
-    overflow: hidden;
     cursor: default;
     transition: box-shadow 500ms ease, background 500ms ease, color 300ms ease;
 }
@@ -571,8 +599,8 @@ input { font-family: inherit; }
     animation: glass-float 3.2s ease-in-out infinite;
 }
 @keyframes glass-float {
-    0%, 100% { transform: translateX(-50%) translateY(0); }
-    50%      { transform: translateX(-50%) translateY(-3px); }
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-3px); }
 }
 
 /* ============================================================
@@ -1507,8 +1535,8 @@ input { font-family: inherit; }
         margin-left: var(--sidebar-w);
     }
 
-    /* Credit pill stays bottom-center over the timetable area. */
-    .main-footer {
+    /* Credit pill + ad stay bottom-center over the timetable area. */
+    .footer-area {
         left: calc(50% + var(--sidebar-w) / 2);
     }
 
@@ -1743,8 +1771,8 @@ input { font-family: inherit; }
     .sidebar.open { transform: translateX(0); }
     .sidebar-close-btn { display: grid; }
 
-    /* The floating credit pill must never cover the open drawer. */
-    #sidebar.open ~ .main-content .main-footer {
+    /* The floating footer area must never cover the open drawer. */
+    #sidebar.open ~ .main-content .footer-area {
         display: none;
     }
 
