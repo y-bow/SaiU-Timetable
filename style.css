@@ -538,16 +538,6 @@ input { font-family: inherit; }
     }
 }
 
-/* ---- Responsive ad banners — only one visible at a time ---- */
-.ad-banner { display: none; }
-
-@media (min-width: 768px) {
-    .ad-banner--tablet { display: block; }
-}
-@media (max-width: 767px) {
-    .ad-banner--mobile { display: block; }
-}
-
 /* Liquid-glass credit pill. */
 .main-footer {
     position: relative;
