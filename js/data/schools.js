@@ -103,6 +103,7 @@ export const SCHOOLS = [
                     },
                     { id: 'introduction-to-financial-accounting', label: 'Introduction to Financial Accounting' },
                     { id: 'professional-skills-and-career-readiness', label: 'Professional Skills and Career Readiness' },
+                    { id: 'fundamentals-of-business-organization-and-management', label: 'Fundamentals of Business Organization & Management' },
                 ],
             },
             {
@@ -326,6 +327,7 @@ export const SCHOOLS = [
                 parser: 'grid',
                 mandatoryCourses: [
                     'Human Rights and Duties',
+                    'Constitutional Law-1',
                     'Constitutional Law-2',
                     'Company Law',
                     'Property Law',

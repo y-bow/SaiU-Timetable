@@ -1294,6 +1294,7 @@ console.log('--- SOL Year 3 config ---');
 const sol = SCHOOLS.find(s => s.id === 'sol');
 const SOL_MANDATORY = [
     'Human Rights and Duties',
+    'Constitutional Law-1',
     'Constitutional Law-2',
     'Company Law',
     'Property Law',
@@ -1331,7 +1332,7 @@ await check('SOL Year 3 config is registered in the year map', () => {
     assert.equal(resolved.year.level, 3);
 });
 
-await check('SOL Year 3 has exactly the 6 mandatory courses and no electives', () => {
+await check('SOL Year 3 has exactly the 7 mandatory courses and no electives', () => {
     const year3 = sol.years[0];
     assert.deepStrictEqual(year3.mandatoryCourses, SOL_MANDATORY);
     assert.equal(year3.electives, null);
@@ -1363,6 +1364,7 @@ await check('SOL Year 3 courses resolve to stable canonical courseIds', () => {
 
 await check('SOL Year 3 course codes resolve to the same canonical courseIds', () => {
     assert.equal(resolveCourse('SL057').canonical, 'human-rights-and-duties');
+    assert.equal(resolveCourse('SL020').canonical, 'constitutional-law-1');
     assert.equal(resolveCourse('SL021').canonical, 'constitutional-law-2');
     assert.equal(resolveCourse('SL023').canonical, 'company-law');
     assert.equal(resolveCourse('SL032').canonical, 'property-law');
@@ -1376,14 +1378,15 @@ console.log('--- parseCSV (grid): SOL Year 3 ---');
 // each course against the configured mandatory list.
 const SOL_GRID = [
     'MONDAY,09:15 AM - 10:10 AM,Human Rights and Duties - Sem 5 - Dr. Rao',
-    ',10:15 AM - 11:10 AM,Constitutional Law-2 - Sem 5 - Dr. Gupta',
-    ',11:15 AM - 12:10 PM,Company Law - Sem 5 - Dr. Mehta',
-    ',12:15 PM - 1:10 PM,Property Law - Sem 5 - Dr. Sharma',
-    'TUESDAY,09:15 AM - 10:10 AM,Law of Evidence - Sem 5 - Dr. Khan',
-    ',10:15 AM - 11:10 AM,Environmental Law - Sem 5 - Dr. Iyer',
+    ',10:15 AM - 11:10 AM,Constitutional Law-1 - Sem 5 - Dr. Nair',
+    ',11:15 AM - 12:10 PM,Constitutional Law-2 - Sem 5 - Dr. Gupta',
+    ',12:15 PM - 1:10 PM,Company Law - Sem 5 - Dr. Mehta',
+    'TUESDAY,09:15 AM - 10:10 AM,Property Law - Sem 5 - Dr. Sharma',
+    ',10:15 AM - 11:10 AM,Law of Evidence - Sem 5 - Dr. Khan',
+    ',11:15 AM - 12:10 PM,Environmental Law - Sem 5 - Dr. Iyer',
 ].join('\n');
 
-await check('SOL Year 3: all six mandatory courses parse with Sem 5 markers', () => {
+await check('SOL Year 3: all seven mandatory courses parse with Sem 5 markers', () => {
     const out = parseCSV(SOL_GRID, 'grid', SOL_MANDATORY, null, null);
     for (const name of SOL_MANDATORY) {
         const c = out.find(x => x.subject === name);
@@ -1395,6 +1398,7 @@ await check('SOL Year 3: all six mandatory courses parse with Sem 5 markers', ()
 await check('SOL Year 3: mandatory courses carry stable canonical courseIds', () => {
     const out = parseCSV(SOL_GRID, 'grid', SOL_MANDATORY, null, null);
     assert.equal(out.find(x => x.subject === 'Human Rights and Duties').courseId, 'human-rights-and-duties');
+    assert.equal(out.find(x => x.subject === 'Constitutional Law-1').courseId, 'constitutional-law-1');
     assert.equal(out.find(x => x.subject === 'Constitutional Law-2').courseId, 'constitutional-law-2');
     assert.equal(out.find(x => x.subject === 'Company Law').courseId, 'company-law');
     assert.equal(out.find(x => x.subject === 'Property Law').courseId, 'property-law');
@@ -1405,11 +1409,12 @@ await check('SOL Year 3: mandatory courses carry stable canonical courseIds', ()
 await check('SOL Year 3: course-code cells (SL057 etc.) expand to the clean course names', () => {
     const coded = [
         'MONDAY,09:15 AM - 10:10 AM,SL057 - Sem 5 - Dr. Rao',
-        ',10:15 AM - 11:10 AM,SL021 - Sem 5 - Dr. Gupta',
-        ',11:15 AM - 12:10 PM,SL023 - Sem 5 - Dr. Mehta',
-        ',12:15 PM - 1:10 PM,SL032 - Sem 5 - Dr. Sharma',
-        'TUESDAY,09:15 AM - 10:10 AM,SL033 - Sem 5 - Dr. Khan',
-        ',10:15 AM - 11:10 AM,SL024 - Sem 5 - Dr. Iyer',
+        ',10:15 AM - 11:10 AM,SL020 - Sem 5 - Dr. Nair',
+        ',11:15 AM - 12:10 PM,SL021 - Sem 5 - Dr. Gupta',
+        ',12:15 PM - 1:10 PM,SL023 - Sem 5 - Dr. Mehta',
+        'TUESDAY,09:15 AM - 10:10 AM,SL032 - Sem 5 - Dr. Sharma',
+        ',10:15 AM - 11:10 AM,SL033 - Sem 5 - Dr. Khan',
+        ',11:15 AM - 12:10 PM,SL024 - Sem 5 - Dr. Iyer',
     ].join('\n');
     const out = parseCSV(coded, 'grid', SOL_MANDATORY, null, null);
     for (const name of SOL_MANDATORY) {

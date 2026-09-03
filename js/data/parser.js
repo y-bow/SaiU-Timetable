@@ -476,11 +476,14 @@ const SUBJECT_ALIASES = [
     // course by its code or full name (with optional " - Sem 5" tag, which the
     // marker stripping already removes); codes fold onto the clean names.
     { match: /^SL057$/i, name: 'Human Rights and Duties' },
-    // "Constitutional Law-2" carries a hyphen in the course name itself. The
-    // subject/faculty splitter treats "Subject - Teacher" dashes as separators,
-    // and a " - Sem 5 - " marker strip leaves a trailing dash that is part of
-    // the course name, not a teacher separator. This alias folds that spelling
-    // (and the space-spelled "Constitutional Law 2") back onto the exact name.
+    // "Constitutional Law-1" and "Constitutional Law-2" carry hyphens in the
+    // course names themselves. The subject/faculty splitter treats
+    // "Subject - Teacher" dashes as separators, and a " - Sem 5 - " marker
+    // strip leaves a trailing dash that is part of the course name, not a
+    // teacher separator. These aliases fold that spelling (and the
+    // space-spelled variants) back onto the exact names.
+    { match: /^Constitutional\s+Law\s*[-–]?\s*1\s*[-–]?$/i, name: 'Constitutional Law-1' },
+    { match: /^SL020$/i, name: 'Constitutional Law-1' },
     { match: /^Constitutional\s+Law\s*[-–]?\s*2\s*[-–]?$/i, name: 'Constitutional Law-2' },
     { match: /^SL021$/i, name: 'Constitutional Law-2' },
     { match: /^SL023$/i, name: 'Company Law' },
