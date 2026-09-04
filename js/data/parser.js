@@ -23,7 +23,7 @@
  * multiple offerings in the sheet is supported with no per-course config.
  */
 
-import { resolveCourse, splitLabSuffix } from './course-normalizer.js?v=2026-09-01-002';
+import { resolveCourse, splitLabSuffix } from './course-normalizer.js?v=2026-09-04-001';
 
 const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
 const SECTION_REGEX = /\(Sec\s*(\d+)\)/i;
@@ -482,9 +482,9 @@ const SUBJECT_ALIASES = [
     // strip leaves a trailing dash that is part of the course name, not a
     // teacher separator. These aliases fold that spelling (and the
     // space-spelled variants) back onto the exact names.
-    { match: /^Constitutional\s+Law\s*[-–]?\s*1\s*[-–]?$/i, name: 'Constitutional Law-1' },
+    { match: /^Con?s?titutional\s+Law\s*[-–]?\s*1\s*[-–]?$/i, name: 'Constitutional Law-1' },
     { match: /^SL020$/i, name: 'Constitutional Law-1' },
-    { match: /^Constitutional\s+Law\s*[-–]?\s*2\s*[-–]?$/i, name: 'Constitutional Law-2' },
+    { match: /^Con?s?titutional\s+Law\s*[-–]?\s*2\s*[-–]?$/i, name: 'Constitutional Law-2' },
     { match: /^SL021$/i, name: 'Constitutional Law-2' },
     { match: /^SL023$/i, name: 'Company Law' },
     { match: /^SL032$/i, name: 'Property Law' },

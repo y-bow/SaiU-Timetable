@@ -788,12 +788,16 @@ input { font-family: inherit; }
     display: inline-flex; align-items: center; gap: 5px;
     font-size: 0.63rem; font-weight: 600;
     padding: 2px 7px;
+    border: none;
+    cursor: pointer;
     border-radius: var(--radius-xs);
     color: var(--danger);
     background: var(--danger-soft);
     margin-top: 8px;
     animation: flash-in 350ms cubic-bezier(0.15, 0.5, 0.3, 1.05);
+    transition: filter 0.2s ease;
 }
+.clash-badge:active { filter: brightness(0.9); }
 .clash-badge svg { flex-shrink: 0; }
 
 .tl-offerings {
@@ -1109,6 +1113,54 @@ input { font-family: inherit; }
 .section-modal.show { pointer-events: auto; }
 .section-modal.show .section-modal-backdrop { opacity: 1; }
 .section-modal.show .section-modal-sheet { transform: translateY(0); }
+
+/* Clash Details Modal (reuses section-modal structure) */
+.clash-modal-header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    margin-bottom: 12px;
+}
+.clash-modal-header h2 { font-size: 1.05rem; font-weight: 600; letter-spacing: -0.01em; margin: 0; line-height: 1.3; }
+.clash-modal-header .icon-btn { margin-top: -6px; margin-right: -6px; }
+
+.clash-modal-content {
+    display: flex; flex-direction: column; gap: 12px;
+    max-height: 60vh;
+    overflow-y: auto;
+    padding-right: 4px;
+    overscroll-behavior: contain;
+}
+
+.clash-card {
+    background: var(--surface-2);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: 12px;
+    display: flex; flex-direction: column; gap: 4px;
+}
+.clash-card-title { font-size: 0.9rem; font-weight: 600; color: var(--primary-text); }
+.clash-card-meta { font-size: 0.8rem; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.clash-card-meta svg { width: 14px; height: 14px; flex-shrink: 0; }
+.clash-card-tag { 
+    display: inline-block; font-size: 0.65rem; padding: 2px 6px; 
+    border-radius: var(--radius-xs); background: var(--surface-3); color: var(--text-tertiary);
+    font-weight: 500;
+}
+
+.clash-relation {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    color: var(--danger); font-size: 0.75rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.05em;
+    padding: 4px 0;
+}
+.clash-relation-reason {
+    font-size: 0.85rem; font-weight: 400; color: var(--text-secondary);
+    text-transform: none; letter-spacing: normal;
+    text-align: center;
+}
+.clash-divider {
+    height: 1px; background: var(--border-subtle); margin: 8px 0;
+}
+
 
 /* ============================================================
    "Ask SaiU AI" chat panel.

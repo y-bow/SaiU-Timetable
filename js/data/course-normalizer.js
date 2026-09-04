@@ -189,8 +189,8 @@ const COURSE_DEFINITIONS = [
     // name and its course code as an alias so the sheet's code-only cells
     // still resolve to the course's canonical identity.
     { canonical: 'human-rights-and-duties', display: 'Human Rights and Duties', aliases: ['SL057', 'HRD'] },
-    { canonical: 'constitutional-law-1', display: 'Constitutional Law-1', aliases: ['SL020'] },
-    { canonical: 'constitutional-law-2', display: 'Constitutional Law-2', aliases: ['SL021'] },
+    { canonical: 'constitutional-law-1', display: 'Constitutional Law-1', aliases: ['SL020', 'Constitutional Law 1', 'Contitutional Law 1'] },
+    { canonical: 'constitutional-law-2', display: 'Constitutional Law-2', aliases: ['SL021', 'Constitutional Law 2', 'Contitutional Law 2', 'Contitutional Law-2'] },
     { canonical: 'company-law', display: 'Company Law', aliases: ['SL023'] },
     { canonical: 'property-law', display: 'Property Law', aliases: ['SL032'] },
     { canonical: 'law-of-evidence', display: 'Law of Evidence', aliases: ['SL033'] },

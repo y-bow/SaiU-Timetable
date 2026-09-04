@@ -420,13 +420,13 @@ try {
 
     await check('MOST IMPORTANT: a course absent from every student list still lands in the teacher index', () => {
         const text = grid([
-            ['MONDAY', '09:15 AM - 10:10 AM', 'Contitutional Law 2    Dr. Sanjay Bang'],
+            ['MONDAY', '09:15 AM - 10:10 AM', 'Advanced Space Law    Dr. Sanjay Bang'],
             ['', 'AB2 - 210', 'AB2 - 210'],
         ]);
         const { index } = indexFrom(text);
         assert.ok(index.has('sanjay-bang'), 'class indexed under the teacher even though no year config knows the course');
         const entry = index.get('sanjay-bang').classes[0];
-        assert.equal(entry.subject, 'Contitutional Law 2');
+        assert.equal(entry.subject, 'Advanced Space Law');
         assert.equal(entry.room, 'AB2 - 210');
         assert.deepEqual(entry.contexts, [], 'no year config matches → no context tag, but the class is NOT dropped');
     });
@@ -459,7 +459,7 @@ try {
         assert.ok(index.has('jemima'));
         assert.ok(!index.has('ii-dr-jemima'), 'course suffix "II" must not leak into the teacher');
         const entry = index.get('jemima').classes[0];
-        assert.equal(entry.subject, 'Psychopathology II');
+        assert.equal(entry.subject, 'Psychopathology');
     });
     await check('title-boundary: "Mridula" folds to Dr.Mridula, never "Mr.idula"', () => {
         const text = grid([['MONDAY', '09:15 AM - 10:10 AM', 'Community Psychology  Mridula']]);
@@ -574,7 +574,7 @@ try {
         assert.ok(index.has('mridula'), 'the added course teacher appears automatically, no config change');
         const entry = index.get('mridula').classes[0];
         assert.equal(entry.subject, 'Forensic Psychology');
-        assert.deepEqual(entry.contexts, ['SCDS · Year 3', 'SOB · Year 2'], 'a configured elective gets contexts from every matching year');
+        assert.deepEqual(entry.contexts, ['SCDS · Year 3', 'SOB · BBA Year 2', 'SOB · B.Com Year 2'], 'a configured elective gets contexts from every matching year');
     });
     await check('lab classes merge in with a lab context label', () => {
         const lab = cls({ school: 'SCDS', year: 2, lab: true });

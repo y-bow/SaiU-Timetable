@@ -1,9 +1,9 @@
-import { CONFIG } from '../core/config.js?v=2026-09-01-002';
-import { toMinutes, minutesToLabel, minutesToClock, todayName, isBeforeToday, WEEKDAYS, labSubjectLabel } from '../core/utils.js?v=2026-09-01-002';
-import { offeringKey } from '../data/parser.js?v=2026-09-01-002';
-import { rubberband, projectMomentum } from '../core/spring.js?v=2026-09-01-002';
-import { mergeAdjacentForDisplay, displayItemHighlighted } from './display.js?v=2026-09-01-002';
-import { clashTypeLabels } from '../data/clash-detector.js';
+import { CONFIG } from '../core/config.js?v=2026-09-04-001';
+import { toMinutes, minutesToLabel, minutesToClock, todayName, isBeforeToday, WEEKDAYS, labSubjectLabel } from '../core/utils.js?v=2026-09-04-001';
+import { offeringKey } from '../data/parser.js?v=2026-09-04-001';
+import { rubberband, projectMomentum } from '../core/spring.js?v=2026-09-04-001';
+import { mergeAdjacentForDisplay, displayItemHighlighted } from './display.js?v=2026-09-04-001';
+import { clashTypeLabels } from '../data/clash-detector.js?v=2026-09-04-001';
 
 /**
  * DOM rendering — sidebar filters + timeline.
@@ -670,7 +670,7 @@ function buildTimeline(timeline, items, nowMin, skipBreaks, dayStatus = 'today',
                     </div>
                     <span class="status-badge ${badge.cls}">${badge.label}</span>
                 </div>
-                ${c.clashes?.length ? `<span class="clash-badge">${ICONS.alertTriangle}<span>${clashTypeLabels(c.clashes).map(t => t.charAt(0).toUpperCase() + t.slice(1) + ' clash').join(' · ')}</span></span>` : ''}
+                ${c.clashes?.length ? `<button class="clash-badge" aria-label="View clash details" aria-haspopup="dialog">${ICONS.alertTriangle}<span>${clashTypeLabels(c.clashes).map(t => t.charAt(0).toUpperCase() + t.slice(1) + ' clash').join(' · ')}</span></button>` : ''}
                 ${c.roomChanged ? `<span class="room-change-badge">${ICONS.alertTriangle}<span>${c.originalRoom ? `Room changed · ${escapeHtml(c.originalRoom)} → ${escapeHtml(c.room)}` : 'Room changed'}</span></span>` : ''}
                 ${renderOfferings(c, status)}
                 ${live}${progress}
@@ -679,6 +679,9 @@ function buildTimeline(timeline, items, nowMin, skipBreaks, dayStatus = 'today',
                     <span class="tl-duration">${minutesToLabel(endMin - startMin)}</span>
                 </div>
             </div>`;
+        const clashBtn = item.querySelector('.clash-badge');
+        if (clashBtn) clashBtn.addEventListener('click', () => showClashModal(c));
+
         timeline.appendChild(item);
         prevEnd = endMin;
     }
@@ -843,6 +846,88 @@ export function showSectionModal(sections, onSelect) {
 
 export function hideSectionModal() {
     const modal = $('#section-modal');
+    if (!modal) return;
+    modal.classList.remove('show');
+    modal.classList.add('hidden');
+}
+
+// ============================================================
+// Clash details modal
+// ============================================================
+
+export function showClashModal(classRecord) {
+    const modal = $('#clash-modal');
+    if (!modal) return;
+    const content = $('#clash-modal-content');
+    if (!content) return;
+
+    let html = '';
+    
+    // Original class card
+    html += `
+        <div class="clash-card">
+            <span class="clash-card-tag">Original class</span>
+            <div class="clash-card-title">${escapeHtml(classRecord.displayName || classRecord.subject)}</div>
+            <div class="clash-card-meta">
+                ${classRecord.faculty ? `<span>${escapeHtml(classRecord.faculty)}</span>` : ''}
+                ${classRecord.faculty ? '·' : ''}
+                <span>${escapeHtml(classRecord.room || 'Room TBA')}</span>
+                ·
+                <span>${minutesToClock(toMinutes(classRecord.startTime))} – ${minutesToClock(toMinutes(classRecord.endTime))}</span>
+            </div>
+        </div>
+    `;
+
+    // Clashes
+    for (const clash of classRecord.clashes) {
+        let reason = '';
+        if (clash.type === 'student') {
+            if (!classRecord.elective && clash.with.elective) {
+                reason = 'Mandatory course overlaps with elective';
+            } else if (classRecord.elective && !clash.with.elective) {
+                reason = 'Mandatory course overlaps with elective';
+            } else if (classRecord.elective && clash.with.elective) {
+                reason = 'Selected electives overlap';
+            } else {
+                reason = 'Student timetable overlap';
+            }
+        } else if (clash.type === 'room') {
+            reason = 'Same room + overlapping time';
+        } else if (clash.type === 'teacher') {
+            reason = 'Same teacher + overlapping time';
+        }
+
+        html += `
+            <div class="clash-relation">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+                <div class="clash-relation-reason">${escapeHtml(reason)}</div>
+            </div>
+            
+            <div class="clash-card">
+                <span class="clash-card-tag">Conflicting class</span>
+                <div class="clash-card-title">${escapeHtml(clash.with.displayName || clash.with.subject)}</div>
+                <div class="clash-card-meta">
+                    ${clash.with.faculty ? `<span>${escapeHtml(clash.with.faculty)}</span>` : ''}
+                    ${clash.with.faculty ? '·' : ''}
+                    <span>${escapeHtml(clash.with.room || 'Room TBA')}</span>
+                    ·
+                    <span>${minutesToClock(toMinutes(clash.with.startTime))} – ${minutesToClock(toMinutes(clash.with.endTime))}</span>
+                </div>
+            </div>
+        `;
+    }
+
+    content.innerHTML = html;
+
+    modal.classList.remove('hidden');
+    requestAnimationFrame(() => {
+        modal.classList.add('show');
+        $('#clash-modal-close')?.focus();
+    });
+}
+
+export function hideClashModal() {
+    const modal = $('#clash-modal');
     if (!modal) return;
     modal.classList.remove('show');
     modal.classList.add('hidden');

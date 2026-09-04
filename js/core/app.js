@@ -1,25 +1,25 @@
-import { CONFIG } from './config.js?v=2026-09-01-002';
-import { parseCSV, parseRoomOccupancy, offeringKey } from '../data/parser.js?v=2026-09-01-002';
-import { compareTimetables, classIdentity, setChangeDetectorDebug } from '../data/change-detector.js?v=2026-09-01-002';
-import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen } from '../services/storage.js?v=2026-09-01-002';
-import * as nav from '../ui/navigation.js?v=2026-09-01-002';
-import * as ui from '../ui/ui.js?v=2026-09-01-002';
-import { checkArjunSinghTransition, resetArjunSinghTransition } from '../ui/easter-eggs.js?v=2026-09-01-002';
-import * as labSection from '../ui/lab-section.js?v=2026-09-01-002';
-import { loadMergedYear1Timetable, loadMergedYear2Timetable } from '../services/lab-fetch.js?v=2026-09-01-002';
-import { matchesEmergingToolsSection } from '../data/lab-parser.js?v=2026-09-01-002';
-import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-09-01-002';
-import { init as initAnalytics, trackEvent } from '../services/analytics.js?v=2026-09-01-002';
-import { dispatchTimetableChanges, setN8nDebug } from '../services/n8n.js?v=2026-09-01-002';
+import { CONFIG } from './config.js?v=2026-09-04-001';
+import { parseCSV, parseRoomOccupancy, offeringKey } from '../data/parser.js?v=2026-09-04-001';
+import { compareTimetables, classIdentity, setChangeDetectorDebug } from '../data/change-detector.js?v=2026-09-04-001';
+import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen } from '../services/storage.js?v=2026-09-04-001';
+import * as nav from '../ui/navigation.js?v=2026-09-04-001';
+import * as ui from '../ui/ui.js?v=2026-09-04-001';
+import { checkArjunSinghTransition, resetArjunSinghTransition } from '../ui/easter-eggs.js?v=2026-09-04-001';
+import * as labSection from '../ui/lab-section.js?v=2026-09-04-001';
+import { loadMergedYear1Timetable, loadMergedYear2Timetable } from '../services/lab-fetch.js?v=2026-09-04-001';
+import { matchesEmergingToolsSection } from '../data/lab-parser.js?v=2026-09-04-001';
+import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-09-04-001';
+import { init as initAnalytics, trackEvent } from '../services/analytics.js?v=2026-09-04-001';
+import { dispatchTimetableChanges, setN8nDebug } from '../services/n8n.js?v=2026-09-04-001';
 // Localhost-only dev console harness for timetable change notifications
 // (window.testRoomChangeNotification / testTimeChangeNotification /
 // testInvalidRoomChange). This side-effect import executes the module, which
 // attaches the functions itself; the module self-gates on localhost, so the
 // production build is never affected.
-import '../services/timetable-test-harness.js?v=2026-09-01-002';
-import { initAiAssistant } from '../ui/ai-assistant.js?v=2026-09-01-002';
-import { initFreeRooms } from '../ui/free-rooms.js?v=2026-09-01-002';
-import { detectClashes } from '../data/clash-detector.js';
+import '../services/timetable-test-harness.js?v=2026-09-04-001';
+import { initAiAssistant } from '../ui/ai-assistant.js?v=2026-09-04-001';
+import { initFreeRooms } from '../ui/free-rooms.js?v=2026-09-04-001';
+import { detectClashes } from '../data/clash-detector.js?v=2026-09-04-001';
 
 /**
  * App bootstrap, fetch, and interactivity.
@@ -503,6 +503,7 @@ function render() {
     const day = selectedDay || contextDay();
 
     ui.renderSuccess();
+    ui.hideClashModal();
     const now = nowMinutes();
     const sc = sectionClasses();
     // Clash detection: runs on the fully-resolved student class list so that
@@ -779,6 +780,17 @@ function initHamburger() {
     $('#sidebar-close-btn')?.addEventListener('click', () => ui.closeDrawer());
     $('.section-modal-backdrop')?.addEventListener('click', (e) => {
         if (e.target === $('.section-modal-backdrop')) ui.hideSectionModal();
+    });
+    $('#clash-modal-close')?.addEventListener('click', () => ui.hideClashModal());
+    $('#clash-modal-backdrop')?.addEventListener('click', (e) => {
+        if (e.target === $('#clash-modal-backdrop')) ui.hideClashModal();
+    });
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            ui.hideSectionModal();
+            ui.hideClashModal();
+            if (ui.isDrawerOpen()) ui.closeDrawer();
+        }
     });
 }
 

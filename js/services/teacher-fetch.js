@@ -30,10 +30,10 @@
  * the whole page down.
  */
 
-import { buildYearMap } from '../data/schools.js?v=2026-09-01-002';
-import { parseTeacherGrid } from '../data/parser.js?v=2026-09-01-002';
-import { buildTeacherIndex } from '../data/teacher-index.js?v=2026-09-01-002';
-import { syncYear2Labs } from './lab-fetch.js?v=2026-09-01-002';
+import { buildYearMap } from '../data/schools.js?v=2026-09-04-001';
+import { parseTeacherGrid } from '../data/parser.js?v=2026-09-04-001';
+import { buildTeacherIndex } from '../data/teacher-index.js?v=2026-09-04-001';
+import { syncYear2Labs } from './lab-fetch.js?v=2026-09-04-001';
 
 export const TEACHER_CACHE_KEY = 'tt-teachers-v3';
 export const MAIN_SHEET_CACHE_KEY = 'tt-teachers-main-sheet-v1';
@@ -149,8 +149,8 @@ export function gatherAllTimetables(mainText, labClasses = [], yearMap = buildYe
     }
     for (const c of labClasses || []) {
         const label = c.school
-            ? `${String(c.school).toUpperCase()} · Year ${c.year}`
-            : `${schoolLabel({ id: 'scds' })} · Year 2`;
+            ? `${String(c.school).toUpperCase()} · Year ${c.year} Lab`
+            : `${schoolLabel({ id: 'scds' })} · Year 2 Lab`;
         all.push({ ...c, _ctxLabel: label });
     }
     return all;
