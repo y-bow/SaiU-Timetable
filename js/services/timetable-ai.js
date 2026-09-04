@@ -1,8 +1,8 @@
-import { CONFIG } from '../core/config.js?v=2026-09-04-001';
-import { offeringKey, parseCSV } from '../data/parser.js?v=2026-09-04-001';
-import { dateForWeekday } from './n8n.js?v=2026-09-04-001';
-import { SCHOOLS } from '../data/schools.js?v=2026-09-04-001';
-import { detectQueryGroups, resolveQueryGroups } from '../data/query-parser.js?v=2026-09-04-001';
+import { CONFIG } from '../core/config.js?v=2026-09-04-004';
+import { offeringKey, parseCSV } from '../data/parser.js?v=2026-09-04-004';
+import { dateForWeekday } from './n8n.js?v=2026-09-04-004';
+import { SCHOOLS } from '../data/schools.js?v=2026-09-04-004';
+import { detectQueryGroups, resolveQueryGroups } from '../data/query-parser.js?v=2026-09-04-004';
 
 /**
  * Generative-AI timetable assistant ("Ask SaiU AI").

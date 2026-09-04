@@ -1,5 +1,5 @@
-import { SCHOOLS, buildYearMap, resolveYears, resolveSections, shouldShowProgram, shouldShowSection, schoolHasLevel } from '../data/schools.js?v=2026-09-04-001';
-import { getNavState, setNavState, getStoredElectives, setStoredElectives, getStoredOfferings, setStoredOffering, getStoredEmergingToolsSection, setStoredEmergingToolsSection } from '../services/storage.js?v=2026-09-04-001';
+import { SCHOOLS, buildYearMap, resolveYears, resolveSections, shouldShowProgram, shouldShowSection, schoolHasLevel } from '../data/schools.js?v=2026-09-04-004';
+import { getNavState, setNavState, getStoredElectives, setStoredElectives, getStoredOfferings, setStoredOffering, getStoredSectionSelections, setStoredSectionSelection } from '../services/storage.js?v=2026-09-04-004';
 
 /**
  * Navigation state management.
@@ -19,7 +19,7 @@ let state = {
     yearConfig: null,
     electives: [],
     offeringSelections: {},
-    emergingToolsSection: null,
+    sectionSelections: {},
 };
 
 const yearMap = buildYearMap();
@@ -37,16 +37,42 @@ export function getSelectedOffering(electiveId) {
     return (state.offeringSelections && state.offeringSelections[electiveId]) || null;
 }
 
-// The elective that carries an independent offering selector (a dropdown in
-// the sidebar). Currently the Emerging Tools elective. `null` means the
-// active year has no such elective.
-export function getEmergingToolsConfig() {
+// Every elective in the active year that carries an independent section
+// selector (a dropdown/modal choice of offering). Currently Emerging Tools
+// (Section 1/2/3) and Professional Skills (Section A/B). `null` when the active
+// year has no such electives.
+export function getDropdownElectives() {
     const electives = (state.year && state.year.electives) || [];
-    return electives.find(e => e.sections && e.sections.length) || null;
+    return electives.filter(e => e.sections && e.sections.length) || [];
 }
 
+// Backward-compatible name for the single earlier sectioned elective. Returns
+// the config for the FIRST sectioned elective (the historical behavior
+// callers relied on). Prefer `getElectiveConfig(id)` for per-elective logic.
+export function getEmergingToolsConfig() {
+    return getDropdownElectives()[0] || null;
+}
+
+// Find the config for a specific elective if it carries a section selector.
+export function getElectiveConfig(electiveId) {
+    const electives = (state.year && state.year.electives) || [];
+    const e = electives.find(e => e.id === electiveId);
+    return (e && e.sections && e.sections.length) ? e : null;
+}
+
+// The section id the student chose for a given sectioned elective, or null.
+export function getElectiveSection(electiveId) {
+    return (state.sectionSelections && state.sectionSelections[electiveId]) || null;
+}
+
+// Backward-compatible alias for the earlier single state value.
 export function getEmergingToolsSection() {
-    return state.emergingToolsSection || null;
+    const cfg = getEmergingToolsConfig();
+    return cfg ? getElectiveSection(cfg.id) || null : null;
+}
+
+export function getSectionSelections() {
+    return { ...(state.sectionSelections || {}) };
 }
 
 // --- Helpers ---
@@ -107,21 +133,20 @@ function loadOfferingsForYear(yearConfig) {
     return yearConfig ? getStoredOfferings(yearConfig.id) : {};
 }
 
-// Restore the saved Emerging Tools offering for a year. Values that no longer
-// exist in the elective's section config are dropped.
-function loadEmergingToolsForYear(yearConfig) {
-    if (!yearConfig) return null;
-    const sections = (getEmergingToolsConfigRaw(yearConfig) || {}).sections || [];
-    if (!sections.length) return null;
-    const saved = getStoredEmergingToolsSection(yearConfig.id);
-    return sections.some(s => s.id === saved) ? saved : null;
-}
-
-// Find the elective with an offering selector within a given year config,
-// independent of the currently active year state.
-function getEmergingToolsConfigRaw(yearConfig) {
+// Restore the saved section choice per sectioned elective for a year. Values
+// that no longer exist in an elective's section config are dropped.
+function loadSectionSelectionsForYear(yearConfig) {
+    if (!yearConfig) return {};
+    const saved = getStoredSectionSelections(yearConfig.id);
+    if (!saved || !Object.keys(saved).length) return {};
     const electives = (yearConfig && yearConfig.electives) || [];
-    return electives.find(e => e.sections && e.sections.length) || null;
+    const out = {};
+    for (const e of electives) {
+        if (e.sections && e.sections.length && saved[e.id] && e.sections.some(s => s.id === saved[e.id])) {
+            out[e.id] = saved[e.id];
+        }
+    }
+    return out;
 }
 
 // --- Navigation ---
@@ -181,7 +206,7 @@ export function initNavigation() {
         }
     }
 
-    state = { school, program, year: yearConfig, section, yearConfig, electives: loadElectivesForYear(yearConfig), offeringSelections: loadOfferingsForYear(yearConfig), emergingToolsSection: loadEmergingToolsForYear(yearConfig) };
+    state = { school, program, year: yearConfig, section, yearConfig, electives: loadElectivesForYear(yearConfig), offeringSelections: loadOfferingsForYear(yearConfig), sectionSelections: loadSectionSelectionsForYear(yearConfig) };
     persist();
     emit();
     return state;
@@ -236,7 +261,7 @@ export function navigateToSchool(schoolId) {
         }
     }
 
-    state = { school, program, year: yearConfig, section, yearConfig, electives: loadElectivesForYear(yearConfig), offeringSelections: loadOfferingsForYear(yearConfig), emergingToolsSection: loadEmergingToolsForYear(yearConfig) };
+    state = { school, program, year: yearConfig, section, yearConfig, electives: loadElectivesForYear(yearConfig), offeringSelections: loadOfferingsForYear(yearConfig), sectionSelections: loadSectionSelectionsForYear(yearConfig) };
     persist();
     emit();
 }
@@ -275,7 +300,7 @@ export function navigateToProgram(programId) {
         }
     }
 
-    state = { ...state, program, year: yearConfig, section, yearConfig, electives: loadElectivesForYear(yearConfig), offeringSelections: loadOfferingsForYear(yearConfig), emergingToolsSection: loadEmergingToolsForYear(yearConfig) };
+    state = { ...state, program, year: yearConfig, section, yearConfig, electives: loadElectivesForYear(yearConfig), offeringSelections: loadOfferingsForYear(yearConfig), sectionSelections: loadSectionSelectionsForYear(yearConfig) };
     persist();
     emit();
 }
@@ -325,7 +350,7 @@ export function navigateToYear(yearId) {
         }
     }
 
-    state = { ...state, school, program, year: yearConfig, section, yearConfig, electives: loadElectivesForYear(yearConfig), offeringSelections: loadOfferingsForYear(yearConfig), emergingToolsSection: loadEmergingToolsForYear(yearConfig) };
+    state = { ...state, school, program, year: yearConfig, section, yearConfig, electives: loadElectivesForYear(yearConfig), offeringSelections: loadOfferingsForYear(yearConfig), sectionSelections: loadSectionSelectionsForYear(yearConfig) };
     persist();
     emit();
 }
@@ -367,21 +392,32 @@ export function setSelectedOffering(electiveId, offeringKey) {
 }
 
 /**
- * Set which offering section of the Emerging Tools elective the student
- * attends. Completely independent from the SCDS section selection. The value is
- * matched to the timetable by the section NUMBER on the config entry — both the
+ * Set which offering section of a sectioned elective the student attends.
+ * Completely independent from the SCDS section selection. The value is matched
+ * to the timetable by the section NUMBER on the config entry (for electives
+ * like Emerging Tools whose sections carry a numeric `section` — both the
  * main-course offering and the Emerging Tools Lab records are selected by that
- * section. Only ids that exist in the elective's section config are kept;
- * anything else clears the choice (which hides that elective's classes). The
- * lab teacher is never part of this choice.
+ * section) or by faculty (for electives like Professional Skills whose sheet
+ * cells carry no section marker). Only ids that exist in the elective's
+ * section config are kept; anything else clears the choice (which hides that
+ * elective's classes). The lab teacher is never part of this choice.
  */
+export function setElectiveSection(electiveId, value) {
+    const cfg = getElectiveConfig(electiveId);
+    const valid = cfg ? cfg.sections.some(s => s.id === value) : false;
+    const next = (valid ? value : null);
+    const sectionSelections = { ...state.sectionSelections };
+    if (next == null) delete sectionSelections[electiveId];
+    else sectionSelections[electiveId] = next;
+    state = { ...state, sectionSelections };
+    if (state.year) setStoredSectionSelection(state.year.id, electiveId, next || null);
+    emit();
+}
+
+// Backward-compatible alias for the earlier single-value setter.
 export function setEmergingToolsSection(value) {
     const cfg = getEmergingToolsConfig();
-    const valid = cfg ? cfg.sections.some(s => s.id === value) : false;
-    const next = valid ? value : null;
-    state = { ...state, emergingToolsSection: next };
-    if (state.year) setStoredEmergingToolsSection(state.year.id, next || null);
-    emit();
+    if (cfg) setElectiveSection(cfg.id, value);
 }
 
 function persist() {

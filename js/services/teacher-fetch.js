@@ -30,10 +30,11 @@
  * the whole page down.
  */
 
-import { buildYearMap } from '../data/schools.js?v=2026-09-04-001';
-import { parseTeacherGrid } from '../data/parser.js?v=2026-09-04-001';
-import { buildTeacherIndex } from '../data/teacher-index.js?v=2026-09-04-001';
-import { syncYear2Labs } from './lab-fetch.js?v=2026-09-04-001';
+import { buildYearMap } from '../data/schools.js?v=2026-09-04-004';
+import { parseTeacherGrid } from '../data/parser.js?v=2026-09-04-004';
+import { resolveCourse } from '../data/course-normalizer.js?v=2026-09-04-004';
+import { buildTeacherIndex } from '../data/teacher-index.js?v=2026-09-04-004';
+import { syncYear2Labs } from './lab-fetch.js?v=2026-09-04-004';
 
 export const TEACHER_CACHE_KEY = 'tt-teachers-v3';
 export const MAIN_SHEET_CACHE_KEY = 'tt-teachers-main-sheet-v1';
@@ -68,11 +69,26 @@ function normRoom(room) {
         .trim();
 }
 
-// Strict elective label match, mirroring the grid parser's matchElective.
+// Strict elective label match, mirroring the grid parser's matchElective
+// (including its canonical fallback: a differently-spelled cell that resolves
+// onto a configured elective's canonical id is that elective — e.g. the sheet's
+// "Professional Skills & Career Readiness" vs the configured "and" label, or
+// "Emerging Tools and Applications - Elective").
 function matchesElectiveLabel(subject, label) {
     const s = String(subject ?? '').trim().toLowerCase();
     const n = String(label ?? '').trim().toLowerCase();
-    return !!s && (s === n || s.startsWith(n));
+    if (!!s && (s === n || s.startsWith(n))) return true;
+    const res = subject != null ? resolveCourse(subject) : null;
+    return !!(res && res.canonical && res.canonical === labelId(label));
+}
+
+// The canonical course id of a configured elective label (same resolution the
+// student parser uses to tag elective classes).
+function labelId(label) {
+    // The configured labels are already the canonical spelling; resolve them to
+    // their canonical id via the normalizer (folds "&"→"and" etc. identically).
+    const res = resolveCourse(label);
+    return res ? res.canonical : null;
 }
 
 // Mandatory-course prefix match, mirroring the grid parser's matchesName.

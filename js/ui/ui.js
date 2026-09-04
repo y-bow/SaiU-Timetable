@@ -1,9 +1,9 @@
-import { CONFIG } from '../core/config.js?v=2026-09-04-001';
-import { toMinutes, minutesToLabel, minutesToClock, todayName, isBeforeToday, WEEKDAYS, labSubjectLabel } from '../core/utils.js?v=2026-09-04-001';
-import { offeringKey } from '../data/parser.js?v=2026-09-04-001';
-import { rubberband, projectMomentum } from '../core/spring.js?v=2026-09-04-001';
-import { mergeAdjacentForDisplay, displayItemHighlighted } from './display.js?v=2026-09-04-001';
-import { clashTypeLabels } from '../data/clash-detector.js?v=2026-09-04-001';
+import { CONFIG } from '../core/config.js?v=2026-09-04-004';
+import { toMinutes, minutesToLabel, minutesToClock, todayName, isBeforeToday, WEEKDAYS, labSubjectLabel } from '../core/utils.js?v=2026-09-04-004';
+import { offeringKey } from '../data/parser.js?v=2026-09-04-004';
+import { rubberband, projectMomentum } from '../core/spring.js?v=2026-09-04-004';
+import { mergeAdjacentForDisplay, displayItemHighlighted } from './display.js?v=2026-09-04-004';
+import { clashTypeLabels } from '../data/clash-detector.js?v=2026-09-04-004';
 
 /**
  * DOM rendering — sidebar filters + timeline.
@@ -71,7 +71,7 @@ export function renderSidebar(state) {
         const show = state.electives && state.electives.length > 0;
         electiveSection.classList.toggle('hidden', !show);
         if (show) {
-            renderSidebarElectives('sidebar-electives', state.electives, state.selectedElectives, state.emergingToolsSection);
+            renderSidebarElectives('sidebar-electives', state.electives, state.selectedElectives, state.sectionSelections);
         }
     }
 }
@@ -155,7 +155,7 @@ function renderSidebarSectionList(containerId, sections, selectedId) {
  * An elective configured with `sections` additionally expands into an
  * offering dropdown (sidebar offering selector) directly under its checkbox.
  */
-function renderSidebarElectives(containerId, electives, selectedIds, emergingToolsSection) {
+function renderSidebarElectives(containerId, electives, selectedIds, sectionSelections) {
     const container = $(`#${containerId}`);
     if (!container) return;
 
@@ -169,11 +169,13 @@ function renderSidebarElectives(containerId, electives, selectedIds, emergingToo
                 el.setAttribute('aria-checked', active ? 'true' : 'false');
             }
             if (el.dataset.electiveDropdown) {
-                const checked = selected.has(el.dataset.electiveDropdown);
+                const id = el.dataset.electiveDropdown;
+                const checked = selected.has(id);
                 el.classList.toggle('hidden', !checked);
                 if (checked) {
+                    const current = (sectionSelections || {})[id] || '';
                     const sel = el.querySelector('select');
-                    if (sel && sel.value !== (emergingToolsSection || '')) sel.value = emergingToolsSection || '';
+                    if (sel && sel.value !== current) sel.value = current;
                 }
             }
         }
@@ -200,14 +202,16 @@ function renderSidebarElectives(containerId, electives, selectedIds, emergingToo
         container.appendChild(btn);
 
         if (e.sections && e.sections.length) {
-            container.appendChild(buildEmergingToolsDropdown(e, isSelected, emergingToolsSection));
+            container.appendChild(buildEmergingToolsDropdown(e, isSelected, (sectionSelections || {})[e.id] || null));
         }
     }
 }
 
-// Offering dropdown for an elective that keeps its offerings in the sidebar
-// (Emerging Tools and Applications). The chosen offering filters the main
-// timetable to that instructor's class only.
+// Section picker for an elective that keeps its offerings in the sidebar
+// (Emerging Tools and Applications, Professional Skills and Career Readiness).
+// The chosen offering filters the main timetable to that instructor's class
+// only. Rendered as a prominent card under the elective checkbox so the choice
+// is clearly visible (section + faculty), not a tiny collapsed control.
 function buildEmergingToolsDropdown(elective, selected, currentValue) {
     const wrap = document.createElement('div');
     wrap.className = 'sidebar-elective-dropdown' + (selected ? '' : ' hidden');
@@ -225,7 +229,7 @@ function buildEmergingToolsDropdown(elective, selected, currentValue) {
     // selected, but it never appears in the opened dropdown list.
     const placeholder = document.createElement('option');
     placeholder.value = '';
-    placeholder.textContent = 'Select Section';
+    placeholder.textContent = currentValue ? 'Change section' : 'Select section';
     placeholder.hidden = true;
     sel.appendChild(placeholder);
 
@@ -846,6 +850,43 @@ export function showSectionModal(sections, onSelect) {
 
 export function hideSectionModal() {
     const modal = $('#section-modal');
+    if (!modal) return;
+    modal.classList.remove('show');
+    modal.classList.add('hidden');
+}
+
+// ============================================================
+// Elective section chooser modal (bottom sheet)
+// ============================================================
+//
+// Shown the first time a sectioned elective (Emerging Tools, Professional
+// Skills) is switched on, so the student picks their offering section right
+// away. Reuses the same bottom-sheet styles as the section modal. The sidebar
+// dropdown remains the always-available way to switch afterwards.
+
+export function showElectiveModal(elective, onSelect) {
+    const modal = $('#elective-modal');
+    if (!modal) return;
+    $('#elective-modal-title').textContent = elective.sectionsLabel || 'Which section will you attend?';
+    $('#elective-modal-sub').textContent = `Choose your ${elective.label} section from the options below.`;
+    const options = $('#elective-modal-options');
+    options.innerHTML = '';
+    for (const s of elective.sections) {
+        const btn = document.createElement('button');
+        btn.className = 'section-option';
+        btn.innerHTML = `<span class="section-option-label">${escapeHtml(s.label)}</span><span class="section-option-faculty">${escapeHtml(s.name)}</span>`;
+        btn.addEventListener('click', () => { hideElectiveModal(); onSelect(s.id); });
+        options.appendChild(btn);
+    }
+    modal.classList.remove('hidden');
+    requestAnimationFrame(() => {
+        modal.classList.add('show');
+        options.querySelector('button')?.focus();
+    });
+}
+
+export function hideElectiveModal() {
+    const modal = $('#elective-modal');
     if (!modal) return;
     modal.classList.remove('show');
     modal.classList.add('hidden');

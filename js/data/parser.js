@@ -23,7 +23,7 @@
  * multiple offerings in the sheet is supported with no per-course config.
  */
 
-import { resolveCourse, splitLabSuffix } from './course-normalizer.js?v=2026-09-04-001';
+import { resolveCourse, splitLabSuffix } from './course-normalizer.js?v=2026-09-04-004';
 
 const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
 const SECTION_REGEX = /\(Sec\s*(\d+)\)/i;
@@ -52,6 +52,10 @@ const FACULTY_ALIASES = [
     // every variant to the canonical full name so the timetable displays one
     // consistent teacher across all sections/days.
     { match: /^(?:dr\.?\s*)?(?:tamilarasiarasi|tamilarasi|tamil(?:\s*arasi)?)\s*(?:mam|ma'?am|madam)?\s*$/i, name: 'Dr.Tamilarasi' },
+    // The sheet spells this teacher (Professional Skills & Career Readiness,
+    // Section A) simply as "Sangeetha"; normalize to the titled Dr. form so the
+    // timetable and teacher page show one consistent "Prof. Dr.Sangeetha".
+    { match: /^(?:dr\.?\s*)?sangeetha\s*$/i, name: 'Dr.Sangeetha' },
     // Same teacher written with and without a title in different cells
     // ("Law of Contracts 2 ( Sanjay Bang )" vs "Contitutional Law 2 ... Dr.
     // Sanjay Bang"; "Community Psychology  Mridula" vs "Forensic Psychology ...

@@ -49,7 +49,7 @@ for (const rel of MODULES) {
     writeFileSync(dest, stripQuery(readFileSync(join(ROOT, rel), 'utf8')));
 }
 
-const { splitSubjectFaculty, parseCSV } = await import(pathToFileURL(join(dir, 'js/data/parser.js')).href);
+const { splitSubjectFaculty, parseCSV, normalizeFacultyName } = await import(pathToFileURL(join(dir, 'js/data/parser.js')).href);
 const { buildYearCourseContext, resolveCourse, splitLabSuffix } = await import(pathToFileURL(join(dir, 'js/data/course-normalizer.js')).href);
 const { SCHOOLS, shouldShowProgram, schoolHasLevel, buildYearMap } = await import(pathToFileURL(join(dir, 'js/data/schools.js')).href);
 
@@ -1442,7 +1442,17 @@ await check('SCDS Year 2 gains the Professional Skills and Career Readiness elec
     const e = scds2.electives.find(x => x.id === 'professional-skills-and-career-readiness');
     assert.ok(e, 'elective is present');
     assert.equal(e.label, 'Professional Skills and Career Readiness');
-    assert.ok(!e.sections, 'elective is not mandatory and has no section selector');
+    assert.ok(e.sections && e.sections.length === 2, 'elective carries two section offerings (A/B)');
+    assert.deepEqual(e.sections.map(s => s.id), ['sec-a', 'sec-b']);
+    assert.equal(e.sections[0].faculty, 'Sangeetha');
+    assert.equal(e.sections[1].faculty, 'Tamilarasi');
+    assert.ok(e.sections.every(s => s.section == null),
+        'Professional Skills sections carry NO numeric section (faculty-only matching, since the sheet cells have no "Sec N" marker)');
+});
+
+await check('Sangeetha and Tamilarasi normalize to their titled Prof. Dr. forms', () => {
+    assert.equal(normalizeFacultyName('Sangeetha'), 'Prof. Dr.Sangeetha', 'Sangeetha -> Prof. Dr.Sangeetha');
+    assert.equal(normalizeFacultyName('Tamilarasi'), 'Prof. Dr.Tamilarasi', 'Tamilarasi -> Prof. Dr.Tamilarasi');
 });
 
 await check('SCDS Year 2 existing electives are preserved', () => {

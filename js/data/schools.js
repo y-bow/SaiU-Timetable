@@ -102,7 +102,22 @@ export const SCHOOLS = [
                         ],
                     },
                     { id: 'introduction-to-financial-accounting', label: 'Introduction to Financial Accounting' },
-                    { id: 'professional-skills-and-career-readiness', label: 'Professional Skills and Career Readiness' },
+                    {
+                        id: 'professional-skills-and-career-readiness',
+                        label: 'Professional Skills and Career Readiness',
+                        // Professional Skills section offering (Section A / Section B).
+                        // The sheet cells for this course carry NO "Sec N" marker — they
+                        // are identified purely by FACULTY (Dr. Sangeetha for Section A,
+                        // Tamilarasi for Section B). So these entries deliberately omit the
+                        // numeric `section` the Emerging Tools entries carry — leaving it
+                        // unset makes resolveOffering match by faculty only, never by the
+                        // default section 1 that all these cells happen to share.
+                        sectionsLabel: 'Professional Skills Section',
+                        sections: [
+                            { id: 'sec-a', label: 'Section A', name: 'Dr. Sangeetha', faculty: 'Sangeetha' },
+                            { id: 'sec-b', label: 'Section B', name: 'Tamilarasi', faculty: 'Tamilarasi' },
+                        ],
+                    },
                     { id: 'fundamentals-of-business-organization-and-management', label: 'Fundamentals of Business Organization & Management' },
                 ],
             },

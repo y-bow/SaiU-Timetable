@@ -1,4 +1,4 @@
-import { CONFIG } from '../core/config.js?v=2026-09-04-001';
+import { CONFIG } from '../core/config.js?v=2026-09-04-004';
 
 /**
  * localStorage persistence: timetable cache, room-change map,
@@ -117,6 +117,21 @@ export function markSectionModalSeen() {
     localStorage.setItem('tt-section-modal-seen', '1');
 }
 
+// --- Elective section chooser "seen" flags ---
+//
+// The section-chooser modal is shown only the FIRST time a sectioned elective
+// is switched on (until the student has picked a section). Once chosen, the
+// sidebar dropdown remains the way to change it. These flags track which
+// electives the student has already been prompted for.
+
+export function hasSeenElectiveSectionModal(electiveId) {
+    return localStorage.getItem(`tt-elective-section-seen-${electiveId}`) === '1';
+}
+
+export function markElectiveSectionModalSeen(electiveId) {
+    localStorage.setItem(`tt-elective-section-seen-${electiveId}`, '1');
+}
+
 // --- Elective selections (persisted per year) ---
 //
 // Stored under a per-year key so switching schools/programs/years restores
@@ -166,25 +181,51 @@ export function setStoredOffering(yearId, electiveId, offeringKey) {
     else localStorage.setItem(key, JSON.stringify(map));
 }
 
-// --- Emerging Tools offer selection (persisted per year) ---
+// --- Elective-section selection (persisted per year) ---
 //
-// Choice of which offering section of the Emerging Tools elective the student
-// attends (config section `id`: "arjun" | "sonar" | "aravind"). The choice is
-// matched to the timetable by the section NUMBER on the config entry — lab
-// classes compare their own `section` against it and never against the
-// instructor. Independent from the SCDS section, stored per year like the
-// other elective choices.
+// Choice of which offering section each sectioned elective's student attends
+// (e.g. Emerging Tools: "arjun" | "sonar" | "aravind"; Professional Skills:
+// "sec-a" | "sec-b"). Stored as a per-year map electiveId → sectionId, so every
+// elective keeps its own independent choice. For electives whose sections carry
+// a numeric `section`, the choice is matched to the timetable by that section
+// NUMBER (lab classes compare their own `section` and never the instructor);
+// for faculty-only electives (Professional Skills) it is matched by faculty.
+// Independent from the SCDS section, stored per year like the other elective
+// choices.
+//
+// The legacy single-value key `tt-nav-emerging-tools-<yearId>` (Emerging Tools
+// only) is migrated into the map on read so existing users keep their choice.
 
-export function getStoredEmergingToolsSection(yearId) {
-    if (!yearId) return null;
-    return localStorage.getItem(`tt-nav-emerging-tools-${yearId}`);
+const SECTION_SELECTIONS_KEY = (yearId) => `tt-nav-section-selections-${yearId}`;
+const LEGACY_EMERGING_TOOLS_KEY = (yearId) => `tt-nav-emerging-tools-${yearId}`;
+
+export function getStoredSectionSelections(yearId) {
+    if (!yearId) return {};
+    const raw = localStorage.getItem(SECTION_SELECTIONS_KEY(yearId));
+    let map = {};
+    if (raw) {
+        try {
+            const obj = JSON.parse(raw);
+            map = obj && typeof obj === 'object' ? obj : {};
+        } catch { map = {}; }
+    }
+    // Migrate the legacy single Emerging Tools selection into the map.
+    const legacy = localStorage.getItem(LEGACY_EMERGING_TOOLS_KEY(yearId));
+    if (legacy && !(map['emerging-tools-and-applications'])) {
+        map['emerging-tools-and-applications'] = legacy;
+        localStorage.removeItem(LEGACY_EMERGING_TOOLS_KEY(yearId));
+    }
+    return map;
 }
 
-export function setStoredEmergingToolsSection(yearId, value) {
-    if (!yearId) return;
-    const key = `tt-nav-emerging-tools-${yearId}`;
-    if (!value) localStorage.removeItem(key);
-    else localStorage.setItem(key, value);
+export function setStoredSectionSelection(yearId, electiveId, value) {
+    if (!yearId || !electiveId) return;
+    const key = SECTION_SELECTIONS_KEY(yearId);
+    const map = getStoredSectionSelections(yearId);
+    if (value == null) delete map[electiveId];
+    else map[electiveId] = value;
+    if (!Object.keys(map).length) localStorage.removeItem(key);
+    else localStorage.setItem(key, JSON.stringify(map));
 }
 
 // --- Selected lab section (LEGACY — SCDS Year 2 numeric labs 1-8) ---

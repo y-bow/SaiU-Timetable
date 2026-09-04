@@ -1,25 +1,25 @@
-import { CONFIG } from './config.js?v=2026-09-04-001';
-import { parseCSV, parseRoomOccupancy, offeringKey } from '../data/parser.js?v=2026-09-04-001';
-import { compareTimetables, classIdentity, setChangeDetectorDebug } from '../data/change-detector.js?v=2026-09-04-001';
-import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen } from '../services/storage.js?v=2026-09-04-001';
-import * as nav from '../ui/navigation.js?v=2026-09-04-001';
-import * as ui from '../ui/ui.js?v=2026-09-04-001';
-import { checkArjunSinghTransition, resetArjunSinghTransition } from '../ui/easter-eggs.js?v=2026-09-04-001';
-import * as labSection from '../ui/lab-section.js?v=2026-09-04-001';
-import { loadMergedYear1Timetable, loadMergedYear2Timetable } from '../services/lab-fetch.js?v=2026-09-04-001';
-import { matchesEmergingToolsSection } from '../data/lab-parser.js?v=2026-09-04-001';
-import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-09-04-001';
-import { init as initAnalytics, trackEvent } from '../services/analytics.js?v=2026-09-04-001';
-import { dispatchTimetableChanges, setN8nDebug } from '../services/n8n.js?v=2026-09-04-001';
+import { CONFIG } from './config.js?v=2026-09-04-004';
+import { parseCSV, parseRoomOccupancy, offeringKey } from '../data/parser.js?v=2026-09-04-004';
+import { compareTimetables, classIdentity, setChangeDetectorDebug } from '../data/change-detector.js?v=2026-09-04-004';
+import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen, hasSeenElectiveSectionModal, markElectiveSectionModalSeen } from '../services/storage.js?v=2026-09-04-004';
+import * as nav from '../ui/navigation.js?v=2026-09-04-004';
+import * as ui from '../ui/ui.js?v=2026-09-04-004';
+import { checkArjunSinghTransition, resetArjunSinghTransition } from '../ui/easter-eggs.js?v=2026-09-04-004';
+import * as labSection from '../ui/lab-section.js?v=2026-09-04-004';
+import { loadMergedYear1Timetable, loadMergedYear2Timetable } from '../services/lab-fetch.js?v=2026-09-04-004';
+import { matchesEmergingToolsSection } from '../data/lab-parser.js?v=2026-09-04-004';
+import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-09-04-004';
+import { init as initAnalytics, trackEvent } from '../services/analytics.js?v=2026-09-04-004';
+import { dispatchTimetableChanges, setN8nDebug } from '../services/n8n.js?v=2026-09-04-004';
 // Localhost-only dev console harness for timetable change notifications
 // (window.testRoomChangeNotification / testTimeChangeNotification /
 // testInvalidRoomChange). This side-effect import executes the module, which
 // attaches the functions itself; the module self-gates on localhost, so the
 // production build is never affected.
-import '../services/timetable-test-harness.js?v=2026-09-04-001';
-import { initAiAssistant } from '../ui/ai-assistant.js?v=2026-09-04-001';
-import { initFreeRooms } from '../ui/free-rooms.js?v=2026-09-04-001';
-import { detectClashes } from '../data/clash-detector.js?v=2026-09-04-001';
+import '../services/timetable-test-harness.js?v=2026-09-04-004';
+import { initAiAssistant } from '../ui/ai-assistant.js?v=2026-09-04-004';
+import { initFreeRooms } from '../ui/free-rooms.js?v=2026-09-04-004';
+import { detectClashes } from '../data/clash-detector.js?v=2026-09-04-004';
 
 /**
  * App bootstrap, fetch, and interactivity.
@@ -103,9 +103,9 @@ function sectionClasses() {
 // chosen offering's faculty/room/section, so every downstream consumer
 // (timeline, countdown, search, room-change) sees one normal class.
 function resolveOffering(c) {
-    const offeringCfg = nav.getEmergingToolsConfig();
-    if (c.elective && offeringCfg && c.elective === offeringCfg.id) {
-        return resolveDropdownOffering(c, offeringCfg);
+    const electiveCfg = nav.getElectiveConfig(c.elective);
+    if (c.elective && electiveCfg) {
+        return resolveDropdownOffering(c, electiveCfg);
     }
 
     if (!c.offerings || c.offerings.length <= 1) return c;
@@ -123,14 +123,18 @@ function resolveOffering(c) {
     return resolved;
 }
 
-// Resolve an offering of the Emerging Tools elective to the offering section
-// chosen in the sidebar dropdown. Completely independent of the SCDS section.
+// Resolve an offering of a sectioned elective (Emerging Tools, Professional
+// Skills) to the section chosen in the sidebar dropdown / modal. Completely
+// independent of the SCDS section.
 //
 // Two record shapes flow through here that MUST stay independent:
 //
 //   - MAIN-COURSE offering events (multi-offering or flat) from the main sheet.
-//     Matched primarily by the explicit section on the sheet cell, falling back
-//     to the configured offering faculty when the cell has no section marker.
+//     Matched by the explicit section on the sheet cell (when the config entry
+//     carries a numeric `section`, e.g. Emerging Tools), falling back to the
+//     configured offering faculty when the cell has no section marker — or
+//     purely by faculty for electives whose config carries no numeric section
+//     (Professional Skills, whose cells have no "Sec N" marker).
 //   - EMERGING TOOLS LAB flat classes from the lab tab. The lab section IS the
 //     identity of the lab offering: the class is shown iff its section equals
 //     the chosen section (`lab.section === selectedSection`). The lab teacher
@@ -140,9 +144,11 @@ function resolveOffering(c) {
 // Returns null when no section is chosen yet or the event has no class from
 // the chosen offering — in both cases no class of this event is scheduled.
 function resolveDropdownOffering(c, cfg) {
-    const option = cfg.sections.find((s) => s.id === nav.getEmergingToolsSection());
+    const option = cfg.sections.find((s) => s.id === nav.getElectiveSection(cfg.id));
     if (!option) return null;
     // The numeric section the chosen offering represents ("Section 3" → 3).
+    // Null for electives whose config carries no numeric section (faculty-only
+    // matching, e.g. Professional Skills).
     const section = option.section != null ? Number(option.section) : null;
 
     // Emerging Tools Lab: identity by section only.
@@ -151,7 +157,7 @@ function resolveDropdownOffering(c, cfg) {
         return { ...c, dropdownScoped: true };
     }
 
-    // Main Emerging Tools course offering. Faculty equivalence is a strict
+    // Main sectioned-course offering. Faculty equivalence is a strict
     // deterministic fallback only — it never identifies a lab.
     const matchFaculty = (faculty) => {
         const f = String(faculty || '').toLowerCase().replace(/\s+/g, ' ').trim();
@@ -201,7 +207,7 @@ function renderNavigation() {
         sectionId: selectedSection,
         electives: nav.availableElectives(),
         selectedElectives: nav.getSelectedElectives(),
-        emergingToolsSection: nav.getEmergingToolsSection(),
+        sectionSelections: nav.getSectionSelections(),
     });
 
     labSection.renderLabGroups(year);
@@ -785,10 +791,14 @@ function initHamburger() {
     $('#clash-modal-backdrop')?.addEventListener('click', (e) => {
         if (e.target === $('#clash-modal-backdrop')) ui.hideClashModal();
     });
+    $('#elective-modal-backdrop')?.addEventListener('click', (e) => {
+        if (e.target === $('#elective-modal-backdrop')) ui.hideElectiveModal();
+    });
     window.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             ui.hideSectionModal();
             ui.hideClashModal();
+            ui.hideElectiveModal();
             if (ui.isDrawerOpen()) ui.closeDrawer();
         }
     });
@@ -832,6 +842,19 @@ function initNavigationListeners() {
         nav.setSelectedElectives([...ids]);
         trackEvent('elective_toggled', { elective: e.detail.electiveId, checked: e.detail.checked });
         render();
+        // First time a sectioned elective is switched on (and no section chosen
+        // yet, and never prompted before), open the section chooser modal.
+        if (e.detail.checked) {
+            const cfg = nav.getElectiveConfig(e.detail.electiveId);
+            if (cfg && !nav.getElectiveSection(cfg.id) && !hasSeenElectiveSectionModal(cfg.id)) {
+                markElectiveSectionModalSeen(cfg.id);
+                ui.showElectiveModal(cfg, (sectionId) => {
+                    nav.setElectiveSection(cfg.id, sectionId);
+                    trackEvent('elective_section_chosen', { elective: cfg.id, section: sectionId });
+                    render();
+                });
+            }
+        }
     });
     window.addEventListener('offeringchange', (e) => {
         nav.setSelectedOffering(e.detail.electiveId, e.detail.offeringKey);
@@ -839,8 +862,8 @@ function initNavigationListeners() {
         render();
     });
     window.addEventListener('emergingtoolschange', (e) => {
-        nav.setEmergingToolsSection(e.detail.section);
-        trackEvent('emerging_tools_section_changed', { section: e.detail.section });
+        nav.setElectiveSection(e.detail.electiveId || nav.getEmergingToolsConfig()?.id, e.detail.section);
+        trackEvent('elective_section_changed', { elective: e.detail.electiveId, section: e.detail.section });
         render();
     });
     window.addEventListener('labgroupchange', (e) => {
