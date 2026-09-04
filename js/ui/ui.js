@@ -3,6 +3,7 @@ import { toMinutes, minutesToLabel, minutesToClock, todayName, isBeforeToday, WE
 import { offeringKey } from '../data/parser.js?v=2026-09-01-002';
 import { rubberband, projectMomentum } from '../core/spring.js?v=2026-09-01-002';
 import { mergeAdjacentForDisplay, displayItemHighlighted } from './display.js?v=2026-09-01-002';
+import { clashTypeLabels } from '../data/clash-detector.js';
 
 /**
  * DOM rendering — sidebar filters + timeline.
@@ -669,6 +670,7 @@ function buildTimeline(timeline, items, nowMin, skipBreaks, dayStatus = 'today',
                     </div>
                     <span class="status-badge ${badge.cls}">${badge.label}</span>
                 </div>
+                ${c.clashes?.length ? `<span class="clash-badge">${ICONS.alertTriangle}<span>${clashTypeLabels(c.clashes).map(t => t.charAt(0).toUpperCase() + t.slice(1) + ' clash').join(' · ')}</span></span>` : ''}
                 ${c.roomChanged ? `<span class="room-change-badge">${ICONS.alertTriangle}<span>${c.originalRoom ? `Room changed · ${escapeHtml(c.originalRoom)} → ${escapeHtml(c.room)}` : 'Room changed'}</span></span>` : ''}
                 ${renderOfferings(c, status)}
                 ${live}${progress}

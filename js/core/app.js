@@ -19,6 +19,7 @@ import { dispatchTimetableChanges, setN8nDebug } from '../services/n8n.js?v=2026
 import '../services/timetable-test-harness.js?v=2026-09-01-002';
 import { initAiAssistant } from '../ui/ai-assistant.js?v=2026-09-01-002';
 import { initFreeRooms } from '../ui/free-rooms.js?v=2026-09-01-002';
+import { detectClashes } from '../data/clash-detector.js';
 
 /**
  * App bootstrap, fetch, and interactivity.
@@ -504,7 +505,11 @@ function render() {
     ui.renderSuccess();
     const now = nowMinutes();
     const sc = sectionClasses();
-    const ctx = ui.computeHighlight(sc, now, day);
+    // Clash detection: runs on the fully-resolved student class list so that
+    // school/year/section/elective/lab changes are all reflected automatically.
+    // allClasses (the raw unfiltered list) is passed for room & teacher checks.
+    const scWithClashes = detectClashes(sc, classes, nav.getYear());
+    const ctx = ui.computeHighlight(scWithClashes, now, day);
     ui.renderTimeline(now, day, ctx, '');
     ui.renderGameSuggestion(ctx, now, day);
 
@@ -562,7 +567,8 @@ function liveClockTick(now, { suppressFrog = false } = {}) {
     const nowMin = now.getHours() * 60 + now.getMinutes();
     const day = selectedDay || contextDay();
     const sc = sectionClasses();
-    const ctx = ui.computeHighlight(sc, nowMin, day);
+    const scWithClashes = detectClashes(sc, classes, nav.getYear());
+    const ctx = ui.computeHighlight(scWithClashes, nowMin, day);
     const key = featureKey(ctx);
 
     // The Arjun frog fires only on an observed starts-in-1-minute →
@@ -573,7 +579,7 @@ function liveClockTick(now, { suppressFrog = false } = {}) {
     if (suppressFrog) {
         resetArjunSinghTransition();
     } else {
-        checkArjunSinghTransition({ classes: sc, nowMin, day });
+        checkArjunSinghTransition({ classes: scWithClashes, nowMin, day });
     }
 
     if (key !== lastFeatureKey) {

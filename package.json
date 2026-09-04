@@ -32,6 +32,7 @@
     "test:frog": "node scripts/test-frog.mjs",
     "test:free-rooms": "node scripts/test-free-rooms.mjs",
     "test:clock": "node scripts/test-clock.mjs",
-    "test:change-detector": "node scripts/test-change-detector.mjs"
+    "test:change-detector": "node scripts/test-change-detector.mjs",
+    "test:clash": "node scripts/test-clash-detector.mjs"
   }
 }
