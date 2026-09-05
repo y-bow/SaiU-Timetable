@@ -20,6 +20,7 @@ import '../services/timetable-test-harness.js?v=2026-09-04-004';
 import { initAiAssistant } from '../ui/ai-assistant.js?v=2026-09-04-004';
 import { initFreeRooms } from '../ui/free-rooms.js?v=2026-09-04-004';
 import { detectClashes } from '../data/clash-detector.js?v=2026-09-04-004';
+import { applyStoredTheme, initThemeControls } from './theme.js?v=2026-09-04-004';
 
 /**
  * App bootstrap, fetch, and interactivity.
@@ -1097,6 +1098,11 @@ function init() {
         getSelectedDay: () => selectedDay || contextDay(),
         getRoomOccupancy: () => roomOccupancy,
         getYearConfig: () => nav.getYear(),
+    });
+
+    applyStoredTheme();
+    initThemeControls({
+        onThemeChange: (t) => trackEvent('theme_changed', { bg: t.bg, accent: t.accent }),
     });
 
     load();

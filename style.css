@@ -22,6 +22,7 @@
     --border: #262626;
     --border-strong: #333333;
     --border-bright: rgba(255, 255, 255, 0.08);
+    --border-subtle: #262626;
 
     --text: #F5F5F5;
     --text-secondary: #A1A1AA;
@@ -31,12 +32,44 @@
     --primary-hover: #E86868;
     --primary-soft: rgba(224, 82, 82, 0.12);
     --primary-text: #E86868;
+    --primary-active: #C94C4C;
+    --on-primary-active: #FFFFFF;
+    --primary-tint: rgba(201, 76, 76, 0.10);
+    --primary-ring: rgba(201, 76, 76, 0.18);
+    --primary-border: rgba(224, 82, 82, 0.4);
+    --primary-shadow: rgba(201, 76, 76, 0.35);
+    --primary-glow-p1: rgba(216, 87, 87, 0.45);
+    --primary-glow-p2: rgba(216, 87, 87, 0.5);
+    --primary-glow-p3: rgba(216, 87, 87, 0.55);
+    --primary-glow-p4: rgba(216, 87, 87, 0.6);
+    --on-accent: #111111;
+    --install-bg: #d34d50;
+    --install-text: #FFFFFF;
+    --game-overlay: rgba(13, 13, 13, 0.85);
     --success: #34D399;
     --success-soft: rgba(52, 211, 153, 0.10);
     --warning: #FBBF24;
     --warning-soft: rgba(251, 191, 36, 0.10);
     --danger: #F87171;
     --danger-soft: rgba(248, 113, 113, 0.10);
+
+    --actions-bg: #141414;
+    --actions-border: rgba(255, 255, 255, 0.08);
+    --actions-btn: #1e1e1e;
+    --actions-btn-hover: #2a2a2a;
+    --actions-btn-text: #e0e0e0;
+
+    --footer-color: #D4D4D8;
+    --footer-color-hover: #FFFFFF;
+    --footer-border: rgba(255, 255, 255, 0.10);
+    --footer-grad: linear-gradient(135deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.03) 40%, rgba(255, 255, 255, 0.07));
+    --footer-grad-hover: linear-gradient(135deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.05) 40%, rgba(255, 255, 255, 0.09));
+    --footer-shimmer: rgba(255, 255, 255, 0.14);
+    --footer-shadow: 0 4px 20px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.12), inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+    --footer-shadow-hover: 0 10px 30px rgba(0, 0, 0, 0.38), 0 0 30px rgba(255, 255, 255, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+
+    --pb-shimmer-a: rgba(255, 255, 255, 0.18);
+    --pb-shimmer-b: rgba(255, 255, 255, 0.28);
 
     --sidebar-w: 260px;
     --topbar-h: 52px;
@@ -67,6 +100,224 @@
     --ease: cubic-bezier(0.25, 0.1, 0.25, 1);
     --fast: 150ms;
     --med: 220ms;
+}
+
+/* ---------- Themes ----------
+   User-selected background + accent colors (js/core/theme.js).
+
+   Defaults (no data attributes) resolve to exactly the dark/red tokens above,
+   so untouched pages are pixel-identical to the previous single theme.
+
+   html[data-accent=...] sets the primary-family tokens for one accent.
+   html[data-bg=...]      sets surface/semantic/material tokens for one
+                          background. Bg rules come AFTER accent rules so the
+                          light background can re-derive accent-tinted text
+                          (--primary-text / --primary-active) as darker tones
+                          that stay readable on light surfaces. */
+html[data-accent="red"] {
+    --primary: #d85757;
+    --primary-hover: #E86868;
+    --primary-soft: rgba(224, 82, 82, 0.12);
+    --primary-text: #E86868;
+    --primary-active: #C94C4C;
+    --primary-tint: rgba(201, 76, 76, 0.10);
+    --primary-ring: rgba(201, 76, 76, 0.18);
+    --primary-border: rgba(224, 82, 82, 0.4);
+    --primary-shadow: rgba(201, 76, 76, 0.35);
+    --primary-glow-p1: rgba(216, 87, 87, 0.45);
+    --primary-glow-p2: rgba(216, 87, 87, 0.5);
+    --primary-glow-p3: rgba(216, 87, 87, 0.55);
+    --primary-glow-p4: rgba(216, 87, 87, 0.6);
+    --on-accent: #111111;
+    --on-primary-active: #FFFFFF;
+    --install-bg: #d34d50;
+    --install-text: #FFFFFF;
+}
+
+html[data-accent="blue"] {
+    --primary: #3B6FE0;
+    --primary-hover: #5A85E8;
+    --primary-soft: rgba(59, 111, 224, 0.12);
+    --primary-text: #8FABF2;
+    --primary-active: #5A85E8;
+    --primary-tint: rgba(59, 111, 224, 0.12);
+    --primary-ring: rgba(59, 111, 224, 0.22);
+    --primary-border: rgba(59, 111, 224, 0.5);
+    --primary-shadow: rgba(59, 111, 224, 0.35);
+    --primary-glow-p1: rgba(59, 111, 224, 0.45);
+    --primary-glow-p2: rgba(59, 111, 224, 0.5);
+    --primary-glow-p3: rgba(59, 111, 224, 0.55);
+    --primary-glow-p4: rgba(59, 111, 224, 0.6);
+    --on-accent: #FFFFFF;
+    --on-primary-active: #FFFFFF;
+    --install-bg: var(--primary);
+    --install-text: #FFFFFF;
+}
+
+html[data-accent="purple"] {
+    --primary: #7C5CFC;
+    --primary-hover: #9B81FD;
+    --primary-soft: rgba(124, 92, 252, 0.12);
+    --primary-text: #B3A0FE;
+    --primary-active: #9B81FD;
+    --primary-tint: rgba(124, 92, 252, 0.12);
+    --primary-ring: rgba(124, 92, 252, 0.22);
+    --primary-border: rgba(124, 92, 252, 0.5);
+    --primary-shadow: rgba(124, 92, 252, 0.35);
+    --primary-glow-p1: rgba(124, 92, 252, 0.45);
+    --primary-glow-p2: rgba(124, 92, 252, 0.5);
+    --primary-glow-p3: rgba(124, 92, 252, 0.55);
+    --primary-glow-p4: rgba(124, 92, 252, 0.6);
+    --on-accent: #FFFFFF;
+    --on-primary-active: #FFFFFF;
+    --install-bg: var(--primary);
+    --install-text: #FFFFFF;
+}
+
+html[data-accent="green"] {
+    --primary: #0B8A5F;
+    --primary-hover: #0FA976;
+    --primary-soft: rgba(11, 138, 95, 0.12);
+    --primary-text: #2EC48F;
+    --primary-active: #0FA976;
+    --primary-tint: rgba(11, 138, 95, 0.12);
+    --primary-ring: rgba(11, 138, 95, 0.22);
+    --primary-border: rgba(11, 138, 95, 0.5);
+    --primary-shadow: rgba(11, 138, 95, 0.35);
+    --primary-glow-p1: rgba(11, 138, 95, 0.45);
+    --primary-glow-p2: rgba(11, 138, 95, 0.5);
+    --primary-glow-p3: rgba(11, 138, 95, 0.55);
+    --primary-glow-p4: rgba(11, 138, 95, 0.6);
+    --on-accent: #FFFFFF;
+    --on-primary-active: #FFFFFF;
+    --install-bg: var(--primary);
+    --install-text: #FFFFFF;
+}
+
+html[data-accent="orange"] {
+    --primary: #EA7A12;
+    --primary-hover: #F2923A;
+    --primary-soft: rgba(234, 122, 18, 0.12);
+    --primary-text: #F5A96A;
+    --primary-active: #F2923A;
+    --primary-tint: rgba(234, 122, 18, 0.12);
+    --primary-ring: rgba(234, 122, 18, 0.22);
+    --primary-border: rgba(234, 122, 18, 0.5);
+    --primary-shadow: rgba(234, 122, 18, 0.35);
+    --primary-glow-p1: rgba(234, 122, 18, 0.45);
+    --primary-glow-p2: rgba(234, 122, 18, 0.5);
+    --primary-glow-p3: rgba(234, 122, 18, 0.55);
+    --primary-glow-p4: rgba(234, 122, 18, 0.6);
+    --on-accent: #111111;
+    --on-primary-active: #111111;
+    --install-bg: var(--primary);
+    --install-text: #111111;
+}
+
+html[data-accent="teal"] {
+    --primary: #0F7A75;
+    --primary-hover: #129692;
+    --primary-soft: rgba(15, 122, 117, 0.12);
+    --primary-text: #2EBFBA;
+    --primary-active: #129692;
+    --primary-tint: rgba(15, 122, 117, 0.12);
+    --primary-ring: rgba(15, 122, 117, 0.22);
+    --primary-border: rgba(15, 122, 117, 0.5);
+    --primary-shadow: rgba(15, 122, 117, 0.35);
+    --primary-glow-p1: rgba(15, 122, 117, 0.45);
+    --primary-glow-p2: rgba(15, 122, 117, 0.5);
+    --primary-glow-p3: rgba(15, 122, 117, 0.55);
+    --primary-glow-p4: rgba(15, 122, 117, 0.6);
+    --on-accent: #FFFFFF;
+    --on-primary-active: #FFFFFF;
+    --install-bg: var(--primary);
+    --install-text: #FFFFFF;
+}
+
+/* Dark backgrounds keep the :root surface palette; only te/canvas materials
+   shift to match the background hue. */
+html[data-bg="slate"] {
+    --bg: #0F172A;
+    --material-sidebar: rgba(21, 29, 49, 0.72);
+    --material-topbar: rgba(15, 23, 42, 0.70);
+    --material-sheet: rgba(24, 33, 54, 0.85);
+    --material-toast: rgba(24, 33, 54, 0.92);
+}
+
+html[data-bg="navy"] {
+    --bg: #0A1A30;
+    --material-sidebar: rgba(15, 26, 45, 0.72);
+    --material-topbar: rgba(10, 26, 48, 0.70);
+    --material-sheet: rgba(17, 31, 52, 0.85);
+    --material-toast: rgba(17, 31, 52, 0.92);
+}
+
+html[data-bg="warm"] {
+    --bg: #171310;
+    --material-sidebar: rgba(28, 24, 20, 0.72);
+    --material-topbar: rgba(23, 19, 16, 0.70);
+    --material-sheet: rgba(30, 26, 22, 0.85);
+    --material-toast: rgba(30, 26, 22, 0.92);
+}
+
+html[data-bg="light"] {
+    --bg: #F3F4F6;
+    --surface: #FFFFFF;
+    --surface-2: #FFFFFF;
+    --surface-3: #EDEEF2;
+
+    --material-sidebar: rgba(255, 255, 255, 0.82);
+    --material-topbar: rgba(255, 255, 255, 0.78);
+    --material-sheet: rgba(255, 255, 255, 0.94);
+    --material-toast: rgba(255, 255, 255, 0.97);
+    --material-scrim: rgba(15, 23, 42, 0.45);
+    --material-highlight: rgba(0, 0, 0, 0.05);
+
+    --border: #E4E4E7;
+    --border-strong: #C9C9CF;
+    --border-bright: rgba(0, 0, 0, 0.07);
+    --border-subtle: #E4E4E7;
+
+    --text: #18181B;
+    --text-secondary: #52525B;
+    --text-tertiary: #71717A;
+
+    --success: #059669;
+    --success-soft: rgba(5, 150, 105, 0.12);
+    --warning: #B45309;
+    --warning-soft: rgba(180, 83, 9, 0.12);
+    --danger: #DC2626;
+    --danger-soft: rgba(220, 38, 38, 0.12);
+
+    /* Dark-tinted accent text so accent colors stay readable on light
+       surfaces (override the light tint the accent rules set above). */
+    --primary-text: color-mix(in srgb, var(--primary) 70%, #18181B);
+    --primary-active: color-mix(in srgb, var(--primary) 82%, #0B0B0C);
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.12);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.14);
+    --shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.18);
+
+    --actions-bg: #FFFFFF;
+    --actions-border: rgba(0, 0, 0, 0.08);
+    --actions-btn: #F3F4F6;
+    --actions-btn-hover: #E4E4E7;
+    --actions-btn-text: #18181B;
+
+    --footer-color: #52525B;
+    --footer-color-hover: #18181B;
+    --footer-border: rgba(0, 0, 0, 0.10);
+    --footer-grad: linear-gradient(135deg, rgba(0, 0, 0, 0.04), rgba(0, 0, 0, 0.01) 40%, rgba(0, 0, 0, 0.03));
+    --footer-grad-hover: linear-gradient(135deg, rgba(0, 0, 0, 0.07), rgba(0, 0, 0, 0.02) 40%, rgba(0, 0, 0, 0.05));
+    --footer-shimmer: rgba(0, 0, 0, 0.08);
+    --footer-shadow: 0 4px 20px rgba(15, 23, 42, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.6), inset 0 -1px 0 rgba(0, 0, 0, 0.04);
+    --footer-shadow-hover: 0 10px 30px rgba(15, 23, 42, 0.14), 0 0 30px rgba(255, 255, 255, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+
+    --pb-shimmer-a: rgba(0, 0, 0, 0.12);
+    --pb-shimmer-b: rgba(0, 0, 0, 0.18);
+
+    --game-overlay: rgba(255, 255, 255, 0.88);
 }
 
 /* ---------- Reset ---------- */
@@ -269,8 +520,8 @@ input { font-family: inherit; }
 .sidebar-item:hover { background: var(--material-highlight); color: var(--text); }
 .sidebar-item:active { transform: scale(0.98); }
 .sidebar-item.active {
-    background: rgba(201, 76, 76, 0.10);
-    color: #C94C4C;
+    background: var(--primary-tint);
+    color: var(--primary-active);
 }
 
 .sidebar-item-radio {
@@ -282,8 +533,8 @@ input { font-family: inherit; }
     transition: border-color var(--fast), background var(--fast), transform var(--spring-snappy);
 }
 .sidebar-item.active .sidebar-item-radio {
-    border-color: #C94C4C;
-    background: #C94C4C;
+    border-color: var(--primary-active);
+    background: var(--primary-active);
 }
 .sidebar-item.active .sidebar-item-radio::after {
     content: '';
@@ -291,7 +542,7 @@ input { font-family: inherit; }
     top: 3px; left: 3px;
     width: 5px; height: 5px;
     border-radius: 50%;
-    background: #111;
+    background: var(--on-accent);
 }
 
 /* Multi-select checkboxes (electives) */
@@ -304,15 +555,15 @@ input { font-family: inherit; }
     transition: border-color var(--fast), background var(--fast), transform var(--spring-snappy);
 }
 .sidebar-item.active .sidebar-item-checkbox {
-    border-color: #C94C4C;
-    background: #C94C4C;
+    border-color: var(--primary-active);
+    background: var(--primary-active);
 }
 .sidebar-item.active .sidebar-item-checkbox::after {
     content: '';
     position: absolute;
     left: 3px; top: 0;
     width: 5px; height: 9px;
-    border: solid #111;
+    border: solid var(--on-accent);
     border-width: 0 2px 2px 0;
     transform: rotate(45deg);
     animation: check-pop 250ms cubic-bezier(0.1, 0.6, 0.2, 1.15);
@@ -381,7 +632,7 @@ input { font-family: inherit; }
 .sidebar-elective-select:focus-visible {
     outline: none;
     border-color: var(--primary);
-    box-shadow: 0 0 0 2px rgba(201, 76, 76, 0.18);
+    box-shadow: 0 0 0 2px var(--primary-ring);
 }
 
 .sidebar-item-sub {
@@ -392,6 +643,75 @@ input { font-family: inherit; }
     text-overflow: ellipsis;
     max-width: 110px;
 }
+
+/* ---------- Theme controls (sidebar) ---------- */
+.sidebar-theme-section {
+    border-top: 1px solid var(--border-bright);
+    border-bottom: 1px solid var(--border-bright);
+}
+
+.theme-swatch {
+    flex: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    border: 1px solid var(--border-bright);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15), 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+.theme-option .sidebar-item-radio {
+    border: 1px solid var(--border-strong);
+    background: transparent;
+}
+.theme-option .sidebar-item-radio::after {
+    content: '';
+    position: absolute;
+    top: 3px; left: 3px;
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--on-accent);
+    opacity: 0;
+    transition: opacity var(--fast);
+}
+.theme-option.active .sidebar-item-radio {
+    border-color: var(--primary-active);
+    background: var(--primary-active);
+    box-shadow: 0 0 0 2px var(--primary-ring);
+}
+.theme-option.active .sidebar-item-radio::after {
+    opacity: 1;
+}
+.theme-option .theme-check {
+    margin-left: auto;
+    font-size: 0.72rem;
+    line-height: 1;
+    opacity: 0;
+    transform: scale(0.6);
+    transition: opacity var(--fast), transform var(--med);
+}
+.theme-option.active .theme-check {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.theme-reset-btn {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    width: 100%; height: 36px;
+    margin-top: 10px;
+    padding: 0 10px;
+    border-radius: 10px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: var(--actions-btn);
+    border: 1px solid var(--border-bright);
+    cursor: pointer;
+    transition: background var(--fast), color var(--fast), transform 100ms ease-out;
+}
+.theme-reset-btn:hover {
+    color: var(--text);
+    background: var(--actions-btn-hover);
+}
+.theme-reset-btn:active { transform: scale(0.98); }
 
 /* ---------- Day filter (main page, above the schedule) ---------- */
 .days-filter {
@@ -416,11 +736,11 @@ input { font-family: inherit; }
 .day-filter-btn:hover { background: var(--surface-3); color: var(--text); }
 .day-filter-btn:active { transform: scale(0.96); }
 .day-filter-btn.active {
-    background: #C94C4C;
-    color: #fff;
-    border-color: #C94C4C;
+    background: var(--primary-active);
+    color: var(--on-primary-active);
+    border-color: var(--primary-active);
     font-weight: 600;
-    box-shadow: 0 2px 8px rgba(201, 76, 76, 0.35);
+    box-shadow: 0 2px 8px var(--primary-shadow);
 }
 
 /* TEMPORARY: TIMETABLE UPDATE STATUS
@@ -490,8 +810,8 @@ input { font-family: inherit; }
     display: flex;
     flex-direction: column;
     gap: 8px;
-    background: #141414;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--actions-bg);
+    border: 1px solid var(--actions-border);
     border-radius: 14px;
 }
 .sidebar-feedback-link {
@@ -501,12 +821,12 @@ input { font-family: inherit; }
     border-radius: 12px;
     font-size: 0.82rem;
     font-weight: 500;
-    color: #e0e0e0;
-    background: #1e1e1e;
+    color: var(--actions-btn-text);
+    background: var(--actions-btn);
     text-decoration: none;
     transition: background var(--fast), transform 100ms ease-out;
 }
-.sidebar-feedback-link:hover { background: #2a2a2a; }
+.sidebar-feedback-link:hover { background: var(--actions-btn-hover); }
 .sidebar-feedback-link:active { transform: scale(0.98); }
 
 .sidebar-install-btn {
@@ -516,8 +836,8 @@ input { font-family: inherit; }
     border-radius: 12px;
     font-size: 0.82rem;
     font-weight: 700;
-    color: #fff;
-    background: #d34d50;
+    color: var(--install-text);
+    background: var(--install-bg);
     border: none;
     transition: filter var(--fast), transform 100ms ease-out;
 }
@@ -571,12 +891,12 @@ input { font-family: inherit; }
     font-weight: 400;
     letter-spacing: 0.01em;
     text-align: center;
-    color: #D4D4D8;
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.03) 40%, rgba(255, 255, 255, 0.07));
+    color: var(--footer-color);
+    background: var(--footer-grad);
     backdrop-filter: blur(20px) saturate(180%);
     -webkit-backdrop-filter: blur(20px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.10);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.12), inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--footer-border);
+    box-shadow: var(--footer-shadow);
     cursor: default;
     transition: box-shadow 500ms ease, background 500ms ease, color 300ms ease;
 }
@@ -586,7 +906,7 @@ input { font-family: inherit; }
     position: absolute;
     top: -60%; left: -40%;
     width: 180%; height: 220%;
-    background: linear-gradient(115deg, transparent 40%, rgba(255, 255, 255, 0.14) 50%, transparent 60%);
+    background: linear-gradient(115deg, transparent 40%, var(--footer-shimmer) 50%, transparent 60%);
     transform: translateX(-70%) rotate(-4deg);
     opacity: 0;
     pointer-events: none;
@@ -602,9 +922,9 @@ input { font-family: inherit; }
 }
 /* Gentle float — the pill bobs like a cork resting on water. */
 .main-footer:hover {
-    color: #FFFFFF;
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.05) 40%, rgba(255, 255, 255, 0.09));
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.38), 0 0 30px rgba(255, 255, 255, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+    color: var(--footer-color-hover);
+    background: var(--footer-grad-hover);
+    box-shadow: var(--footer-shadow-hover);
     animation: glass-float 3.2s ease-in-out infinite;
 }
 @keyframes glass-float {
@@ -720,7 +1040,7 @@ input { font-family: inherit; }
 }
 
 .tl-item.highlight .tl-card {
-    border-color: rgba(224, 82, 82, 0.4);
+    border-color: var(--primary-border);
     background: transparent;
 }
 .tl-item.current .tl-card {
@@ -902,9 +1222,9 @@ input { font-family: inherit; }
     background: linear-gradient(
         90deg,
         transparent 0%,
-        rgba(255, 255, 255, 0.18) 40%,
-        rgba(255, 255, 255, 0.28) 50%,
-        rgba(255, 255, 255, 0.18) 60%,
+        var(--pb-shimmer-a) 40%,
+        var(--pb-shimmer-b) 50%,
+        var(--pb-shimmer-a) 60%,
         transparent 100%
     );
     width: 200%;
@@ -923,7 +1243,7 @@ input { font-family: inherit; }
     height: 8px;
     border-radius: 50%;
     background: var(--primary-hover);
-    box-shadow: 0 0 6px 2px rgba(216, 87, 87, 0.45);
+    box-shadow: 0 0 6px 2px var(--primary-glow-p1);
     transform: translate(-50%, -50%) scale(1);
     opacity: 0.7;
     transition: opacity 0.4s ease, box-shadow 0.4s ease, width 0.4s ease, height 0.4s ease;
@@ -942,21 +1262,21 @@ input { font-family: inherit; }
 /* 4. Time-based micro-transitions via data-phase attribute */
 /* Phase 2 → 50-75% */
 .progress-track[data-phase="2"] .progress-glow {
-    box-shadow: 0 0 8px 3px rgba(216, 87, 87, 0.5);
+    box-shadow: 0 0 8px 3px var(--primary-glow-p2);
     opacity: 0.8;
 }
 /* Phase 3 → 75-90% — slightly increase leading edge */
 .progress-track[data-phase="3"] .progress-glow {
     width: 10px;
     height: 10px;
-    box-shadow: 0 0 10px 4px rgba(216, 87, 87, 0.55);
+    box-shadow: 0 0 10px 4px var(--primary-glow-p3);
     opacity: 0.85;
 }
 /* Phase 4 → 90-100% — almost finished gentle pulse */
 .progress-track[data-phase="4"] .progress-glow {
     width: 11px;
     height: 11px;
-    box-shadow: 0 0 12px 5px rgba(216, 87, 87, 0.6);
+    box-shadow: 0 0 12px 5px var(--primary-glow-p4);
     opacity: 0.9;
     animation: pb-almost-pulse 1.2s ease-in-out infinite;
 }
@@ -1043,7 +1363,7 @@ input { font-family: inherit; }
     transition: background var(--fast), filter var(--fast), transform 100ms ease-out;
 }
 .btn:active { transform: scale(0.97); }
-.btn.primary { background: var(--primary); color: #111; }
+.btn.primary { background: var(--primary); color: var(--on-accent); }
 .btn.primary:hover { filter: brightness(1.1); }
 
 /* ============================================================
@@ -1301,7 +1621,7 @@ input { font-family: inherit; }
 .ai-msg-user {
     align-self: flex-end;
     background: var(--primary);
-    color: #111;
+    color: var(--on-accent);
     border-bottom-right-radius: 6px;
     font-weight: 500;
 }
@@ -1384,7 +1704,7 @@ input { font-family: inherit; }
     display: grid; place-items: center;
     border-radius: 50%;
     background: var(--primary);
-    color: #111;
+    color: var(--on-accent);
     transition: filter var(--fast), transform 100ms ease-out, opacity var(--fast);
 }
 .ai-send-btn:hover { filter: brightness(1.1); }

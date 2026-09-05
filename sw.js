@@ -61,6 +61,7 @@ const ASSETS = [
   versioned('js/data/lab-parser.js'),
   versioned('js/data/teacher-index.js'),
   versioned('js/core/utils.js'),
+  versioned('js/core/theme.js'),
   versioned('js/services/storage.js'),
   versioned('js/services/analytics.js'),
   versioned('js/services/timetable-sync.js'),

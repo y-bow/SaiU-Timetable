@@ -67,19 +67,26 @@
         let particles = [];
         let bricks = [];
 
-        // Colors matching SaiU Timetable styling tokens
+        // Colors derived from the app theme tokens (js/core/theme.js) so the
+        // game follows the user's chosen background + accent. Read once at
+        // load — the head bootstrap sets data-bg/data-accent before this
+        // module executes, so every var already resolves to the saved theme.
+        function cssVar(name, fallback) {
+            const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+            return v || fallback;
+        }
         const colors = {
-            bg: '#18181B', // Canvas background (var(--surface-2))
-            border: '#262626',
-            paddle: '#E86868', // Primary accent (var(--primary-hover))
-            ball: '#F5F5F5',
+            bg: cssVar('--surface-2', '#18181B'), // Canvas background
+            border: cssVar('--border', '#262626'),
+            paddle: cssVar('--primary-hover', '#E86868'), // Primary accent
+            ball: cssVar('--text', '#F5F5F5'),
             // Colors of rows from top to bottom
             bricks: [
-                '#d85757', // Row 0: Primary (coral/red)
-                '#F5F5F5', // Row 1: white text color
-                '#A1A1AA', // Row 2: text-secondary
-                '#333333', // Row 3: border-strong
-                '#262626'  // Row 4: border
+                cssVar('--primary', '#d85757'),        // Row 0: Primary accent
+                cssVar('--text', '#F5F5F5'),           // Row 1: primary text color
+                cssVar('--text-secondary', '#A1A1AA'), // Row 2: text-secondary
+                cssVar('--border-strong', '#333333'),  // Row 3: border-strong
+                cssVar('--border', '#262626')          // Row 4: border
             ]
         };
 
@@ -312,7 +319,7 @@
                 width: 14,
                 height: 14,
                 letter: 'M',
-                color: '#d85757'
+                color: colors.bricks[0]
             });
         }
 

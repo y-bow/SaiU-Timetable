@@ -17,6 +17,34 @@
     <meta name="twitter:description" content="The page you are looking for does not exist.">
     <meta name="twitter:image" content="https://y-bow.github.io/SaiU-Timetable/icons/app/white-icon-512.png">
     <meta name="theme-color" content="#0D0D0D">
+    <script>
+        // Apply saved theme (background + accent) before first paint so there is
+        // no flash of the default dark theme for returning users. Shared with
+        // index.html — stored on the same localStorage key "tt-theme".
+        (function () {
+            try {
+                var KEY = 'tt-theme';
+                var BGS = ['dark', 'light', 'slate', 'navy', 'warm'];
+                var ACCENTS = ['red', 'blue', 'purple', 'green', 'orange', 'teal'];
+                var META = { dark: '#0D0D0D', light: '#F3F4F6', slate: '#0F172A', navy: '#0A1A30', warm: '#171310' };
+                var saved = null;
+                try { saved = localStorage.getItem(KEY); } catch (_) {}
+                var bg = 'dark', accent = 'red';
+                if (saved) {
+                    var t = JSON.parse(saved);
+                    if (t && typeof t === 'object') {
+                        if (BGS.indexOf(t.background) !== -1) bg = t.background;
+                        if (ACCENTS.indexOf(t.accent) !== -1) accent = t.accent;
+                    }
+                }
+                var doc = document.documentElement;
+                doc.setAttribute('data-bg', bg);
+                doc.setAttribute('data-accent', accent);
+                var meta = document.querySelector('meta[name="theme-color"]');
+                if (meta && META[bg]) meta.setAttribute('content', META[bg]);
+            } catch (_) {}
+        })();
+    </script>
     <link rel="stylesheet" href="style.css?v=2026-09-04-004">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -83,10 +111,10 @@
         .game-wrapper {
             position: relative;
             width: 100%;
-            background: rgba(17, 17, 17, 0.72);
+            background: var(--material-sidebar);
             backdrop-filter: blur(24px) saturate(160%);
             -webkit-backdrop-filter: blur(24px) saturate(160%);
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            border: 1px solid var(--border-bright);
             border-radius: var(--radius-lg);
             padding: 12px;
             box-shadow: var(--shadow-lg);
@@ -130,7 +158,7 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            background: rgba(13, 13, 13, 0.85);
+            background: var(--game-overlay);
             border-radius: var(--radius-lg);
             backdrop-filter: blur(4px);
             z-index: 10;
