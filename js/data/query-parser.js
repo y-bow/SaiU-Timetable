@@ -11,7 +11,7 @@
  *   3. Ask for clarification — only if neither exists
  */
 
-import { SCHOOLS } from './schools.js?v=2026-09-06-002';
+import { SCHOOLS } from './schools.js?v=2026-09-06-003';
 
 // School short names → config ids. Order matters: longer names first to avoid
 // partial matches (e.g. "SCDS" before "SCD").

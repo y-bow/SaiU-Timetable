@@ -1,4 +1,4 @@
-import { CONFIG } from '../core/config.js?v=2026-09-06-002';
+import { CONFIG } from '../core/config.js?v=2026-09-06-003';
 
 /**
  * localStorage persistence: timetable cache, room-change map,

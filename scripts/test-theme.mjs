@@ -154,6 +154,22 @@ await (async () => {
         assert.equal(mod.themeColorFor({ background: 'warm', bgColor: '' }), '#171310');
         assert.equal(mod.themeColorFor({ background: 'dark', bgColor: '#d85757' }), '#1a0a0a');
     });
+    await test('hsvToHex hits the primary hue/sat/value corners', () => {
+        assert.equal(mod.hsvToHex(0, 1, 1), '#ff0000');
+        assert.equal(mod.hsvToHex(120, 1, 1), '#00ff00');
+        assert.equal(mod.hsvToHex(240, 1, 1), '#0000ff');
+        assert.equal(mod.hsvToHex(0, 0, 1), '#ffffff');
+        assert.equal(mod.hsvToHex(0, 0, 0), '#000000');
+    });
+    await test('hsvToHex / hexToHsv round-trip colors exactly', () => {
+        for (const hex of ['#d85757', '#3b6fe0', '#ea7a12', '#808080', '#f5f5f5']) {
+            const [h, s, v] = mod.hexToHsv(hex);
+            assert.equal(mod.hsvToHex(h, s, v), hex);
+        }
+    });
+    await test('hexToHsv black has zero saturation', () => {
+        assert.deepEqual(mod.hexToHsv('#000000'), [0, 0, 0]);
+    });
 }
 
 {

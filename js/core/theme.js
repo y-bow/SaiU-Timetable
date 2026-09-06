@@ -232,27 +232,24 @@ function bgCallback(background) {
     emit(setTheme({ background }));
 }
 
-function setColorInput(inputId, labelId, hex) {
-    const input = document.getElementById(inputId);
-    const label = document.getElementById(labelId);
-    if (input) input.value = hex;
-    if (label) label.textContent = hex.toUpperCase();
-}
-
-function setRowActive(rowId, active) {
-    const row = document.getElementById(rowId);
-    if (row) row.classList.toggle('active', !!active);
-}
-
 function syncControls() {
     const t = getTheme();
     renderSwatchRow('theme-picker-bg', BACKGROUNDS, t.background, 'themeBg', bgCallback);
 
     const bg = bgById(t.background);
-    setColorInput('theme-bg-color', 'theme-bg-hex', t.bgColor || bg.base);
-    setRowActive('theme-bg-row', !!t.bgColor);
-    setColorInput('theme-accent-color', 'theme-accent-hex', t.accent);
-    setRowActive('theme-accent-row', true);
+    const bgHex = t.bgColor || bg.base;
+    setColorPreview('theme-bg-chip', 'theme-bg-hex', bgHex);
+    setColorPreview('theme-accent-chip', 'theme-accent-hex', t.accent);
+    wheels['theme-bg-wheel']?.refresh(bgHex);
+    wheels['theme-accent-wheel']?.refresh(t.accent);
+}
+
+// Keep a color row's swatch chip + hex label in sync with a hex color.
+function setColorPreview(chipId, hexLabelId, hex) {
+    const chip = document.getElementById(chipId);
+    if (chip) chip.style.background = hex;
+    const label = document.getElementById(hexLabelId);
+    if (label) label.textContent = hex.toUpperCase();
 }
 
 function getPanel() {
@@ -272,13 +269,234 @@ export function openThemePanel() {
 function closeThemePanel() {
     const panel = getPanel();
     if (!panel) return;
+    openWheel(null);
     panel.classList.remove('open');
     panel.setAttribute('aria-hidden', 'true');
 }
 
+// ============================================================
+// In-app HSV color wheel (H/S disc + vertical brightness bar)
+// ============================================================
+
+function hsvToRgb(h, s, v) {
+    h = ((h % 360) + 360) % 360;
+    const c = v * s;
+    const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+    const m = v - c;
+    let r = 0; let g = 0; let b = 0;
+    if (h < 60) { r = c; g = x; }
+    else if (h < 120) { r = x; g = c; }
+    else if (h < 180) { g = c; b = x; }
+    else if (h < 240) { g = x; b = c; }
+    else if (h < 300) { r = x; b = c; }
+    else { r = c; b = x; }
+    return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
+}
+
+function rgbToHsv(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    const mx = Math.max(r, g, b);
+    const mn = Math.min(r, g, b);
+    const d = mx - mn;
+    let h = 0;
+    if (d !== 0) {
+        if (mx === r) h = ((g - b) / d) % 6;
+        else if (mx === g) h = (b - r) / d + 2;
+        else h = (r - g) / d + 4;
+        h *= 60;
+        if (h < 0) h += 360;
+    }
+    return [h, mx === 0 ? 0 : d / mx, mx];
+}
+
+export function hexToHsv(hex) {
+    const [r, g, b] = parseHex(hex);
+    return rgbToHsv(r, g, b);
+}
+
+export function hsvToHex(h, s, v) {
+    return '#' + hsvToRgb(h, s, v).map((n) => n.toString(16).padStart(2, '0')).join('');
+}
+
+// Ordered wheel slots; opening one closes the other so only one editor shows.
+const WHEEL_IDS = ['theme-bg-wheel', 'theme-accent-wheel'];
+const WHEEL_TO_ROW = {
+    'theme-bg-wheel': 'theme-bg-open',
+    'theme-accent-wheel': 'theme-accent-open',
+};
+const wheels = {};
+
+function openWheel(wrapId) {
+    for (const id of WHEEL_IDS) {
+        const target = id === wrapId;
+        wheels[id]?.[target ? 'open' : 'close']();
+        const row = document.getElementById(WHEEL_TO_ROW[id]);
+        if (row) {
+            row.classList.toggle('active', target);
+            row.setAttribute('aria-expanded', String(target));
+        }
+    }
+}
+
+// Build one wheel editor into `wrapId`; `getHex` supplies its current color and
+// `onHex(hex)` is fired on every user change (drag, brightness, hex typing).
+function createColorWheel(wrapId, getHex, onHex) {
+    const wrap = document.getElementById(wrapId);
+    if (!wrap) return null;
+
+    wrap.innerHTML = `
+        <div class="theme-wheel-head">
+            <canvas class="theme-wheel-canvas" width="224" height="224" aria-label="Hue and saturation disc"></canvas>
+        </div>
+        <div class="theme-wheel-v">
+            <div class="theme-wheel-v-track" role="slider" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100" aria-label="Brightness">
+                <div class="theme-wheel-v-thumb"></div>
+            </div>
+        </div>
+        <div class="theme-wheel-foot">
+            <input class="theme-wheel-hex" spellcheck="false" autocomplete="off" aria-label="Hex color" placeholder="#RRGGBB">
+            <button type="button" class="theme-wheel-done" aria-label="Done">Done</button>
+        </div>`;
+
+    const canvas = wrap.querySelector('.theme-wheel-canvas');
+    const vTrack = wrap.querySelector('.theme-wheel-v-track');
+    const vThumb = wrap.querySelector('.theme-wheel-v-thumb');
+    const hexInput = wrap.querySelector('.theme-wheel-hex');
+    const doneBtn = wrap.querySelector('.theme-wheel-done');
+    const ctx = canvas.getContext('2d');
+    const R = canvas.width / 2;
+    let h = 360; let s = 0; let v = 1;
+    let dragging = false;
+    let hex = normHex(getHex());
+
+    function paint() {
+        const size = canvas.width;
+        const img = ctx.createImageData(size, size);
+        const data = img.data;
+        for (let y = 0; y < size; y++) {
+            for (let x = 0; x < size; x++) {
+                const dx = x - R + 0.5;
+                const dy = y - R + 0.5;
+                const r = Math.sqrt(dx * dx + dy * dy) / R;
+                const i = (y * size + x) * 4;
+                if (r > 1) {
+                    data[i + 3] = 0;
+                    continue;
+                }
+                const ang = (Math.atan2(-dy, dx) * 180 / Math.PI + 360) % 360;
+                const [cr, cg, cb] = hsvToRgb(ang, Math.min(r, 1), v);
+                data[i] = cr; data[i + 1] = cg; data[i + 2] = cb; data[i + 3] = 255;
+            }
+        }
+        ctx.putImageData(img, 0, 0);
+
+        // Marker sits where the current hue lives on the disc: hue 0 = right
+        // edge, increasing counterclockwise (up = toward yellow).
+        const a = h * Math.PI / 180;
+        const mx = R + Math.cos(a) * s * (R - 10);
+        const my = R - Math.sin(a) * s * (R - 10);
+        ctx.beginPath();
+        ctx.arc(mx, my, 6, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(mx, my, 5, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        vTrack.style.background = `linear-gradient(90deg, #000, ${hsvToHex(h, s, 1)})`;
+        vThumb.style.left = `${Math.round(v * 100)}%`;
+        if (vTrack.dataset.val !== String(Math.round(v * 100))) {
+            vTrack.dataset.val = String(Math.round(v * 100));
+            vTrack.setAttribute('aria-valuenow', String(Math.round(v * 100)));
+        }
+    }
+
+    function syncOut() {
+        hex = hsvToHex(h, s, v);
+        hexInput.value = hex.toUpperCase();
+        onHex(hex);
+    }
+
+    function eventPos(e, el) {
+        const rect = el.getBoundingClientRect();
+        return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    }
+
+    function discUpdate(e) {
+        const { x, y } = eventPos(e, canvas);
+        const dx = x - R;
+        const dy = y - R;
+        h = (Math.atan2(-dy, dx) * 180 / Math.PI + 360) % 360;
+        s = Math.max(0, Math.min(1, Math.sqrt(dx * dx + dy * dy) / R));
+        // A near-black disc (e.g. the dark background base) can't be dragged
+        // anywhere meaningful; bring value up so a hue pick is visible.
+        if (v <= 0.02) v = 1;
+        paint();
+        syncOut();
+    }
+
+    function valueUpdate(e) {
+        const rect = vTrack.getBoundingClientRect();
+        v = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        paint();
+        syncOut();
+    }
+
+    function bindDrag(el, move) {
+        el.addEventListener('pointerdown', (e) => {
+            dragging = true;
+            el.setPointerCapture?.(e.pointerId);
+            move(e);
+        });
+        el.addEventListener('pointermove', (e) => { if (dragging) move(e); });
+        el.addEventListener('pointerup', () => { dragging = false; });
+        el.addEventListener('pointercancel', () => { dragging = false; });
+        el.addEventListener('lostpointercapture', () => { dragging = false; });
+    }
+    bindDrag(canvas, discUpdate);
+    bindDrag(vTrack, valueUpdate);
+
+    hexInput.addEventListener('change', () => {
+        const n = normHex(hexInput.value);
+        if (n) {
+            [h, s, v] = hexToHsv(n);
+            hex = n;
+            paint();
+            onHex(n);
+        }
+        hexInput.value = hex.toUpperCase();
+    });
+
+    doneBtn.addEventListener('click', () => openWheel(null));
+
+    return {
+        refresh(nextHex) {
+            const n = normHex(nextHex);
+            if (n) hex = n;
+            else hex = normHex(getHex());
+            [h, s, v] = hexToHsv(hex);
+            hexInput.value = hex.toUpperCase();
+            paint();
+        },
+        open() {
+            wrap.classList.remove('hidden');
+            paint();
+        },
+        close() {
+            wrap.classList.add('hidden');
+        },
+        isOpen() {
+            return !wrap.classList.contains('hidden');
+        },
+    };
+}
+
 /**
  * Wire up the theme picker: top-bar / header buttons that open the sheet
- * panel, the swatch rows + color pickers + reset inside it, and its
+ * panel, the swatch rows + color wheels + reset inside it, and its
  * backdrop/Escape closing.
  *
  * @param {object} [opts]
@@ -289,6 +507,29 @@ export function initThemeControls({ onThemeChange: change } = {}) {
     if (typeof document === 'undefined' || !document.documentElement) return;
 
     onThemeChange = change || null;
+
+    wheels['theme-bg-wheel'] = createColorWheel(
+        'theme-bg-wheel',
+        () => {
+            const t = getTheme();
+            return t.bgColor || bgById(t.background).base;
+        },
+        (hex) => emit(setTheme({ bgColor: hex })),
+    );
+    wheels['theme-accent-wheel'] = createColorWheel(
+        'theme-accent-wheel',
+        () => getTheme().accent,
+        (hex) => emit(setTheme({ accent: hex })),
+    );
+    for (const wrapId of WHEEL_IDS) {
+        const row = document.getElementById(WHEEL_TO_ROW[wrapId]);
+        if (row) {
+            row.addEventListener('click', () => {
+                const opening = !wheels[wrapId].isOpen();
+                openWheel(opening ? wrapId : null);
+            });
+        }
+    }
     syncControls();
 
     for (const id of ['theme-btn-mobile', 'theme-btn-desktop']) {
@@ -302,11 +543,6 @@ export function initThemeControls({ onThemeChange: change } = {}) {
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && getPanel()?.classList.contains('open')) closeThemePanel();
     });
-
-    const bgInput = document.getElementById('theme-bg-color');
-    if (bgInput) bgInput.addEventListener('input', () => emit(setTheme({ bgColor: bgInput.value })));
-    const accentInput = document.getElementById('theme-accent-color');
-    if (accentInput) accentInput.addEventListener('input', () => emit(setTheme({ accent: accentInput.value })));
 
     const resetBtn = document.getElementById('theme-reset-btn');
     if (resetBtn) {

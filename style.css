@@ -721,6 +721,121 @@ input[type="color"].theme-picker-input::-moz-color-swatch {
 }
 .theme-reset-btn:active { transform: scale(0.98); }
 
+/* ---------- Color rows + in-app HSV color wheel ----------
+   Replaces native <input type="color">, whose dialog shows preset swatches +
+   a native HSV panel on Android. The in-app wheel keeps the picker predictable
+   on every platform: tap the row, drag the H/S disc + brightness bar. */
+.theme-color-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 9px 10px;
+    border-radius: 10px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    cursor: pointer;
+    transition: background var(--fast), border-color var(--fast);
+}
+.theme-color-row:hover { background: var(--surface-3); }
+.theme-color-row.active {
+    border-color: var(--primary-border);
+    background: var(--surface-3);
+}
+.theme-color-row .theme-hex { text-align: left; font-weight: 600; }
+.theme-color-chip {
+    flex: none;
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    border: 1px solid var(--border-strong);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06), 0 1px 2px rgba(0, 0, 0, 0.25);
+    transition: background 150ms ease-out;
+}
+.theme-chev {
+    margin-left: auto;
+    flex: none;
+    font-size: 0.85rem;
+    line-height: 1;
+    color: var(--text-tertiary);
+    transform: rotate(0deg);
+    transition: transform var(--med);
+}
+.theme-color-row.active .theme-chev { transform: rotate(180deg); }
+
+.theme-wheel { margin-top: 10px; }
+.theme-wheel-head {
+    display: flex;
+    justify-content: center;
+}
+.theme-wheel-canvas {
+    width: min(224px, 62vw);
+    height: min(224px, 62vw);
+    border-radius: 50%;
+    touch-action: none;
+    cursor: crosshair;
+    box-shadow: 0 2px 14px rgba(0, 0, 0, 0.28);
+}
+.theme-wheel-v {
+    margin-top: 12px;
+}
+.theme-wheel-v-track {
+    position: relative;
+    width: 100%;
+    height: 26px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border-strong);
+    touch-action: none;
+    cursor: pointer;
+}
+.theme-wheel-v-thumb {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 30px; height: 30px;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: #fff;
+    border: 2px solid rgba(0, 0, 0, 0.45);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+.theme-wheel-foot {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+}
+.theme-wheel-hex {
+    flex: 1;
+    min-width: 0;
+    height: 34px;
+    padding: 0 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text);
+    font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace;
+    font-size: 0.78rem;
+    font-variant-numeric: tabular-nums;
+    text-transform: uppercase;
+}
+.theme-wheel-hex:focus { outline: none; border-color: var(--primary-border); }
+.theme-wheel-done {
+    flex: none;
+    height: 34px;
+    padding: 0 16px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--on-primary-active);
+    background: var(--primary-active);
+    border: none;
+    cursor: pointer;
+    transition: background var(--fast), transform 100ms ease-out;
+}
+.theme-wheel-done:hover { background: var(--primary); }
+.theme-wheel-done:active { transform: scale(0.96); }
+
 /* ---------- Day filter (main page, above the schedule) ---------- */
 .days-filter {
     display: flex;
@@ -1847,8 +1962,6 @@ input[type="color"].theme-picker-input::-moz-color-swatch {
     flex-shrink: 0;
     color: var(--success);
 }
-
-.fr-topbar-btn { color: var(--text-secondary); }
 
 .fr-launch-btn {
     display: flex;
