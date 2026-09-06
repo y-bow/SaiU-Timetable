@@ -1,4 +1,4 @@
-import { CONFIG } from '../core/config.js?v=2026-09-06-001';
+import { CONFIG } from '../core/config.js?v=2026-09-06-002';
 
 /**
  * n8n timetable-change notifications (optional, fully isolated).
