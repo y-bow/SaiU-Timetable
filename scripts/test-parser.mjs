@@ -189,7 +189,7 @@ const SCDS_GRID = [
 
 await check('SCDS "Sec N" cell carries its section and teacher', () => {
     const out = parseCSV(SCDS_GRID, 'grid', null, null, ['AB2-207']);
-    const c = out.find((x) => x.subject === 'Emering Tools and Applications');
+    const c = out.find((x) => x.subject === 'Emerging Tools and Applications');
     assert.ok(c, 'class parsed');
     assert.equal(c.faculty, 'Prof. Salim');
     assert.equal(c.section, 5);
@@ -207,7 +207,7 @@ const UNCONFIGURED_ROOMS_GRID = [
     ',,AB2-101,B62-B201',
 ].join('\n');
 const UNCONFIGURED_ELECTIVES = [
-    { id: 'emerging-tools-and-applications', label: 'Emering Tools and Applications' },
+    { id: 'emerging-tools-and-applications', label: 'Emerging Tools and Applications' },
     { id: 'forensic-psychology', label: 'Forensic Psychology' },
     { id: 'computer-networks', label: 'Computer Networks' },
 ];
@@ -215,7 +215,7 @@ const UNCONFIGURED_KNOWN_ROOMS = ['AB2-101'];
 
 await check('class in unconfigured room B62-B201 is parsed', () => {
     const out = parseCSV(UNCONFIGURED_ROOMS_GRID, 'grid', null, UNCONFIGURED_ELECTIVES, UNCONFIGURED_KNOWN_ROOMS);
-    const c = out.find(x => x.subject === 'Emering Tools and Applications' && x.day === 'Monday');
+    const c = out.find(x => x.subject === 'Emerging Tools and Applications' && x.day === 'Monday');
     assert.ok(c, 'ET class in B62-B201 parsed despite room not being in configured list');
     assert.equal(c.room, 'B62-B201');
     assert.equal(c.section, 5);
@@ -1458,7 +1458,7 @@ await check('Sangeetha and Tamilarasi normalize to their titled Prof. Dr. forms'
 await check('SCDS Year 2 existing electives are preserved', () => {
     const ids = scds2.electives.map(x => x.id);
     assert.ok(ids.includes('intelligent-embedded-systems'), 'Intelligent Embedded Systems kept');
-    assert.ok(ids.includes('emerging-tools-and-applications'), 'Emering Tools kept');
+    assert.ok(ids.includes('emerging-tools-and-applications'), 'Emerging Tools kept');
     assert.ok(ids.includes('introduction-to-financial-accounting'), 'Introduction to Financial Accounting kept');
     assert.ok(ids.includes('professional-skills-and-career-readiness'), 'new elective added alongside');
 });
@@ -1506,12 +1506,12 @@ await check('SAS Neuroscience Year 3 lists Cell Physiology and Chemistry as two 
 console.log('--- generic lab classification (grid) ---');
 
 await check('splitLabSuffix: only a trailing " Lab" suffix is a lab', () => {
-    assert.deepEqual(splitLabSuffix('Emering Tools and Applications'), { base: 'Emering Tools and Applications', isLab: false });
-    assert.deepEqual(splitLabSuffix('Emering Tools and Applications Lab'), { base: 'Emering Tools and Applications', isLab: true });
+    assert.deepEqual(splitLabSuffix('Emerging Tools and Applications'), { base: 'Emerging Tools and Applications', isLab: false });
+    assert.deepEqual(splitLabSuffix('Emerging Tools and Applications Lab'), { base: 'Emerging Tools and Applications', isLab: true });
     assert.deepEqual(splitLabSuffix('Advanced Robotics'), { base: 'Advanced Robotics', isLab: false });
     assert.deepEqual(splitLabSuffix('Advanced Robotics Lab'), { base: 'Advanced Robotics', isLab: true });
     assert.deepEqual(splitLabSuffix('DAA Lab.'), { base: 'DAA', isLab: true });
-    assert.deepEqual(splitLabSuffix('Emering Tools'), { base: 'Emering Tools', isLab: false });
+    assert.deepEqual(splitLabSuffix('Emerging Tools'), { base: 'Emerging Tools', isLab: false });
     assert.deepEqual(splitLabSuffix('Lab'), { base: 'Lab', isLab: false });
 });
 
@@ -1540,7 +1540,7 @@ await check('"Advanced Robotics Lab" is the lab variant: name preserved + lab ta
     assert.ok(out.some(x => x.subject === 'Advanced Robotics'), 'lecture parsed alongside');
 });
 
-await check('"Emering Tools and Applications" is recognized and keeps its exact spelling', () => {
+await check('"Emerging Tools and Applications" is recognized (incl. the "Emering" variant)', () => {
     const g = [
         'MONDAY,09:15 AM - 10:10 AM,ET - Sec 1 - Arjun',
         ',,AB2-101',
@@ -1549,35 +1549,35 @@ await check('"Emering Tools and Applications" is recognized and keeps its exact 
         'WEDNESDAY,09:15 AM - 10:10 AM,Emering Tools and Applications Lab - Sec 1 - Arjun',
         ',,AB2-101',
     ].join('\n');
-    const electives = [{ id: 'emerging-tools-and-applications', label: 'Emering Tools and Applications' }];
+    const electives = [{ id: 'emerging-tools-and-applications', label: 'Emerging Tools and Applications' }];
     const out = parseCSV(g, 'grid', null, electives, ['AB2-101', 'AB2-202']);
 
-    const lecture = out.find(x => x.subject === 'Emering Tools and Applications' && x.section === 2);
-    assert.ok(lecture, 'Emering lecture recognized');
+    const lecture = out.find(x => x.subject === 'Emerging Tools and Applications' && x.section === 2);
+    assert.ok(lecture, 'Emerging lecture recognized');
     assert.equal(lecture.elective, 'emerging-tools-and-applications', 'resolves to the elective');
     assert.equal(lecture.lab, undefined, 'normal course has no lab tag');
     assert.equal(lecture.faculty, 'Prof. Sonar');
-    assert.ok(out.some(x => x.subject === 'Emering Tools and Applications' && x.section === 1),
+    assert.ok(out.some(x => x.subject === 'Emerging Tools and Applications' && x.section === 1),
         '"ET" alias also displays the same canonical name');
 
-    const lab = out.find(x => x.subject === 'Emering Tools and Applications Lab');
-    assert.ok(lab, 'Emering lab recognized');
+    const lab = out.find(x => x.subject === 'Emerging Tools and Applications Lab');
+    assert.ok(lab, 'Emerging lab recognized');
     assert.equal(lab.elective, 'emerging-tools-and-applications', 'lab shares the elective identity');
     assert.equal(lab.lab, true, 'lab classified for display as "… [Lab]"');
     assert.equal(lab.faculty, 'Prof. Arjun');
 });
 
-await check('"Emering Tools and Applications" does not falsely match a partial name', () => {
+await check('"Emerging Tools and Applications" does not falsely match a partial name', () => {
     const g = [
         'MONDAY,09:15 AM - 10:10 AM,Emering Tools and Applications - Sec 3 - Sonar',
         ',,AB2-202',
     ].join('\n');
-    const electives = [{ id: 'emerging-tools-and-applications', label: 'Emering Tools and Applications' }];
+    const electives = [{ id: 'emerging-tools-and-applications', label: 'Emerging Tools and Applications' }];
     const out = parseCSV(g, 'grid', null, electives, ['AB2-202']);
-    const c = out.find(x => x.subject === 'Emering Tools and Applications');
+    const c = out.find(x => x.subject === 'Emerging Tools and Applications');
     assert.ok(c);
     assert.equal(c.lab, undefined, 'never flagged as a lab by a sibling "… Lab" course');
-    assert.equal(c.subject, 'Emering Tools and Applications');
+    assert.equal(c.subject, 'Emerging Tools and Applications');
 });
 
 // -------------------------------------------------------------------

@@ -85,7 +85,7 @@ export const YEAR_2_LAB_SOURCES = {
         school: 'scds',
         sheetId: SPREADSHEET_ID,
         sheet: 'Emg Lab',
-        course: 'Emering Tools and Applications Lab',
+        course: 'Emerging Tools and Applications Lab',
         subjectAliases: [
             /^etl?\s*lab\b/i,
             /^et\s+lab\b/i,

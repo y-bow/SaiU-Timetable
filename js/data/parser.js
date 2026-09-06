@@ -23,7 +23,7 @@
  * multiple offerings in the sheet is supported with no per-course config.
  */
 
-import { resolveCourse, splitLabSuffix } from './course-normalizer.js?v=2026-09-06-003';
+import { resolveCourse, splitLabSuffix } from './course-normalizer.js?v=2026-09-06-004';
 
 const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
 const SECTION_REGEX = /\(Sec\s*(\d+)\)/i;
@@ -243,7 +243,7 @@ function parseGridCSV(text, mandatoryCourses = null, electives = null, rooms = n
         : null;
 
     // Canonical ids of the mandatory courses. A differently-spelled cell that
-    // resolves onto a mandatory course's canonical id (e.g. "Emering Tools and
+    // resolves onto a mandatory course's canonical id (e.g. "Emerging Tools and
     // Applications Lab" → emerging-tools-and-applications) is still that
     // course — the canonical fallback below makes the match without ever
     // renaming the cell.
@@ -278,7 +278,7 @@ function parseGridCSV(text, mandatoryCourses = null, electives = null, rooms = n
             }
         }
         // Canonical fallback: a differently-spelled cell that resolves onto a
-        // configured elective's canonical id is that elective ("Emering Tools
+        // configured elective's canonical id is that elective ("Emerging Tools
         // and Applications" → emerging-tools-and-applications). Only reached
         // when label-prefix matching found nothing, so existing matches are
         // never disturbed.
@@ -409,20 +409,20 @@ function parseGridCSV(text, mandatoryCourses = null, electives = null, rooms = n
 // ============================================================
 
 const SUBJECT_ALIASES = [
-    { match: /^ET$/i, name: 'Emering Tools and Applications' },
+    { match: /^ET$/i, name: 'Emerging Tools and Applications' },
     // The lecture spellings ("Emerging Tools", "Emering Tools",
     // "… and Applications") all fold onto the timetable's canonical display
-    // name "Emering Tools and Applications". The negative lookahead keeps a
+    // name "Emerging Tools and Applications". The negative lookahead keeps a
     // " Lab" suffix out of the lecture alias, so a lab cell is never misread as
     // the lecture — the full lab alias below wins for "… and Applications Lab",
     // and any other "… Lab" spelling stays intact and is classified as a lab by
     // its suffix (splitLabSuffix in course-normalizer.js).
-    { match: /^Emerging Tools(?:\s+and\s+Applications)?(?!\s+Lab\b)$/i, name: 'Emering Tools and Applications' },
-    { match: /^Emering Tools(?:\s+and\s+Applications)?(?!\s+Lab\b)$/i, name: 'Emering Tools and Applications' },
-    // A lab cell ("Emering Tools and Applications Lab" / "Emerging … Lab")
+    { match: /^Emerging Tools(?:\s+and\s+Applications)?(?!\s+Lab\b)$/i, name: 'Emerging Tools and Applications' },
+    { match: /^Emering Tools(?:\s+and\s+Applications)?(?!\s+Lab\b)$/i, name: 'Emerging Tools and Applications' },
+    // A lab cell ("Emerging Tools and Applications Lab" / "Emering … Lab")
     // keeps the full lab name; the display layer renders it as
-    // "Emering Tools and Applications [Lab]" via the lab badge.
-    { match: /^(?:Emering|Emerging) Tools(?:\s+and\s+|\s*&\s*)Applications Lab\.?$/i, name: 'Emering Tools and Applications Lab' },
+    // "Emerging Tools and Applications [Lab]" via the lab badge.
+    { match: /^(?:Emering|Emerging) Tools(?:\s+and\s+|\s*&\s*)Applications Lab\.?$/i, name: 'Emerging Tools and Applications Lab' },
     { match: /^CN$/i, name: 'Computer Networks' },
     { match: /^(?:INT|INTT)\s*EMB$/i, name: 'Intelligent Embedded Systems' },
     { match: /^DL$/i, name: 'Deep Learning' },
