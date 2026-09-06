@@ -1,9 +1,9 @@
-import { CONFIG } from '../core/config.js?v=2026-09-04-004';
-import { toMinutes, minutesToLabel, minutesToClock, todayName, isBeforeToday, WEEKDAYS, labSubjectLabel } from '../core/utils.js?v=2026-09-04-004';
-import { offeringKey } from '../data/parser.js?v=2026-09-04-004';
-import { rubberband, projectMomentum } from '../core/spring.js?v=2026-09-04-004';
-import { mergeAdjacentForDisplay, displayItemHighlighted } from './display.js?v=2026-09-04-004';
-import { clashTypeLabels } from '../data/clash-detector.js?v=2026-09-04-004';
+import { CONFIG } from '../core/config.js?v=2026-09-06-001';
+import { toMinutes, minutesToLabel, minutesToClock, todayName, isBeforeToday, WEEKDAYS, labSubjectLabel } from '../core/utils.js?v=2026-09-06-001';
+import { offeringKey } from '../data/parser.js?v=2026-09-06-001';
+import { rubberband, projectMomentum } from '../core/spring.js?v=2026-09-06-001';
+import { mergeAdjacentForDisplay, displayItemHighlighted } from './display.js?v=2026-09-06-001';
+import { clashTypeLabels } from '../data/clash-detector.js?v=2026-09-06-001';
 
 /**
  * DOM rendering — sidebar filters + timeline.

@@ -6,16 +6,16 @@
 
 /* ---------- Tokens ---------- */
 :root {
-    --bg: #0D0D0D;
-    --surface: #111111;
-    --surface-2: #18181B;
-    --surface-3: #1E1E22;
+    --bg: #000000;
+    --surface: #000000;
+    --surface-2: #0A0A0A;
+    --surface-3: #141414;
 
     /* Translucent materials */
-    --material-sidebar: rgba(17, 17, 17, 0.72);
-    --material-topbar: rgba(13, 13, 13, 0.65);
-    --material-sheet: rgba(24, 24, 27, 0.85);
-    --material-toast: rgba(24, 24, 27, 0.92);
+    --material-sidebar: rgba(0, 0, 0, 0.72);
+    --material-topbar: rgba(0, 0, 0, 0.60);
+    --material-sheet: rgba(5, 5, 5, 0.85);
+    --material-toast: rgba(5, 5, 5, 0.92);
     --material-scrim: rgba(0, 0, 0, 0.55);
     --material-highlight: rgba(255, 255, 255, 0.08);
 
@@ -108,168 +108,126 @@
    Defaults (no data attributes) resolve to exactly the dark/red tokens above,
    so untouched pages are pixel-identical to the previous single theme.
 
-   html[data-accent=...] sets the primary-family tokens for one accent.
-   html[data-bg=...]      sets surface/semantic/material tokens for one
-                          background. Bg rules come AFTER accent rules so the
-                          light background can re-derive accent-tinted text
+   Accent is always a custom '#rrggbb' (the picker has no presets). theme.js
+   feeds it straight through --accent-hex / --on-accent-inline; the generic
+   html[data-accent] rule derives the whole rgba primary family via
+   color-mix(). Legacy preset ids stored before this change are converted to
+   hex at load time, so only the hex rule below is ever hit.
+   html[data-bg=...]      sets --*-base colors for one background type; the
+                          generic html[data-bg] rule derives the surfaces,
+                          translucent materials AND accent-tinted semantic
+                          colors (clash/free-rooms) from those bases plus the
+                          inline --bg-tint. Bg rules come AFTER accent rules so
+                          the light background can re-derive accent-tinted text
                           (--primary-text / --primary-active) as darker tones
                           that stay readable on light surfaces. */
-html[data-accent="red"] {
-    --primary: #d85757;
+html[data-accent^="#"] {
+    --primary: var(--accent-hex, #d85757);
+    --on-accent: var(--on-accent-inline, #FFFFFF);
+    --primary-hover: color-mix(in srgb, var(--primary) 88%, #FFFFFF);
+    --primary-text: color-mix(in srgb, var(--primary) 72%, #F5F5F5);
+    --primary-active: color-mix(in srgb, var(--primary) 70%, #FFFFFF);
+    --install-bg: var(--primary);
+    --install-text: var(--on-accent);
+}
+
+/* The seeded default red keeps the exact tuned look from the pre-theme system:
+   hover/active darker+hotter than the generic lighten, and a deeper install
+   button with white text (verified against old :root in git history). */
+html[data-accent="#d85757"] {
     --primary-hover: #E86868;
-    --primary-soft: rgba(224, 82, 82, 0.12);
     --primary-text: #E86868;
     --primary-active: #C94C4C;
-    --primary-tint: rgba(201, 76, 76, 0.10);
-    --primary-ring: rgba(201, 76, 76, 0.18);
-    --primary-border: rgba(224, 82, 82, 0.4);
-    --primary-shadow: rgba(201, 76, 76, 0.35);
-    --primary-glow-p1: rgba(216, 87, 87, 0.45);
-    --primary-glow-p2: rgba(216, 87, 87, 0.5);
-    --primary-glow-p3: rgba(216, 87, 87, 0.55);
-    --primary-glow-p4: rgba(216, 87, 87, 0.6);
-    --on-accent: #111111;
-    --on-primary-active: #FFFFFF;
     --install-bg: #d34d50;
     --install-text: #FFFFFF;
 }
 
-html[data-accent="blue"] {
-    --primary: #3B6FE0;
-    --primary-hover: #5A85E8;
-    --primary-soft: rgba(59, 111, 224, 0.12);
-    --primary-text: #8FABF2;
-    --primary-active: #5A85E8;
-    --primary-tint: rgba(59, 111, 224, 0.12);
-    --primary-ring: rgba(59, 111, 224, 0.22);
-    --primary-border: rgba(59, 111, 224, 0.5);
-    --primary-shadow: rgba(59, 111, 224, 0.35);
-    --primary-glow-p1: rgba(59, 111, 224, 0.45);
-    --primary-glow-p2: rgba(59, 111, 224, 0.5);
-    --primary-glow-p3: rgba(59, 111, 224, 0.55);
-    --primary-glow-p4: rgba(59, 111, 224, 0.6);
-    --on-accent: #FFFFFF;
-    --on-primary-active: #FFFFFF;
-    --install-bg: var(--primary);
-    --install-text: #FFFFFF;
+/* Whatever the accent source, derive the soft/ring/border/shadow/glow family
+   from --primary so every accent gets a consistent set. */
+html[data-accent] {
+    --primary-soft: color-mix(in srgb, var(--primary) 12%, transparent);
+    --primary-tint: color-mix(in srgb, var(--primary) 10%, transparent);
+    --primary-ring: color-mix(in srgb, var(--primary) 18%, transparent);
+    --primary-border: color-mix(in srgb, var(--primary) 40%, transparent);
+    --primary-shadow: color-mix(in srgb, var(--primary) 35%, transparent);
+    --primary-glow-p1: color-mix(in srgb, var(--primary) 45%, transparent);
+    --primary-glow-p2: color-mix(in srgb, var(--primary) 50%, transparent);
+    --primary-glow-p3: color-mix(in srgb, var(--primary) 55%, transparent);
+    --primary-glow-p4: color-mix(in srgb, var(--primary) 60%, transparent);
+    --on-primary-active: var(--on-accent, #FFFFFF);
 }
 
-html[data-accent="purple"] {
-    --primary: #7C5CFC;
-    --primary-hover: #9B81FD;
-    --primary-soft: rgba(124, 92, 252, 0.12);
-    --primary-text: #B3A0FE;
-    --primary-active: #9B81FD;
-    --primary-tint: rgba(124, 92, 252, 0.12);
-    --primary-ring: rgba(124, 92, 252, 0.22);
-    --primary-border: rgba(124, 92, 252, 0.5);
-    --primary-shadow: rgba(124, 92, 252, 0.35);
-    --primary-glow-p1: rgba(124, 92, 252, 0.45);
-    --primary-glow-p2: rgba(124, 92, 252, 0.5);
-    --primary-glow-p3: rgba(124, 92, 252, 0.55);
-    --primary-glow-p4: rgba(124, 92, 252, 0.6);
-    --on-accent: #FFFFFF;
-    --on-primary-active: #FFFFFF;
-    --install-bg: var(--primary);
-    --install-text: #FFFFFF;
+/* Background TYPE + TINT.
+   Each html[data-bg=...] block only sets base color variables; this generic
+   rule (written BEFORE them) derives the canvas, surfaces, translucent
+   materials and semantic colors by mixing the base with the inline --bg-tint
+   (~12%, set by theme.js; defaults to the type's own base so untinted themes
+   stay pixel-identical). Semantic colors (clash/free-rooms/status) take a
+   ~30% accent shift so they belong to the chosen accent while still reading
+   as danger/success/warning signals. */
+html[data-bg] {
+    --bg: color-mix(in srgb, var(--bg-base) 88%, var(--bg-tint, var(--bg-base)));
+    --surface: color-mix(in srgb, var(--surface-base, var(--bg-base)) 92%, var(--bg-tint, var(--bg-base)));
+    --surface-2: color-mix(in srgb, var(--surface2-base, var(--bg-base)) 90%, var(--bg-tint, var(--bg-base)));
+    --surface-3: color-mix(in srgb, var(--surface3-base, var(--bg-base)) 90%, var(--bg-tint, var(--bg-base)));
+
+    --material-sidebar: color-mix(in srgb, var(--bg) 72%, transparent);
+    --material-topbar: color-mix(in srgb, var(--bg) 60%, transparent);
+    --material-sheet: color-mix(in srgb, var(--bg) 85%, transparent);
+    --material-toast: color-mix(in srgb, var(--bg) 92%, transparent);
+
+    --danger: color-mix(in srgb, var(--primary) 30%, #F87171);
+    --danger-soft: color-mix(in srgb, var(--danger) 12%, transparent);
+    --success: color-mix(in srgb, var(--primary) 30%, #34D399);
+    --success-soft: color-mix(in srgb, var(--success) 12%, transparent);
+    --warning: color-mix(in srgb, var(--primary) 30%, #FBBF24);
+    --warning-soft: color-mix(in srgb, var(--warning) 12%, transparent);
+
+    /* Sidebar action card (Feedback / Free Rooms / Install) + its buttons:
+       follow the chosen background type and tint, with the buttons one step
+       brighter than the card so the hierarchy survives every theme. */
+    --actions-bg: color-mix(in srgb, var(--actions-bg-base, var(--surface3-base, var(--bg-base))) 90%, var(--bg-tint, var(--bg-base)));
+    --actions-btn: color-mix(in srgb, var(--actions-btn-base, var(--surface3-base, var(--bg-base))) 90%, var(--bg-tint, var(--bg-base)));
+    --actions-btn-hover: color-mix(in srgb, var(--actions-btn-hover-base, var(--surface3-base, var(--bg-base))) 90%, var(--bg-tint, var(--bg-base)));
+    --actions-border: var(--border-bright);
 }
 
-html[data-accent="green"] {
-    --primary: #0B8A5F;
-    --primary-hover: #0FA976;
-    --primary-soft: rgba(11, 138, 95, 0.12);
-    --primary-text: #2EC48F;
-    --primary-active: #0FA976;
-    --primary-tint: rgba(11, 138, 95, 0.12);
-    --primary-ring: rgba(11, 138, 95, 0.22);
-    --primary-border: rgba(11, 138, 95, 0.5);
-    --primary-shadow: rgba(11, 138, 95, 0.35);
-    --primary-glow-p1: rgba(11, 138, 95, 0.45);
-    --primary-glow-p2: rgba(11, 138, 95, 0.5);
-    --primary-glow-p3: rgba(11, 138, 95, 0.55);
-    --primary-glow-p4: rgba(11, 138, 95, 0.6);
-    --on-accent: #FFFFFF;
-    --on-primary-active: #FFFFFF;
-    --install-bg: var(--primary);
-    --install-text: #FFFFFF;
-}
-
-html[data-accent="orange"] {
-    --primary: #EA7A12;
-    --primary-hover: #F2923A;
-    --primary-soft: rgba(234, 122, 18, 0.12);
-    --primary-text: #F5A96A;
-    --primary-active: #F2923A;
-    --primary-tint: rgba(234, 122, 18, 0.12);
-    --primary-ring: rgba(234, 122, 18, 0.22);
-    --primary-border: rgba(234, 122, 18, 0.5);
-    --primary-shadow: rgba(234, 122, 18, 0.35);
-    --primary-glow-p1: rgba(234, 122, 18, 0.45);
-    --primary-glow-p2: rgba(234, 122, 18, 0.5);
-    --primary-glow-p3: rgba(234, 122, 18, 0.55);
-    --primary-glow-p4: rgba(234, 122, 18, 0.6);
-    --on-accent: #111111;
-    --on-primary-active: #111111;
-    --install-bg: var(--primary);
-    --install-text: #111111;
-}
-
-html[data-accent="teal"] {
-    --primary: #0F7A75;
-    --primary-hover: #129692;
-    --primary-soft: rgba(15, 122, 117, 0.12);
-    --primary-text: #2EBFBA;
-    --primary-active: #129692;
-    --primary-tint: rgba(15, 122, 117, 0.12);
-    --primary-ring: rgba(15, 122, 117, 0.22);
-    --primary-border: rgba(15, 122, 117, 0.5);
-    --primary-shadow: rgba(15, 122, 117, 0.35);
-    --primary-glow-p1: rgba(15, 122, 117, 0.45);
-    --primary-glow-p2: rgba(15, 122, 117, 0.5);
-    --primary-glow-p3: rgba(15, 122, 117, 0.55);
-    --primary-glow-p4: rgba(15, 122, 117, 0.6);
-    --on-accent: #FFFFFF;
-    --on-primary-active: #FFFFFF;
-    --install-bg: var(--primary);
-    --install-text: #FFFFFF;
-}
-
-/* Dark backgrounds keep the :root surface palette; only te/canvas materials
-   shift to match the background hue. */
-html[data-bg="slate"] {
-    --bg: #0F172A;
-    --material-sidebar: rgba(21, 29, 49, 0.72);
-    --material-topbar: rgba(15, 23, 42, 0.70);
-    --material-sheet: rgba(24, 33, 54, 0.85);
-    --material-toast: rgba(24, 33, 54, 0.92);
-}
-
-html[data-bg="navy"] {
-    --bg: #0A1A30;
-    --material-sidebar: rgba(15, 26, 45, 0.72);
-    --material-topbar: rgba(10, 26, 48, 0.70);
-    --material-sheet: rgba(17, 31, 52, 0.85);
-    --material-toast: rgba(17, 31, 52, 0.92);
+html[data-bg="dark"] {
+    --bg-base: #000000;
+    --surface-base: #000000;
+    --surface2-base: #0A0A0A;
+    --surface3-base: #141414;
+    --actions-bg-base: #141414;
+    --actions-btn-base: #1e1e1e;
+    --actions-btn-hover-base: #2a2a2a;
 }
 
 html[data-bg="warm"] {
-    --bg: #171310;
-    --material-sidebar: rgba(28, 24, 20, 0.72);
-    --material-topbar: rgba(23, 19, 16, 0.70);
-    --material-sheet: rgba(30, 26, 22, 0.85);
-    --material-toast: rgba(30, 26, 22, 0.92);
+    --bg-base: #171310;
+    --surface-base: #171310;
+    --surface2-base: #211C18;
+    --surface3-base: #2A241F;
+    --actions-bg-base: #211C18;
+    --actions-btn-base: #2A241F;
+    --actions-btn-hover-base: #352E28;
+}
+
+html[data-bg="cool"] {
+    --bg-base: #171E29;
+    --surface-base: #171E29;
+    --surface2-base: #1E2734;
+    --surface3-base: #263241;
+    --actions-bg-base: #1E2734;
+    --actions-btn-base: #263241;
+    --actions-btn-hover-base: #31404F;
 }
 
 html[data-bg="light"] {
-    --bg: #F3F4F6;
-    --surface: #FFFFFF;
-    --surface-2: #FFFFFF;
-    --surface-3: #EDEEF2;
+    --bg-base: #F3F4F6;
+    --surface-base: #FFFFFF;
+    --surface2-base: #FFFFFF;
+    --surface3-base: #EDEEF2;
 
-    --material-sidebar: rgba(255, 255, 255, 0.82);
-    --material-topbar: rgba(255, 255, 255, 0.78);
-    --material-sheet: rgba(255, 255, 255, 0.94);
-    --material-toast: rgba(255, 255, 255, 0.97);
     --material-scrim: rgba(15, 23, 42, 0.45);
     --material-highlight: rgba(0, 0, 0, 0.05);
 
@@ -282,15 +240,15 @@ html[data-bg="light"] {
     --text-secondary: #52525B;
     --text-tertiary: #71717A;
 
-    --success: #059669;
-    --success-soft: rgba(5, 150, 105, 0.12);
+    --success: color-mix(in srgb, var(--primary) 30%, #059669);
+    --success-soft: color-mix(in srgb, var(--success) 14%, transparent);
     --warning: #B45309;
     --warning-soft: rgba(180, 83, 9, 0.12);
     --danger: #DC2626;
     --danger-soft: rgba(220, 38, 38, 0.12);
 
     /* Dark-tinted accent text so accent colors stay readable on light
-       surfaces (override the light tint the accent rules set above). */
+       surfaces (override the lighter tints derived above). */
     --primary-text: color-mix(in srgb, var(--primary) 70%, #18181B);
     --primary-active: color-mix(in srgb, var(--primary) 82%, #0B0B0C);
 
@@ -299,10 +257,10 @@ html[data-bg="light"] {
     --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.14);
     --shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.18);
 
-    --actions-bg: #FFFFFF;
+    --actions-bg-base: #FFFFFF;
     --actions-border: rgba(0, 0, 0, 0.08);
-    --actions-btn: #F3F4F6;
-    --actions-btn-hover: #E4E4E7;
+    --actions-btn-base: #F3F4F6;
+    --actions-btn-hover-base: #E4E4E7;
     --actions-btn-text: #18181B;
 
     --footer-color: #52525B;
@@ -534,15 +492,8 @@ input { font-family: inherit; }
 }
 .sidebar-item.active .sidebar-item-radio {
     border-color: var(--primary-active);
-    background: var(--primary-active);
-}
-.sidebar-item.active .sidebar-item-radio::after {
-    content: '';
-    position: absolute;
-    top: 3px; left: 3px;
-    width: 5px; height: 5px;
-    border-radius: 50%;
-    background: var(--on-accent);
+    background: radial-gradient(circle, var(--on-accent) 0 2.5px, transparent 2.6px), var(--primary-active);
+    background-origin: border-box;
 }
 
 /* Multi-select checkboxes (electives) */
@@ -644,10 +595,79 @@ input { font-family: inherit; }
     max-width: 110px;
 }
 
-/* ---------- Theme controls (sidebar) ---------- */
-.sidebar-theme-section {
-    border-top: 1px solid var(--border-bright);
-    border-bottom: 1px solid var(--border-bright);
+/* ---------- Theme controls (sheet panel) ---------- */
+/* Desktop header button lives in .main-header; hidden on mobile where the
+   mobile top bar (which contains its own theme button) is shown instead. */
+.theme-btn-desktop { display: none; }
+
+.theme-panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 12px 18px;
+}
+.theme-group-title {
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    padding: 10px 10px 3px;
+    user-select: none;
+}
+.theme-group-title + .theme-row { margin-bottom: 6px; }
+.theme-panel-body .theme-reset-btn { margin-top: 14px; }
+
+.theme-picker-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 2px 6px 8px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface-2);
+    transition: border-color var(--fast), box-shadow var(--fast);
+}
+.theme-picker-row.active {
+    border-color: var(--primary-border);
+    box-shadow: 0 0 0 2px var(--primary-ring);
+}
+.theme-picker-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+.theme-picker-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+input[type="color"].theme-picker-input {
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+    flex: none;
+}
+input[type="color"].theme-picker-input::-webkit-color-swatch-wrapper { padding: 0; }
+input[type="color"].theme-picker-input::-webkit-color-swatch {
+    border: 1px solid var(--border-bright);
+    border-radius: 8px;
+}
+input[type="color"].theme-picker-input::-moz-color-swatch {
+    border: 1px solid var(--border-bright);
+    border-radius: 8px;
+}
+.theme-hex {
+    font-family: ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace;
+    font-size: 0.72rem;
+    color: var(--text-tertiary);
+    min-width: 56px;
+    text-align: right;
+    user-select: none;
 }
 
 .theme-swatch {
@@ -662,23 +682,11 @@ input { font-family: inherit; }
     border: 1px solid var(--border-strong);
     background: transparent;
 }
-.theme-option .sidebar-item-radio::after {
-    content: '';
-    position: absolute;
-    top: 3px; left: 3px;
-    width: 5px; height: 5px;
-    border-radius: 50%;
-    background: var(--on-accent);
-    opacity: 0;
-    transition: opacity var(--fast);
-}
 .theme-option.active .sidebar-item-radio {
     border-color: var(--primary-active);
-    background: var(--primary-active);
+    background: radial-gradient(circle, var(--on-accent) 0 2.5px, transparent 2.6px), var(--primary-active);
+    background-origin: border-box;
     box-shadow: 0 0 0 2px var(--primary-ring);
-}
-.theme-option.active .sidebar-item-radio::after {
-    opacity: 1;
 }
 .theme-option .theme-check {
     margin-left: auto;
@@ -811,7 +819,7 @@ input { font-family: inherit; }
     flex-direction: column;
     gap: 8px;
     background: var(--actions-bg);
-    border: 1px solid var(--actions-border);
+    border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--actions-border));
     border-radius: 14px;
 }
 .sidebar-feedback-link {
@@ -820,13 +828,14 @@ input { font-family: inherit; }
     padding: 0 12px;
     border-radius: 12px;
     font-size: 0.82rem;
-    font-weight: 500;
-    color: var(--actions-btn-text);
-    background: var(--actions-btn);
+    font-weight: 700;
+    color: var(--primary-text);
+    background: var(--primary-soft);
+    border: 1px solid var(--primary-border);
     text-decoration: none;
-    transition: background var(--fast), transform 100ms ease-out;
+    transition: border-color var(--fast), filter var(--fast), transform 100ms ease-out;
 }
-.sidebar-feedback-link:hover { background: var(--actions-btn-hover); }
+.sidebar-feedback-link:hover { border-color: var(--primary); filter: brightness(1.1); }
 .sidebar-feedback-link:active { transform: scale(0.98); }
 
 .sidebar-install-btn {
@@ -1003,7 +1012,7 @@ input { font-family: inherit; }
     position: absolute;
     left: 4px; top: 20px; bottom: -4px;
     width: 1px;
-    background: var(--border);
+    background: color-mix(in srgb, var(--primary) 45%, var(--border));
 }
 .tl-item:last-child::before { display: none; }
 
@@ -1012,18 +1021,29 @@ input { font-family: inherit; }
     left: 0; top: 17px;
     width: 9px; height: 9px;
     border-radius: 50%;
-    background: var(--border-strong);
+    background: color-mix(in srgb, var(--primary) 45%, var(--border-strong));
     border: 2px solid var(--bg);
     z-index: 1;
     transition: background var(--med), box-shadow var(--med), transform var(--spring-snappy);
 }
-.tl-item.completed .tl-marker { background: var(--border-strong); }
+.tl-item.completed .tl-marker { background: color-mix(in srgb, var(--primary) 28%, var(--border-strong)); }
 .tl-item.current .tl-marker {
     background: var(--primary);
-    box-shadow: 0 0 0 3px var(--primary-soft);
+    box-shadow: 0 0 0 3px var(--primary-soft), 0 0 8px 2px var(--primary-glow-p1);
     transform: scale(1.15);
+    animation: tl-dot-pulse 1.6s ease-in-out infinite;
 }
-.tl-item.upcoming .tl-marker { background: var(--border-strong); }
+.tl-item.upcoming .tl-marker { background: color-mix(in srgb, var(--primary) 45%, var(--border-strong)); }
+@keyframes tl-dot-pulse {
+    0%, 100% {
+        box-shadow: 0 0 0 3px var(--primary-soft), 0 0 8px 2px var(--primary-glow-p1);
+        transform: scale(1.15);
+    }
+    50% {
+        box-shadow: 0 0 0 6px var(--primary-soft), 0 0 16px 5px var(--primary-glow-p2);
+        transform: scale(1.25);
+    }
+}
 
 .tl-card {
     background: var(--surface-2);
@@ -1203,7 +1223,7 @@ input { font-family: inherit; }
     position: relative;
     height: 3px;
     border-radius: var(--radius-pill);
-    background: var(--surface-3);
+    background: color-mix(in srgb, var(--primary) 12%, var(--surface-3));
     overflow: visible;
 }
 .progress-fill {
@@ -1921,6 +1941,8 @@ input { font-family: inherit; }
    ============================================================ */
 @media (min-width: 768px) {
     .mobile-topbar { display: none; }
+    .theme-btn-desktop { display: grid; }
+    .main-header { align-items: center; }
 
     .sidebar {
         transform: translateX(0);

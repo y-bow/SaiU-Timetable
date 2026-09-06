@@ -7,29 +7,29 @@
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#0D0D0D",
-  "theme_color": "#0D0D0D",
+  "background_color": "#000000",
+  "theme_color": "#000000",
   "icons": [
     {
-      "src": "icons/favicon/favicon-192.png?v=2026-09-04-004",
+      "src": "icons/favicon/favicon-192.png?v=2026-09-06-001",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "icons/app/white-icon-512.png?v=2026-09-04-004",
+      "src": "icons/app/white-icon-512.png?v=2026-09-06-001",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "icons/app/white-icon-maskable-192.png?v=2026-09-04-004",
+      "src": "icons/app/white-icon-maskable-192.png?v=2026-09-06-001",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
     },
     {
-      "src": "icons/app/white-icon-maskable-512.png?v=2026-09-04-004",
+      "src": "icons/app/white-icon-maskable-512.png?v=2026-09-06-001",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"

@@ -1,5 +1,5 @@
-import { isAiEnabled, askTimetableAI } from '../services/timetable-ai.js?v=2026-09-04-004';
-import { trackEvent } from '../services/analytics.js?v=2026-09-04-004';
+import { isAiEnabled, askTimetableAI } from '../services/timetable-ai.js?v=2026-09-06-001';
+import { trackEvent } from '../services/analytics.js?v=2026-09-06-001';
 
 /**
  * "Ask SaiU AI" — chat panel.

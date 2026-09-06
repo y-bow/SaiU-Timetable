@@ -16,7 +16,7 @@
     <meta name="twitter:title" content="SaiU · Teacher Timetable">
     <meta name="twitter:description" content="Weekly timetable for every SaiU teacher — SCDS, SOAI and SOB — rebuilt from the same public timetable sheets as the student app.">
     <meta name="twitter:image" content="https://y-bow.github.io/SaiU-Timetable/icons/app/white-icon-512.png">
-    <meta name="theme-color" content="#0D0D0D">
+    <meta name="theme-color" content="#000000">
 
     <script>
         // Apply saved theme (background + accent) before first paint so there is
@@ -25,40 +25,51 @@
         (function () {
             try {
                 var KEY = 'tt-theme';
-                var BGS = ['dark', 'light', 'slate', 'navy', 'warm'];
-                var ACCENTS = ['red', 'blue', 'purple', 'green', 'orange', 'teal'];
-                var META = { dark: '#0D0D0D', light: '#F3F4F6', slate: '#0F172A', navy: '#0A1A30', warm: '#171310' };
+                var BGS = ['dark', 'light', 'warm', 'cool'];
+                var LEGACY = { red: '#d85757', blue: '#3b6fe0', purple: '#7c5cfc', green: '#0b8a5f', orange: '#ea7a12', teal: '#0f7a75' };
+                var HEX = /^#[0-9a-f]{6}$/i;
+                var BASES = { dark: '#000000', light: '#F3F4F6', warm: '#171310', cool: '#171E29' };
+                function mix(a, b, w) {
+                    function p(h) { h = h.replace('#', ''); return [h.slice(0, 2), h.slice(2, 4), h.slice(4, 6)].map(function (s) { return parseInt(s, 16); }); }
+                    var A = p(a), B = p(b);
+                    return '#' + A.map(function (v, i) { return Math.round(v + (B[i] - v) * w).toString(16).padStart(2, '0'); }).join('');
+                }
                 var saved = null;
                 try { saved = localStorage.getItem(KEY); } catch (_) {}
-                var bg = 'dark', accent = 'red';
+                var bg = 'dark', accent = '#d85757', bgColor = '';
                 if (saved) {
                     var t = JSON.parse(saved);
                     if (t && typeof t === 'object') {
                         if (BGS.indexOf(t.background) !== -1) bg = t.background;
-                        if (ACCENTS.indexOf(t.accent) !== -1) accent = t.accent;
+                        if (HEX.test(t.accent)) accent = t.accent;
+                        else if (LEGACY[t.accent]) accent = LEGACY[t.accent];
+                        if (HEX.test(t.bgColor)) bgColor = t.bgColor;
                     }
                 }
+                var tint = bgColor || BASES[bg];
                 var doc = document.documentElement;
                 doc.setAttribute('data-bg', bg);
                 doc.setAttribute('data-accent', accent);
+                doc.setAttribute('data-bg-color', tint);
+                doc.style.setProperty('--bg-tint', tint);
                 var meta = document.querySelector('meta[name="theme-color"]');
-                if (meta && META[bg]) meta.setAttribute('content', META[bg]);
+                if (meta) meta.setAttribute('content', mix(BASES[bg], tint, 0.12));
             } catch (_) {}
         })();
     </script>
 
-    <script src="js/generated/build.js?v=2026-09-04-004" defer></script>
-    <link rel="preload" href="style.css?v=2026-09-04-004" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="style.css?v=2026-09-04-004"></noscript>
-    <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon/favicon-32.png?v=2026-09-04-004">
-    <link rel="icon" type="image/png" sizes="48x48" href="icons/favicon/favicon-48.png?v=2026-09-04-004">
-    <link rel="icon" type="image/png" sizes="192x192" href="icons/favicon/favicon-192.png?v=2026-09-04-004">
-    <link rel="icon" type="image/png" sizes="512x512" href="icons/app/white-icon-512.png?v=2026-09-04-004">
+    <script src="js/generated/build.js?v=2026-09-06-001" defer></script>
+    <link rel="preload" href="style.css?v=2026-09-06-001" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="style.css?v=2026-09-06-001"></noscript>
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon/favicon-32.png?v=2026-09-06-001">
+    <link rel="icon" type="image/png" sizes="48x48" href="icons/favicon/favicon-48.png?v=2026-09-06-001">
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/favicon/favicon-192.png?v=2026-09-06-001">
+    <link rel="icon" type="image/png" sizes="512x512" href="icons/app/white-icon-512.png?v=2026-09-06-001">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="SaiU Teacher Timetable">
-    <link rel="apple-touch-icon" href="icons/app/apple-touch-icon.png?v=2026-09-04-004">
+    <link rel="apple-touch-icon" href="icons/app/apple-touch-icon.png?v=2026-09-06-001">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
@@ -68,7 +79,7 @@
 
     <header class="teacher-topbar">
         <h1 class="teacher-title">
-            <img class="brand-logo" src="icons/favicon/favicon-48.png?v=2026-09-04-004" alt="" aria-hidden="true" width="48" height="48" decoding="async">
+            <img class="brand-logo" src="icons/favicon/favicon-48.png?v=2026-09-06-001" alt="" aria-hidden="true" width="48" height="48" decoding="async">
             Teacher Timetable
         </h1>
         <div class="teacher-topbar-actions">
@@ -125,6 +136,6 @@
 
     <div class="toast" role="status" aria-live="polite"></div>
 
-    <script type="module" src="js/teachers/teacher-app.js?v=2026-09-04-004"></script>
+    <script type="module" src="js/teachers/teacher-app.js?v=2026-09-06-001"></script>
 </body>
 </html>
