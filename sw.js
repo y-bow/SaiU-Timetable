@@ -31,7 +31,7 @@ const isDevHost = DEV_HOSTS.includes(self.location.hostname);
 
 // Replaced by scripts/build.mjs on every build — the file's bytes change every
 // deployment so the Service Worker update is always detected.
-const BUILD_ID = '2026-09-06-004';
+const BUILD_ID = '2026-09-07-001';
 
 // Versioned cache names. Old caches are deleted on activate so stale assets
 // never survive a deployment. Both names change every build.
@@ -67,14 +67,10 @@ const ASSETS = [
   versioned('js/services/timetable-sync.js'),
   versioned('js/services/lab-fetch.js'),
   versioned('js/services/teacher-fetch.js'),
-  versioned('js/services/n8n.js'),
-  versioned('js/services/timetable-ai.js'),
-  versioned('js/services/timetable-test-harness.js'),
   versioned('js/ui/navigation.js'),
   versioned('js/ui/ui.js'),
   versioned('js/ui/display.js'),
   versioned('js/ui/lab-section.js'),
-  versioned('js/ui/ai-assistant.js'),
   versioned('js/ui/free-rooms.js'),
   versioned('js/core/spring.js'),
   versioned('js/core/app.js'),

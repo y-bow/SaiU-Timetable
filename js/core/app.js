@@ -1,26 +1,18 @@
-import { CONFIG } from './config.js?v=2026-09-06-004';
-import { parseCSV, parseRoomOccupancy, offeringKey } from '../data/parser.js?v=2026-09-06-004';
-import { compareTimetables, classIdentity, setChangeDetectorDebug } from '../data/change-detector.js?v=2026-09-06-004';
-import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen, hasSeenElectiveSectionModal, markElectiveSectionModalSeen } from '../services/storage.js?v=2026-09-06-004';
-import * as nav from '../ui/navigation.js?v=2026-09-06-004';
-import * as ui from '../ui/ui.js?v=2026-09-06-004';
-import { checkArjunSinghTransition, resetArjunSinghTransition } from '../ui/easter-eggs.js?v=2026-09-06-004';
-import * as labSection from '../ui/lab-section.js?v=2026-09-06-004';
-import { loadMergedYear1Timetable, loadMergedYear2Timetable } from '../services/lab-fetch.js?v=2026-09-06-004';
-import { matchesEmergingToolsSection } from '../data/lab-parser.js?v=2026-09-06-004';
-import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-09-06-004';
-import { init as initAnalytics, trackEvent } from '../services/analytics.js?v=2026-09-06-004';
-import { dispatchTimetableChanges, setN8nDebug } from '../services/n8n.js?v=2026-09-06-004';
-// Localhost-only dev console harness for timetable change notifications
-// (window.testRoomChangeNotification / testTimeChangeNotification /
-// testInvalidRoomChange). This side-effect import executes the module, which
-// attaches the functions itself; the module self-gates on localhost, so the
-// production build is never affected.
-import '../services/timetable-test-harness.js?v=2026-09-06-004';
-import { initAiAssistant } from '../ui/ai-assistant.js?v=2026-09-06-004';
-import { initFreeRooms } from '../ui/free-rooms.js?v=2026-09-06-004';
-import { detectClashes } from '../data/clash-detector.js?v=2026-09-06-004';
-import { applyStoredTheme, initThemeControls } from './theme.js?v=2026-09-06-004';
+import { CONFIG } from './config.js?v=2026-09-07-001';
+import { parseCSV, parseRoomOccupancy, offeringKey } from '../data/parser.js?v=2026-09-07-001';
+import { compareTimetables, classIdentity } from '../data/change-detector.js?v=2026-09-07-001';
+import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen, hasSeenElectiveSectionModal, markElectiveSectionModalSeen } from '../services/storage.js?v=2026-09-07-001';
+import * as nav from '../ui/navigation.js?v=2026-09-07-001';
+import * as ui from '../ui/ui.js?v=2026-09-07-001';
+import { checkArjunSinghTransition, resetArjunSinghTransition } from '../ui/easter-eggs.js?v=2026-09-07-001';
+import * as labSection from '../ui/lab-section.js?v=2026-09-07-001';
+import { loadMergedYear1Timetable, loadMergedYear2Timetable } from '../services/lab-fetch.js?v=2026-09-07-001';
+import { matchesEmergingToolsSection } from '../data/lab-parser.js?v=2026-09-07-001';
+import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-09-07-001';
+import { init as initAnalytics, trackEvent } from '../services/analytics.js?v=2026-09-07-001';
+import { initFreeRooms } from '../ui/free-rooms.js?v=2026-09-07-001';
+import { detectClashes } from '../data/clash-detector.js?v=2026-09-07-001';
+import { applyStoredTheme, initThemeControls } from './theme.js?v=2026-09-07-001';
 
 /**
  * App bootstrap, fetch, and interactivity.
@@ -242,22 +234,6 @@ function syncSections() {
     }
 }
 
-// The current navigation context, as n8n events need it. Records parsed from
-// the sheet usually carry day/subject/faculty/room/time but NOT school/year —
-// those come from the app's live navigation state, so event context is built
-// here rather than at parse time.
-function n8nContext() {
-    const year = nav.getYear();
-    const school = nav.getSchool();
-    return {
-        year: year?.id ?? null,
-        yearLevel: year?.level ?? null,
-        school: school?.id ?? null,
-        section: selectedSection,
-        labGroup: labSection.getLabGroup(),
-    };
-}
-
 // ============================================================
 // Data loading
 // ============================================================
@@ -378,11 +354,7 @@ async function load({ silent = false, background = false } = {}) {
         // Classes are compared, not spreadsheet cells — a class that moved to
         // another cell/room/time/day keeps its identity and is reported as
         // moved/room-changed, never as removed + unrelated added.
-        const changes = applyChanges(cached && cached.classes ? cached.classes : [], classes);
-        // Optional n8n notifications. Fire-and-forget and fully isolated: an
-        // empty webhook URL (the default) disables it entirely; the sender
-        // never throws, so a broken n8n can never break this load.
-        dispatchTimetableChanges(changes, n8nContext());
+        applyChanges(cached && cached.classes ? cached.classes : [], classes);
         syncSections();
         render();
         trackEvent('timetable_refreshed', { source: background ? 'background' : silent ? 'manual' : 'initial' });
@@ -701,7 +673,6 @@ async function emergencyPWARefresh() {
         const STALE_KEYS = new Set([
             'tt-timetable-cache-v1',
             'tt-room-map-v3',
-            'tt-n8n-sent-v1',
             'tt-section',
         ]);
         const stalePrefixes = ['tt-cache-', 'tt-rooms-'];
@@ -1073,8 +1044,6 @@ function migrateLegacySection() {
 function init() {
     initAnalytics();
     initPWA();
-    setN8nDebug(!!CONFIG.N8N_DEBUG);
-    setChangeDetectorDebug(!!CONFIG.N8N_DEBUG);
     // Register navigation listeners BEFORE initNavigation() so the
     // navchange handler is in place when emit() fires inside
     // initNavigation().  Without this, fresh users (no saved state) see
@@ -1092,7 +1061,6 @@ function init() {
     initPullToRefresh();
     initActions();
     initAutoRefresh();
-    initAiAssistant({ getClasses: () => classes, getContext: n8nContext });
     initFreeRooms({
         getClasses: () => classes,
         getSelectedDay: () => selectedDay || contextDay(),

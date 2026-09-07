@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "A modern timetable management and analytics platform for Sai University with AI-powered queries, live notifications, and offline support.",
+  "description": "A modern timetable management and analytics platform for Sai University.",
   "keywords": [
     "timetable",
     "university",
@@ -12,8 +12,6 @@
     "progressive-web-app",
     "education",
     "schedule",
-    "n8n",
-    "ai-assistant",
     "google-sheets"
   ],
   "author": "B. Vaibhav",
@@ -27,7 +25,6 @@
     "build": "node scripts/build.mjs",
     "test:parser": "node scripts/test-parser.mjs",
     "test:teachers": "node scripts/test-teachers.mjs",
-    "test:n8n": "node scripts/test-n8n.mjs",
     "test:labs": "node scripts/test-labs.mjs",
     "test:frog": "node scripts/test-frog.mjs",
     "test:free-rooms": "node scripts/test-free-rooms.mjs",

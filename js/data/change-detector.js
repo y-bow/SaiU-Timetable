@@ -18,7 +18,7 @@
  *
  * One class pair can produce MORE than one record when independent properties
  * change together (room AND time, or room AND lab teacher). Each record is one
- * independent change, so every meaningful change can reach n8n as its own
+ * independent change, so every meaningful change is reported as its own
  * supported event (room_changed / time_changed) instead of being flattened
  * into a generic "moved" / "modified" notification.
  *
@@ -44,7 +44,7 @@ const norm = (s) => String(s ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
 // room the sheet has not announced yet suddenly "moved"). Every room / time
 // comparison in classify() therefore requires BOTH sides to be known values;
 // a comparison that cannot be trusted is ignored here — it never becomes a
-// change record, so it can never reach n8n.
+// change record.
 // ---------------------------------------------------------------------------
 
 /** True for values that carry no real timetable data: null, undefined, empty
