@@ -119,6 +119,8 @@ export const SCHOOLS = [
                         ],
                     },
                     { id: 'fundamentals-of-business-organization-and-management', label: 'Fundamentals of Business Organization & Management' },
+                    { id: 'conflict-in-contemporary-international-relations', label: 'Conflicts in Contemporary International Relations' },
+                    { id: 'digital-healthcare', label: 'Digital Healthcare' },
                 ],
             },
             {

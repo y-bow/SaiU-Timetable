@@ -1,18 +1,18 @@
-import { CONFIG } from './config.js?v=2026-09-07-001';
-import { parseCSV, parseRoomOccupancy, offeringKey } from '../data/parser.js?v=2026-09-07-001';
-import { compareTimetables, classIdentity } from '../data/change-detector.js?v=2026-09-07-001';
-import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen, hasSeenElectiveSectionModal, markElectiveSectionModalSeen } from '../services/storage.js?v=2026-09-07-001';
-import * as nav from '../ui/navigation.js?v=2026-09-07-001';
-import * as ui from '../ui/ui.js?v=2026-09-07-001';
-import { checkArjunSinghTransition, resetArjunSinghTransition } from '../ui/easter-eggs.js?v=2026-09-07-001';
-import * as labSection from '../ui/lab-section.js?v=2026-09-07-001';
-import { loadMergedYear1Timetable, loadMergedYear2Timetable } from '../services/lab-fetch.js?v=2026-09-07-001';
-import { matchesEmergingToolsSection } from '../data/lab-parser.js?v=2026-09-07-001';
-import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-09-07-001';
-import { init as initAnalytics, trackEvent } from '../services/analytics.js?v=2026-09-07-001';
-import { initFreeRooms } from '../ui/free-rooms.js?v=2026-09-07-001';
-import { detectClashes } from '../data/clash-detector.js?v=2026-09-07-001';
-import { applyStoredTheme, initThemeControls } from './theme.js?v=2026-09-07-001';
+import { CONFIG } from './config.js?v=2026-09-08-001';
+import { parseCSV, parseRoomOccupancy, offeringKey } from '../data/parser.js?v=2026-09-08-001';
+import { compareTimetables, classIdentity } from '../data/change-detector.js?v=2026-09-08-001';
+import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen, hasSeenElectiveSectionModal, markElectiveSectionModalSeen } from '../services/storage.js?v=2026-09-08-001';
+import * as nav from '../ui/navigation.js?v=2026-09-08-001';
+import * as ui from '../ui/ui.js?v=2026-09-08-001';
+import { checkArjunSinghTransition, resetArjunSinghTransition } from '../ui/easter-eggs.js?v=2026-09-08-001';
+import * as labSection from '../ui/lab-section.js?v=2026-09-08-001';
+import { loadMergedYear1Timetable, loadMergedYear2Timetable } from '../services/lab-fetch.js?v=2026-09-08-001';
+import { matchesEmergingToolsSection } from '../data/lab-parser.js?v=2026-09-08-001';
+import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-09-08-001';
+import { init as initAnalytics, trackEvent } from '../services/analytics.js?v=2026-09-08-001';
+import { initFreeRooms } from '../ui/free-rooms.js?v=2026-09-08-001';
+import { detectClashes } from '../data/clash-detector.js?v=2026-09-08-001';
+import { applyStoredTheme, initThemeControls } from './theme.js?v=2026-09-08-001';
 
 /**
  * App bootstrap, fetch, and interactivity.

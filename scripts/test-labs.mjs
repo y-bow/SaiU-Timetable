@@ -97,7 +97,7 @@ try {
     await check('lab cache keys are per-source', () => {
         const keys = Object.values(YEAR_2_LAB_SOURCES).map(labCacheKey);
         assert.equal(new Set(keys).size, keys.length);
-        assert.ok(keys.every((k) => k.startsWith('tt-cache-scds-2-')));
+        assert.ok(keys.every((k) => k.startsWith('tt-cache-v2-scds-2-')));
     });
     await check('isYear2SCDS recognises only the scds-2 year', () => {
         assert.ok(isYear2SCDS({ id: 'scds-2' }));
@@ -437,7 +437,7 @@ const etElectives = [{ id: 'emerging-tools-and-applications', label: 'Emerging T
         assert.equal(r.records.length, 1);
     });
     await check('failed fetch with no cache reports error (does not throw)', async () => {
-        store.delete('tt-cache-scds-2-daa-lab');
+        store.delete('tt-cache-v2-scds-2-daa-lab');
         globalThis.fetch = async () => { throw new Error('offline'); };
         const r = await fetchLabSource(configured);
         assert.equal(r.status, 'error');
@@ -448,7 +448,7 @@ const etElectives = [{ id: 'emerging-tools-and-applications', label: 'Emerging T
         globalThis.fetch = async () => ({ ok: true, text: async () => daaSheetOneRow });
         const seed = await fetchLabSource(configured);
         assert.equal(seed.status, 'ok');
-        assert.equal(store.get('tt-cache-scds-2-daa-lab') !== null, true);
+        assert.equal(store.get('tt-cache-v2-scds-2-daa-lab') !== null, true);
 
         // Give the real config objects live (fake) sheet ids, mimicking the
         // post-configuration state, then make FDE fail hard.

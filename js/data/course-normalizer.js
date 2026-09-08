@@ -102,7 +102,7 @@ const COURSE_DEFINITIONS = [
     { canonical: 'design-and-analysis-of-algorithms', display: 'Design and Analysis of Algorithms', aliases: ['DAA', 'Design and analysis of algorithms'] },
     { canonical: 'foundation-of-data-engineering', display: 'Foundation of Data Engineering', aliases: ['FDE'] },
     { canonical: 'intelligent-embedded-systems', display: 'Intelligent Embedded Systems', aliases: ['INT EMB', 'INTT EMB'] },
-    { canonical: 'emerging-tools-and-applications', display: 'Emerging Tools and Applications', aliases: ['ET', 'Emerging Tools', 'Emerging Tools and Applications', 'Emering Tools and Applications'] },
+    { canonical: 'emerging-tools-and-applications', display: 'Emerging Tools and Applications', aliases: ['ET', 'Emerging Tools', 'Emerging Tools and Applications', 'Emering Tools and Applications', 'ETA'] },
     // The Year 2 "Emg Lab" tab is the lab of the Emerging Tools course. Its own
     // canonical id keeps it distinct from the lecture (lecture + lab never
     // collapse into one record); "… Lab" is a classification/display property.
