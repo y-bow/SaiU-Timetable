@@ -42,6 +42,7 @@ export const SCHOOLS = [
                     'Engineering Foundation and Application',
                     'Frontiers of AI',
                     'Applied Mathematics',
+                    'ICD',
                 ],
                 electives: null,
             },
@@ -344,7 +345,6 @@ export const SCHOOLS = [
                 parser: 'grid',
                 mandatoryCourses: [
                     'Human Rights and Duties',
-                    'Constitutional Law-1',
                     'Constitutional Law-2',
                     'Company Law',
                     'Property Law',

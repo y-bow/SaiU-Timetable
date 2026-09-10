@@ -23,7 +23,7 @@
  * multiple offerings in the sheet is supported with no per-course config.
  */
 
-import { resolveCourse, splitLabSuffix } from './course-normalizer.js?v=2026-09-08-001';
+import { resolveCourse, splitLabSuffix } from './course-normalizer.js?v=2026-09-08-002';
 
 const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
 const SECTION_REGEX = /\(Sec\s*(\d+)\)/i;
@@ -109,7 +109,9 @@ export function normalizeFacultyName(faculty) {
  *   information only — it does NOT restrict which columns are parsed. Every
  *   non-empty column in the room declaration row is inspected, and any class
  *   cell with a section marker or matching elective is emitted regardless of
- *   whether its room is in this list.
+ *   whether its room is in this list. Cells in columns the room row leaves
+ *   blank are inspected with the same rule (room left empty), so a class whose
+ *   sheet column has no room header is not silently dropped.
  */
 export function parseCSV(text, parserType = 'grid', mandatoryCourses = null, electives = null, rooms = null) {
     const raw = parserType === 'list'
@@ -441,7 +443,7 @@ const SUBJECT_ALIASES = [
     { match: /^PIC$/i, name: 'Programming in C' },
     { match: /^Programming in C$/i, name: 'Programming in C' },
     { match: /^EFA$/i, name: 'Engineering Foundation and Application' },
-    { match: /^Engineering Foundation(?:\s+and|\s*&)\s*Application$/i, name: 'Engineering Foundation and Application' },
+    { match: /^Engineering Foundations?(?:\s+(?:and|&)\s*Application)?$/i, name: 'Engineering Foundation and Application' },
     { match: /^AM$/i, name: 'Applied Mathematics' },
     { match: /^Applied Mathematics$/i, name: 'Applied Mathematics' },
     // "Critical Thinking" and "Frontiers of AI" aliases already exist below
@@ -486,8 +488,6 @@ const SUBJECT_ALIASES = [
     // strip leaves a trailing dash that is part of the course name, not a
     // teacher separator. These aliases fold that spelling (and the
     // space-spelled variants) back onto the exact names.
-    { match: /^Con?s?titutional\s+Law\s*[-–]?\s*1\s*[-–]?$/i, name: 'Constitutional Law-1' },
-    { match: /^SL020$/i, name: 'Constitutional Law-1' },
     { match: /^Con?s?titutional\s+Law\s*[-–]?\s*2\s*[-–]?$/i, name: 'Constitutional Law-2' },
     { match: /^SL021$/i, name: 'Constitutional Law-2' },
     { match: /^SL023$/i, name: 'Company Law' },
@@ -640,27 +640,24 @@ function parseGridCSVRooms(text, electives = null, rooms = null) {
         if (!roomRow) continue;
 
         const slotDedup = new Set();
-        for (let j = 0; j < roomRow.length; j++) {
-            const roomVal = roomRow[j];
-            if (!roomVal) continue;
-            const roomKey = normalizeRoom(roomVal);
-            if (!roomKey) continue;
 
+        // Emit ONE class from a class-row column. Shared by the named-room scan
+        // and the unnamed-column fallback below so both paths use identical
+        // acceptance rules: a cell is kept only when it carries a section marker
+        // or matches a configured elective.
+        const emitCell = (j, roomDedup, roomLabel) => {
             const cell = row[j];
-            if (!cell) continue;
-
+            if (!cell || /LUNCH|OPEN BLOCK/i.test(cell)) return;
             const { subject, faculty, section } = splitClassCell(cell);
             const name = expandSubjectAlias(subject);
             const { base: baseName, isLab } = splitLabSuffix(name);
             const elective = matchElective(baseName.toLowerCase());
-            if (section == null && !elective) continue;
-            if (!name) continue;
+            if (section == null && !elective) return;
+            if (!name) return;
 
-            const dedupKey = `${roomKey}|${name}|${faculty}|${section ?? 1}|${times.start}`;
-            if (slotDedup.has(dedupKey)) continue;
+            const dedupKey = `${roomDedup}|${name}|${faculty}|${section ?? 1}|${times.start}`;
+            if (slotDedup.has(dedupKey)) return;
             slotDedup.add(dedupKey);
-
-            const roomLabel = String(roomVal).replace(/\s+/g, ' ');
 
             data.push({
                 day: currentDay,
@@ -674,6 +671,26 @@ function parseGridCSVRooms(text, electives = null, rooms = null) {
                 ...(elective ? { elective: elective.id, displayName: elective.label } : {}),
                 ...(isLab ? { lab: true } : {}),
             });
+        };
+
+        // 1. Columns whose current room is declared by the room row.
+        for (let j = 0; j < roomRow.length; j++) {
+            const roomVal = roomRow[j];
+            if (!roomVal) continue;
+            const roomKey = normalizeRoom(roomVal);
+            if (!roomKey) continue;
+            emitCell(j, roomKey, String(roomVal).replace(/\s+/g, ' '));
+        }
+
+        // 2. Cells in columns the room row did NOT name (an empty room cell / a
+        //    column beyond the room row's extent). A room is metadata for
+        //    locating classes, not a gate: a sectioned class or a configured
+        //    elective is still kept when the sheet leaves the column's room
+        //    blank. The room stays empty and renders as "Room TBA".
+        for (let j = 2; j < row.length; j++) {
+            const roomVal = j < roomRow.length ? roomRow[j] : '';
+            if (roomVal && normalizeRoom(roomVal)) continue;
+            emitCell(j, '', '');
         }
     }
     return data;
