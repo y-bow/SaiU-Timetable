@@ -11,10 +11,10 @@
  * never invented — the timeline simply shows the classes that exist.
  */
 
-import { loadTeacherIndex } from '../services/teacher-fetch.js?v=2026-09-11-001';
-import { CONFIG } from '../core/config.js?v=2026-09-11-001';
-import { toMinutes, minutesToLabel, minutesToClock, todayName, WEEKDAYS, labSubjectLabel } from '../core/utils.js?v=2026-09-11-001';
-import { confirmTeacherMerge, dismissTeacherMerge } from '../data/teacher-identity.js?v=2026-09-11-001';
+import { loadTeacherIndex } from '../services/teacher-fetch.js?v=2026-09-11-002';
+import { CONFIG } from '../core/config.js?v=2026-09-11-002';
+import { toMinutes, minutesToLabel, minutesToClock, todayName, WEEKDAYS, labSubjectLabel } from '../core/utils.js?v=2026-09-11-002';
+import { confirmTeacherMerge, dismissTeacherMerge } from '../data/teacher-identity.js?v=2026-09-11-002';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -470,87 +470,27 @@ function initPullToRefresh() {
 // PWA update flow
 // ============================================================
 
-const UPDATE_RELOAD_KEY = 'tt-update-reload-teacher';
-
 function isDevHost() {
     return ['localhost', '127.0.0.1', '::1', '0.0.0.0'].includes(location.hostname);
 }
 
-function reloadOnce(version) {
-    try {
-        if (sessionStorage.getItem(UPDATE_RELOAD_KEY) === version) return false;
-        sessionStorage.setItem(UPDATE_RELOAD_KEY, version);
-    } catch { /* private mode — reload freely */ }
-    if (document.hidden) {
-        document.addEventListener('visibilitychange', () => {
-            if (!document.hidden) window.location.reload();
-        }, { once: true });
-    } else {
-        window.location.reload();
-    }
-    return true;
-}
-
-function controllerBuildId() {
-    const scriptURL = navigator.serviceWorker.controller && navigator.serviceWorker.controller.scriptURL;
-    if (!scriptURL) return null;
-    try { return new URL(scriptURL).searchParams.get('v'); } catch { return null; }
-}
-
+/**
+ * Register the Service Worker. The SW itself handles caching strategy and
+ * background cache refresh — no page-level reload is triggered on updates.
+ */
 async function initServiceWorkerUpdate() {
     if (!('serviceWorker' in navigator) || isDevHost() || !location.protocol.startsWith('https')) return;
 
-    const hadController = !!navigator.serviceWorker.controller;
-
     try {
-        // Attach the controllerchange listener BEFORE registering. If the new
-        // service worker activates during the await register() call, the event
-        // would otherwise be lost — causing the page to never reload.
-        navigator.serviceWorker.addEventListener('controllerchange', () => {
-            if (!hadController) return;
-            const version = controllerBuildId() || CONFIG.BUILD_ID;
-            reloadOnce(version);
-        });
-
         const reg = await navigator.serviceWorker.register('./sw.js?v=' + encodeURIComponent(CONFIG.BUILD_ID));
-
-        const askToActivate = (worker) => {
-            if (worker && worker.state === 'installed') {
-                worker.postMessage({ type: 'SKIP_WAITING' });
-            }
-        };
-
-        askToActivate(reg.waiting);
-
-        const watchInstalling = () => {
-            const worker = reg.installing;
-            if (!worker) return;
-            worker.addEventListener('statechange', () => {
-                if (worker.state === 'installed') askToActivate(worker);
-            });
-        };
-        watchInstalling();
-        reg.addEventListener('updatefound', watchInstalling);
 
         setInterval(() => reg.update().catch(() => {}), 60 * 60 * 1000);
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden) reg.update().catch(() => {});
         });
 
-        // When the device comes back online, probe for a new service worker
-        // immediately — useful on mobile where the tab may be suspended.
         window.addEventListener('online', () => reg.update().catch(() => {}));
     } catch { /* registration failed — page works without SW */ }
-}
-
-async function checkForRemoteUpdate() {
-    if (!navigator.onLine || isDevHost()) return;
-    try {
-        const res = await fetch('build.json?v=' + Date.now(), { cache: 'no-store' });
-        if (!res.ok) return;
-        const meta = await res.json();
-        if (meta && meta.id && meta.id !== CONFIG.BUILD_ID) reloadOnce(meta.id);
-    } catch { /* offline / transient — ignore */ }
 }
 
 // ============================================================
@@ -576,7 +516,6 @@ function init() {
 
     initPullToRefresh();
     initServiceWorkerUpdate();
-    checkForRemoteUpdate();
 
     // Courses added to the sheets/config show up automatically: every load
     // rebuilds the index from the live sheet, and a silent periodic refresh
@@ -587,7 +526,3 @@ function init() {
 }
 
 document.addEventListener('DOMContentLoaded', init);
-
-window.addEventListener('pageshow', (e) => {
-    if (e.persisted) window.location.reload();
-});

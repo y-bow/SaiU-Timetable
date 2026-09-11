@@ -11,8 +11,9 @@
 //       saiu-data-{BUILD_ID}    — timetable data (Google Sheets responses)
 //   - On activation ALL old caches are deleted. Only the current version's
 //     caches survive, so stale assets never persist across deployments.
-//   - HTML (navigations) is NETWORK-FIRST: the latest page is always
-//     fetched when online; the cached copy is only an offline fallback.
+//   - HTML (navigations) is CACHE-FIRST: the cached app shell is served
+//     immediately (even offline). Online, the cache is refreshed in the
+//     background so the next navigation gets the latest HTML.
 //   - Static assets (CSS/JS/icons/fonts) use versioned URLs (?v=BUILD_ID),
 //     so Cache-First is safe: a new build references new URLs and the old
 //     ones are purged with the old cache.
@@ -31,7 +32,7 @@ const isDevHost = DEV_HOSTS.includes(self.location.hostname);
 
 // Replaced by scripts/build.mjs on every build — the file's bytes change every
 // deployment so the Service Worker update is always detected.
-const BUILD_ID = '2026-09-11-001';
+const BUILD_ID = '2026-09-11-002';
 
 // Versioned cache names. Old caches are deleted on activate so stale assets
 // never survive a deployment. Both names change every build.
@@ -189,28 +190,36 @@ async function cacheFirst(request, cacheName) {
   return response;
 }
 
-async function networkFirst(request, cacheName, fallback, fetchOptions) {
-  try {
-    const response = await fetch(request, fetchOptions);
-    if (cacheable(response)) {
-      const copy = response.clone();
-      const cache = await caches.open(cacheName);
-      await cache.put(request, copy);
-      return response;
-    }
-    // Non-ok upstream response (404/429/5xx — Google Sheets rate limiting or
-    // an outage). Serve the last good cached copy instead of surfacing the
-    // error as a broken timetable load (the app would show a false "offline"
-    // toast). Only fall through when there is no cached copy at all.
-    const cached = await caches.match(request);
-    if (cached) return cached;
-    return response;
-  } catch {
-    const cached = await caches.match(request);
-    if (cached) return cached;
-    if (fallback) return caches.match(fallback);
-    throw new Error('Network request failed and no cached copy exists');
+/**
+ * Cache-first for HTML navigations.
+ *
+ * Serves the cached app shell immediately (even offline) so the user never
+ * waits for an unreachable network. Online, the cache is silently refreshed
+ * in the background so the NEXT navigation gets the latest HTML.
+ */
+async function cacheFirstHTML(request, event) {
+  const cached = await caches.match(request);
+  if (cached) {
+    // Background refresh — update cache for the next navigation.
+    event.waitUntil(
+      fetch(request)
+        .then((res) => {
+          if (cacheable(res)) {
+            return caches.open(STATIC_CACHE).then((c) => c.put(request, res));
+          }
+        })
+        .catch(() => {})
+    );
+    return cached;
   }
+  // No cached copy yet (first visit) — fetch from network.
+  const response = await fetch(request);
+  if (cacheable(response)) {
+    const copy = response.clone();
+    const cache = await caches.open(STATIC_CACHE);
+    await cache.put(request, copy);
+  }
+  return response;
 }
 
 // --- Install ---------------------------------------------------------------
@@ -285,12 +294,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // HTML navigations: network-first so a deployed update is never hidden
-  // behind a stale cached page. The cache copy is only an offline fallback.
-  // cache: 'no-store' ensures the browser's own HTTP cache cannot serve a
-  // stale HTML page with outdated ?v= asset references on mobile devices.
+  // HTML navigations: cache-first so the app shell loads instantly, even
+  // offline. Online, the cache is refreshed in the background so the next
+  // navigation gets the latest HTML.
   if (request.mode === 'navigate') {
-    event.respondWith(networkFirst(request, STATIC_CACHE, 'index.html', { cache: 'no-store' }));
+    event.respondWith(cacheFirstHTML(request, event));
     return;
   }
 
@@ -307,6 +315,6 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Anything else: network-first with cache fallback.
-  event.respondWith(networkFirst(request, DATA_CACHE));
+  // Anything else: cache-first with network fallback.
+  event.respondWith(cacheFirst(request, DATA_CACHE));
 });

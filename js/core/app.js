@@ -1,19 +1,19 @@
-import { CONFIG } from './config.js?v=2026-09-11-001';
-import { parseCSV, parseRoomOccupancy, offeringKey } from '../data/parser.js?v=2026-09-11-001';
-import { compareTimetables, classIdentity } from '../data/change-detector.js?v=2026-09-11-001';
-import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen, hasSeenElectiveSectionModal, markElectiveSectionModalSeen } from '../services/storage.js?v=2026-09-11-001';
-import * as nav from '../ui/navigation.js?v=2026-09-11-001';
-import * as ui from '../ui/ui.js?v=2026-09-11-001';
-import { checkArjunSinghTransition, resetArjunSinghTransition } from '../ui/easter-eggs.js?v=2026-09-11-001';
-import * as labSection from '../ui/lab-section.js?v=2026-09-11-001';
-import { loadMergedYear1Timetable, loadMergedYear2Timetable } from '../services/lab-fetch.js?v=2026-09-11-001';
-import { matchesEmergingToolsSection } from '../data/lab-parser.js?v=2026-09-11-001';
-import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-09-11-001';
-import { init as initAnalytics, trackEvent } from '../services/analytics.js?v=2026-09-11-001';
-import { initFreeRooms } from '../ui/free-rooms.js?v=2026-09-11-001';
-import { initTeacherLookup } from '../ui/teacher-lookup.js?v=2026-09-11-001';
-import { detectClashes } from '../data/clash-detector.js?v=2026-09-11-001';
-import { applyStoredTheme, initThemeControls } from './theme.js?v=2026-09-11-001';
+import { CONFIG } from './config.js?v=2026-09-11-002';
+import { parseCSV, parseRoomOccupancy, offeringKey } from '../data/parser.js?v=2026-09-11-002';
+import { compareTimetables, classIdentity } from '../data/change-detector.js?v=2026-09-11-002';
+import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen, hasSeenElectiveSectionModal, markElectiveSectionModalSeen } from '../services/storage.js?v=2026-09-11-002';
+import * as nav from '../ui/navigation.js?v=2026-09-11-002';
+import * as ui from '../ui/ui.js?v=2026-09-11-002';
+import { checkArjunSinghTransition, resetArjunSinghTransition } from '../ui/easter-eggs.js?v=2026-09-11-002';
+import * as labSection from '../ui/lab-section.js?v=2026-09-11-002';
+import { loadMergedYear1Timetable, loadMergedYear2Timetable } from '../services/lab-fetch.js?v=2026-09-11-002';
+import { matchesEmergingToolsSection } from '../data/lab-parser.js?v=2026-09-11-002';
+import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-09-11-002';
+import { init as initAnalytics, trackEvent } from '../services/analytics.js?v=2026-09-11-002';
+import { initFreeRooms } from '../ui/free-rooms.js?v=2026-09-11-002';
+import { initTeacherLookup } from '../ui/teacher-lookup.js?v=2026-09-11-002';
+import { detectClashes } from '../data/clash-detector.js?v=2026-09-11-002';
+import { applyStoredTheme, initThemeControls } from './theme.js?v=2026-09-11-002';
 
 /**
  * App bootstrap, fetch, and interactivity.
@@ -684,8 +684,7 @@ async function emergencyPWARefresh() {
             }
         }
 
-        // 4. Clear the version-probe and update-reload session guards so the
-        //    fresh page can re-detect the SW version cleanly.
+        // 4. Clear stale session guards so the fresh page loads cleanly.
         try {
             sessionStorage.removeItem('tt-probe-v');
             sessionStorage.removeItem('tt-update-reload');
@@ -884,86 +883,21 @@ function hideInstallButton() {
 // PWA update flow
 // ============================================================
 
-const UPDATE_RELOAD_KEY = 'tt-update-reload';
-
 function isDevHost() {
     return ['localhost', '127.0.0.1', '::1', '0.0.0.0'].includes(location.hostname);
 }
 
 /**
- * Reload the page at most once per target version. The sessionStorage key
- * holds the version we already reloaded to, so reload loops are impossible.
- */
-function reloadOnce(version) {
-    try {
-        if (sessionStorage.getItem(UPDATE_RELOAD_KEY) === version) return false;
-        sessionStorage.setItem(UPDATE_RELOAD_KEY, version);
-    } catch { /* private mode — reload freely */ }
-    if (document.hidden) {
-        document.addEventListener('visibilitychange', () => {
-            if (!document.hidden) window.location.reload();
-        }, { once: true });
-    } else {
-        window.location.reload();
-    }
-    return true;
-}
-
-function controllerBuildId() {
-    const scriptURL = navigator.serviceWorker.controller && navigator.serviceWorker.controller.scriptURL;
-    if (!scriptURL) return null;
-    try { return new URL(scriptURL).searchParams.get('v'); } catch { return null; }
-}
-
-/**
- * Register the Service Worker and drive the update lifecycle:
- *
- *   - Every build registers a versioned script URL (sw.js?v=BUILD_ID) so
- *     browsers always check for an update on startup.
- *   - When a new worker installs or is waiting, it is asked to
- *     skipWaiting() immediately (no manual reload, no closing the app).
- *   - When the new worker takes control (controllerchange) the page
- *     reloads exactly once, then runs a fully consistent version.
- *   - The deployed BUILD_ID (build.json) is compared against the running
- *     BUILD_ID as a safety net for browsers not using the SW; a newer
- *     version triggers the same single reload.
+ * Register the Service Worker. The SW itself handles caching strategy and
+ * background cache refresh — no page-level reload is triggered on updates.
+ * The SW uses skipWaiting() + clients.claim() so new versions take effect
+ * immediately for subsequent navigations.
  */
 async function initServiceWorkerUpdate() {
     if (!('serviceWorker' in navigator) || isDevHost() || !location.protocol.startsWith('https')) return;
 
-    const hadController = !!navigator.serviceWorker.controller;
-
     try {
-        // Attach the controllerchange listener BEFORE registering. If the new
-        // service worker activates during the await register() call, the event
-        // would otherwise be lost — causing the page to never reload.
-        navigator.serviceWorker.addEventListener('controllerchange', () => {
-            if (!hadController) return; // first install — no reload needed
-            const version = controllerBuildId() || CONFIG.BUILD_ID;
-            reloadOnce(version);
-        });
-
         const reg = await navigator.serviceWorker.register('./sw.js?v=' + encodeURIComponent(CONFIG.BUILD_ID));
-
-        const askToActivate = (worker) => {
-            if (worker && worker.state === 'installed') {
-                worker.postMessage({ type: 'SKIP_WAITING' });
-            }
-        };
-
-        // Worker already waiting from a previous session → activate now.
-        askToActivate(reg.waiting);
-
-        // New worker installing → activate as soon as it finishes installing.
-        const watchInstalling = () => {
-            const worker = reg.installing;
-            if (!worker) return;
-            worker.addEventListener('statechange', () => {
-                if (worker.state === 'installed') askToActivate(worker);
-            });
-        };
-        watchInstalling();
-        reg.addEventListener('updatefound', watchInstalling);
 
         // Re-check for updates while the app stays open, so a deployment
         // is picked up even in a long-running session.
@@ -981,24 +915,8 @@ async function initServiceWorkerUpdate() {
     }
 }
 
-/**
- * Compare the deployed BUILD_ID against the running one. A difference
- * means the served HTML predates the deployment, so reload once.
- * Network-first HTML makes this rare, but it is a cheap guarantee.
- */
-async function checkForRemoteUpdate() {
-    if (!navigator.onLine || isDevHost()) return;
-    try {
-        const res = await fetch('build.json?v=' + Date.now(), { cache: 'no-store' });
-        if (!res.ok) return;
-        const meta = await res.json();
-        if (meta && meta.id && meta.id !== CONFIG.BUILD_ID) reloadOnce(meta.id);
-    } catch { /* offline / transient — ignore */ }
-}
-
 function initPWA() {
     initServiceWorkerUpdate();
-    checkForRemoteUpdate();
 
     // Already installed — hide button
     if (isStandalone()) {
@@ -1081,13 +999,5 @@ function init() {
     load();
     startLiveClock();
 }
-
-// Detect BFCache restoration: when a mobile browser restores the page from
-// its back-forward cache (or standalone PWA page cache), no network requests
-// fire and the SW is bypassed entirely. The user sees stale CSS/JS. Force a
-// reload so the latest assets are served.
-window.addEventListener('pageshow', (e) => {
-    if (e.persisted) window.location.reload();
-});
 
 document.addEventListener('DOMContentLoaded', init);
