@@ -8,10 +8,10 @@
  * timetable load is never slowed down.
  */
 
-import { toMinutes, minutesToClock, minutesToLabel, todayName } from '../core/utils.js?v=2026-09-11-002';
-import { parseTeacherGrid, normalizeFacultyName } from '../data/parser.js?v=2026-09-11-002';
-import { buildIdentityResolution, teacherSearchText } from '../data/teacher-identity.js?v=2026-09-11-002';
-import { trackEvent } from '../services/analytics.js?v=2026-09-11-002';
+import { toMinutes, minutesToClock, minutesToLabel, todayName } from '../core/utils.js?v=2026-09-11-003';
+import { parseTeacherGrid, normalizeFacultyName } from '../data/parser.js?v=2026-09-11-003';
+import { buildIdentityResolution, teacherSearchText } from '../data/teacher-identity.js?v=2026-09-11-003';
+import { trackEvent } from '../services/analytics.js?v=2026-09-11-003';
 
 // ---------------------------------------------------------------------------
 // DOM helpers
@@ -376,6 +376,11 @@ function selectTeacher(id) {
     if (!teacherData || !teacherData.teachers.has(id)) return;
 
     const teacher = teacherData.teachers.get(id);
+    trackEvent('teacher_lookup_selected', {
+        teacher_id: id,
+        teacher_name: teacher.name,
+        selected_day: getSelectedDay() || '',
+    });
     const day = getSelectedDay();
     const timelineEl = $('#tl-timeline');
     const listEl = $('#tl-teacher-list');
