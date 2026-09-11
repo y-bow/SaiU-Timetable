@@ -8,10 +8,10 @@
  * timetable load is never slowed down.
  */
 
-import { toMinutes, minutesToClock, minutesToLabel, todayName } from '../core/utils.js?v=2026-09-11-001';
-import { parseTeacherGrid, normalizeFacultyName } from '../data/parser.js?v=2026-09-11-001';
-import { buildIdentityResolution, teacherSearchText } from '../data/teacher-identity.js?v=2026-09-11-001';
-import { trackEvent } from '../services/analytics.js?v=2026-09-11-001';
+import { toMinutes, minutesToClock, minutesToLabel, todayName } from '../core/utils.js?v=2026-09-11-002';
+import { parseTeacherGrid, normalizeFacultyName } from '../data/parser.js?v=2026-09-11-002';
+import { buildIdentityResolution, teacherSearchText } from '../data/teacher-identity.js?v=2026-09-11-002';
+import { trackEvent } from '../services/analytics.js?v=2026-09-11-002';
 
 // ---------------------------------------------------------------------------
 // DOM helpers
@@ -47,12 +47,13 @@ let focusTrapCleanup = null;
 let lastFocused = null;
 
 let getSelectedDay = () => null;
-let getCsvText = () => '';
+let getSheetUrl = () => null;
 
 // Built lazily on first open.
 let teacherData = null; // { resolution, teachers, allSlots }
+let loadingPromise = null; // dedup concurrent loads
 
-const MAIN_SHEET_CACHE_KEY = 'tt-teachers-main-sheet-v1';
+const TEACHER_CACHE_KEY = 'tt-teacher-lookup-cache-v1';
 const TEACHER_SPLIT_RE = /\s*(?:[,;/]|\band\b|&)\s*/gi;
 
 // ---------------------------------------------------------------------------
@@ -71,15 +72,48 @@ function splitTeachers(rawFaculty) {
 }
 
 // ---------------------------------------------------------------------------
-// Data building (runs once on first panel open)
+// localStorage helpers for teacher lookup cache
 // ---------------------------------------------------------------------------
 
-function buildTeacherData() {
-    if (teacherData) return teacherData;
+function readCache() {
+    try {
+        const raw = localStorage.getItem(TEACHER_CACHE_KEY);
+        return raw ? JSON.parse(raw) : null;
+    } catch { return null; }
+}
 
-    const csv = getCsvText();
-    if (!csv) return null;
+function writeCache(text) {
+    try { localStorage.setItem(TEACHER_CACHE_KEY, JSON.stringify({ text, savedAt: Date.now() })); }
+    catch { /* full / private mode */ }
+}
 
+// ---------------------------------------------------------------------------
+// CSV fetching — network-first, cache fallback
+// ---------------------------------------------------------------------------
+
+async function fetchCsv() {
+    const url = getSheetUrl();
+    if (!url) return null;
+
+    try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const text = await res.text();
+        if (!text.trim()) throw new Error('Empty sheet');
+        writeCache(text);
+        return text;
+    } catch {
+        // Fall back to localStorage cache.
+        const cached = readCache();
+        return cached && typeof cached.text === 'string' && cached.text.trim() ? cached.text : null;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Data building (runs once on first panel open, async)
+// ---------------------------------------------------------------------------
+
+function parseCsvToTeacherData(csv) {
     let rawClasses = [];
     try {
         rawClasses = parseTeacherGrid(csv);
@@ -147,8 +181,31 @@ function buildTeacherData() {
         slots.sort((a, b) => a.startMin - b.startMin);
     }
 
-    teacherData = { resolution, teachers, allSlots };
-    return teacherData;
+    return { resolution, teachers, allSlots };
+}
+
+async function ensureTeacherData() {
+    if (teacherData) return teacherData;
+    if (loadingPromise) return loadingPromise;
+
+    loadingPromise = (async () => {
+        // Try localStorage cache first (fast path).
+        const cached = readCache();
+        if (cached && typeof cached.text === 'string' && cached.text.trim()) {
+            const result = parseCsvToTeacherData(cached.text);
+            if (result) { teacherData = result; return teacherData; }
+        }
+        // Fetch from network.
+        const csv = await fetchCsv();
+        if (!csv) return null;
+        const result = parseCsvToTeacherData(csv);
+        if (result) teacherData = result;
+        return teacherData;
+    })();
+
+    const result = await loadingPromise;
+    loadingPromise = null;
+    return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -185,10 +242,9 @@ function ensureDom() {
 // Open / close
 // ---------------------------------------------------------------------------
 
-export function openPanel() {
+export async function openPanel() {
     if (!panel || panel.classList.contains('open')) return;
     lastFocused = document.activeElement;
-    renderContent();
     panel.classList.add('open');
     panel.setAttribute('aria-hidden', 'false');
     document.body.style.overflow = 'hidden';
@@ -197,11 +253,7 @@ export function openPanel() {
         selected_day: getSelectedDay() || '',
         source: 'timetable',
     });
-    // Focus the search input after the transition starts.
-    setTimeout(() => {
-        const input = panel.querySelector('.tl-search-input');
-        if (input) input.focus();
-    }, 100);
+    await renderContent();
 }
 
 function closePanel() {
@@ -238,7 +290,7 @@ function trapFocus(container, onEscape) {
 // Content rendering
 // ---------------------------------------------------------------------------
 
-function renderContent() {
+async function renderContent() {
     if (!contentEl) return;
     const day = getSelectedDay();
 
@@ -248,13 +300,21 @@ function renderContent() {
         dayLabel.textContent = day ? `${day}'s Schedule` : 'No day selected';
     }
 
-    const data = buildTeacherData();
+    // Show loading state while data loads.
+    contentEl.innerHTML = `
+        <div class="tl-empty">
+            <div class="tl-empty-icon">${EMPTY_ICON}</div>
+            <strong>Loading teachers…</strong>
+            <span>Fetching timetable data from the sheet.</span>
+        </div>`;
+
+    const data = await ensureTeacherData();
     if (!data) {
         contentEl.innerHTML = `
             <div class="tl-empty">
                 <div class="tl-empty-icon">${EMPTY_ICON}</div>
                 <strong>No teacher data</strong>
-                <span>Could not load teacher timetable data.</span>
+                <span>Could not load teacher timetable data. Check your connection.</span>
             </div>`;
         return;
     }
@@ -313,10 +373,9 @@ function renderContent() {
 // ---------------------------------------------------------------------------
 
 function selectTeacher(id) {
-    const data = buildTeacherData();
-    if (!data || !data.teachers.has(id)) return;
+    if (!teacherData || !teacherData.teachers.has(id)) return;
 
-    const teacher = data.teachers.get(id);
+    const teacher = teacherData.teachers.get(id);
     const day = getSelectedDay();
     const timelineEl = $('#tl-timeline');
     const listEl = $('#tl-teacher-list');
@@ -350,7 +409,7 @@ function selectTeacher(id) {
         .sort((a, b) => toMinutes(a.startTime) - toMinutes(b.startTime));
 
     // Get all time slots for this day.
-    const allSlots = data.allSlots.get(day) || [];
+    const allSlots = teacherData.allSlots.get(day) || [];
 
     if (!allSlots.length) {
         timelineEl.innerHTML = `
@@ -421,8 +480,8 @@ function selectTeacher(id) {
     timelineEl.innerHTML = html;
 
     // Wire back button.
-    $('#tl-back')?.addEventListener('click', () => {
-        renderContent();
+    $('#tl-back')?.addEventListener('click', async () => {
+        await renderContent();
     });
 }
 
@@ -433,11 +492,11 @@ function selectTeacher(id) {
 /**
  * Wire Teacher Lookup into the app. Creates the panel DOM and launch button.
  *
- * @param {{getSelectedDay?: () => string, getCsvText?: () => string}} opts
+ * @param {{getSelectedDay?: () => string, getSheetUrl?: () => string|null}} opts
  */
 export function initTeacherLookup(opts = {}) {
     getSelectedDay = opts.getSelectedDay || getSelectedDay;
-    getCsvText = opts.getCsvText || getCsvText;
+    getSheetUrl = opts.getSheetUrl || getSheetUrl;
     ensureDom();
     ensureLaunchButton();
 }
