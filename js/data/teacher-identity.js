@@ -206,6 +206,12 @@ export const TEACHER_ALIASES = [
     // variant ("Pankaj", "Pankaj Jain", "Dr.Pankaj", "Dr. Pankaj Jain") to
     // one canonical identity.
     { match: /^(?:dr\.?\s*)?pankaj(?:\s+jain)?$/i, id: 'pankaj-jain', displayName: 'Prof. Dr.Pankaj Jain' },
+    // Ms. Karen / Ms. Karen P Sneha — first-name-only vs full name merge.
+    { match: /^ms\.?\s*karen(?:\s+p\s+sneha)?$/i, id: 'karen-p-sneha', displayName: 'Prof. Ms.Karen P Sneha' },
+    // Meenakshi / Meenakshi Srihari — first-name-only vs full name merge.
+    { match: /^meenakshi(?:\s+srihari)?$/i, id: 'meenakshi-srihari', displayName: 'Prof. Meenakshi Srihari' },
+    // Vivek / Vivek Yadav — first-name-only vs full name merge.
+    { match: /^vivek(?:\s+yadav)?$/i, id: 'vivek-yadav', displayName: 'Prof. Vivek Yadav' },
 ];
 
 // ---------------------------------------------------------------------------
