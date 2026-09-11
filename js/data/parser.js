@@ -23,7 +23,7 @@
  * multiple offerings in the sheet is supported with no per-course config.
  */
 
-import { resolveCourse, splitLabSuffix } from './course-normalizer.js?v=2026-09-08-002';
+import { resolveCourse, splitLabSuffix } from './course-normalizer.js?v=2026-09-11-001';
 
 const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
 const SECTION_REGEX = /\(Sec\s*(\d+)\)/i;
