@@ -1996,6 +1996,211 @@ input[type="color"].theme-picker-input::-moz-color-swatch {
 }
 
 /* ============================================================
+   Teacher Lookup panel — mirrors free-rooms design language
+   ============================================================ */
+.teacher-lookup-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 16px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.tl-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    text-align: center;
+    padding: 48px 16px;
+    color: var(--text-secondary);
+    font-size: 0.88rem;
+    animation: fade-in 350ms both;
+}
+.tl-empty-icon { display: grid; place-items: center; color: var(--text-tertiary); margin-bottom: 4px; }
+.tl-empty strong { color: var(--text); font-size: 1rem; font-weight: 600; }
+.tl-empty span { color: var(--text-tertiary); font-size: 0.82rem; }
+
+/* Search input */
+.tl-search-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+.tl-search-icon {
+    position: absolute;
+    left: 12px;
+    color: var(--text-tertiary);
+    pointer-events: none;
+    display: inline-flex;
+}
+.tl-search-input {
+    width: 100%;
+    padding: 10px 12px 10px 38px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    color: var(--text);
+    font-size: 0.88rem;
+    outline: none;
+    transition: border-color var(--fast);
+}
+.tl-search-input:focus { border-color: var(--primary); }
+.tl-search-input::placeholder { color: var(--text-tertiary); }
+
+/* Teacher list */
+.tl-teacher-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 40vh;
+    overflow-y: auto;
+}
+.tl-teacher-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: var(--radius-md);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: border-color var(--fast), background var(--fast);
+    text-align: left;
+    width: 100%;
+}
+.tl-teacher-item:hover { border-color: var(--primary); background: var(--surface-3); }
+.tl-teacher-name {
+    font-size: 0.86rem;
+    font-weight: 500;
+    color: var(--text);
+}
+.tl-teacher-count {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    white-space: nowrap;
+}
+
+/* Timeline (selected teacher's day) */
+.tl-timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.tl-timeline.hidden { display: none; }
+.tl-back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    border-radius: var(--radius-sm);
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--primary-text);
+    background: var(--primary-soft);
+    border: 1px solid transparent;
+    cursor: pointer;
+    align-self: flex-start;
+    transition: border-color var(--fast), filter var(--fast);
+}
+.tl-back-btn:hover { border-color: var(--primary-text); filter: brightness(1.1); }
+.tl-day-label {
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0 2px;
+}
+
+.tl-slot {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 12px 14px;
+    animation: rise 350ms cubic-bezier(0.15, 0.5, 0.3, 1.05) backwards;
+}
+.tl-slot-busy { border-left: 3px solid var(--primary); }
+.tl-slot-free { border-left: 3px solid var(--success); }
+
+.tl-slot-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+.tl-slot-time {
+    font-size: 0.88rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+}
+.tl-slot-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 999px;
+}
+.tl-slot-badge-busy {
+    color: var(--primary-text);
+    background: var(--primary-soft);
+}
+.tl-slot-badge-free {
+    color: var(--success);
+    background: var(--success-soft);
+}
+.tl-slot-badge svg { flex-shrink: 0; }
+
+.tl-slot-detail {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+}
+.tl-slot-subject { font-weight: 500; }
+.tl-slot-room {
+    color: var(--text-tertiary);
+    font-size: 0.78rem;
+}
+
+.tl-summary {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--success);
+    background: var(--success-soft);
+    border-radius: var(--radius-md);
+    border: 1px solid transparent;
+    margin-top: 4px;
+}
+.tl-summary svg { flex-shrink: 0; }
+
+@media (min-width: 768px) {
+    .teacher-lookup-sheet {
+        top: 0; bottom: 0; left: auto;
+        width: 400px;
+        max-width: min(92vw, 400px);
+        max-height: none;
+        border-radius: 0;
+        border: 1px solid var(--border-bright);
+        border-right: none;
+        transform: translateX(100%);
+    }
+    .ai-panel.open .teacher-lookup-sheet { transform: translateX(0); }
+}
+
+/* ============================================================
    Animations — spring-like curves
    ============================================================ */
 @keyframes rise {
@@ -2030,7 +2235,7 @@ input[type="color"].theme-picker-input::-moz-color-swatch {
 
 /* Reduced transparency — frostier, near-solid surfaces */
 @media (prefers-reduced-transparency: reduce) {
-    .mobile-topbar, .sidebar, .section-modal-sheet, .toast, .ai-sheet, .free-rooms-sheet {
+    .mobile-topbar, .sidebar, .section-modal-sheet, .toast, .ai-sheet, .free-rooms-sheet, .teacher-lookup-sheet {
         background: #1E1E22 !important;
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
@@ -2039,7 +2244,7 @@ input[type="color"].theme-picker-input::-moz-color-swatch {
 
 /* High contrast — near-solid backgrounds, defined borders */
 @media (prefers-contrast: more) {
-    .mobile-topbar, .sidebar, .section-modal-sheet, .toast, .ai-sheet, .free-rooms-sheet {
+    .mobile-topbar, .sidebar, .section-modal-sheet, .toast, .ai-sheet, .free-rooms-sheet, .teacher-lookup-sheet {
         background: #111111 !important;
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
