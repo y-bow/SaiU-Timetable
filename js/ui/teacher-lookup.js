@@ -8,10 +8,10 @@
  * timetable load is never slowed down.
  */
 
-import { toMinutes, minutesToClock, minutesToLabel, todayName } from '../core/utils.js?v=2026-09-11-002';
-import { parseTeacherGrid, normalizeFacultyName } from '../data/parser.js?v=2026-09-11-002';
-import { buildIdentityResolution, teacherSearchText } from '../data/teacher-identity.js?v=2026-09-11-002';
-import { trackEvent } from '../services/analytics.js?v=2026-09-11-002';
+import { toMinutes, minutesToClock, minutesToLabel, todayName } from '../core/utils.js?v=2026-09-12-001';
+import { parseTeacherGrid, normalizeFacultyName } from '../data/parser.js?v=2026-09-12-001';
+import { buildIdentityResolution, teacherSearchText } from '../data/teacher-identity.js?v=2026-09-12-001';
+import { trackEvent } from '../services/analytics.js?v=2026-09-12-001';
 
 // ---------------------------------------------------------------------------
 // DOM helpers

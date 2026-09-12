@@ -30,8 +30,8 @@
  * the smart change detector and the cache always operate on those raw records.
  */
 
-import { parseTimeRange, normalizeFacultyName } from './parser.js?v=2026-09-11-002';
-import { resolveCourse } from './course-normalizer.js?v=2026-09-11-002';
+import { parseTimeRange, normalizeFacultyName } from './parser.js?v=2026-09-12-001';
+import { resolveCourse } from './course-normalizer.js?v=2026-09-12-001';
 
 const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
 

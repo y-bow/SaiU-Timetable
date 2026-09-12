@@ -153,6 +153,25 @@ export const SCHOOLS = [
                     { id: 'conflict-in-contemporary-international-relations', label: 'Conflicts in Contemporary International Relations' },
                 ],
             },
+            {
+                id: 'scds-4',
+                label: 'Year 4',
+                level: 4,
+                sections: null,
+                sheetId: '1Jk3KCLqHHzi-jxigIcPpcXZestcxb8Y0BeQLjhiezb8',
+                gid: '0',
+                parser: 'grid',
+                mandatoryCourses: [
+                    'Advance Programming',
+                ],
+                electives: [
+                    { id: 'cyber-laws', label: 'Cyber Laws' },
+                    { id: 'tinyml', label: 'TinyML' },
+                    { id: 'introduction-to-financial-accounting', label: 'Introduction to Financial Accounting' },
+                    { id: 'software-engineering', label: 'Software Engineering' },
+                    { id: 'agentic-ai', label: 'Agentic AI' },
+                ],
+            },
         ],
     },
     {
@@ -179,6 +198,7 @@ export const SCHOOLS = [
                     { id: 'intelligent-embedded-systems', label: 'Intelligent Embedded Systems' },
                     { id: 'principles-in-financial-management', label: 'Introduction to BFSI & Financial Technology' },
                     { id: 'digital-healthcare', label: 'Digital Healthcare' },
+                    { id: 'linear-algebra-soai', label: 'Linear Algebra (SOAI)' },
                 ],
             },
         ],

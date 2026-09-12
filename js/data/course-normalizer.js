@@ -99,6 +99,7 @@ const COURSE_DEFINITIONS = [
     // SCDS Year 2 lectures + electives (sheet: AB2-101/202/203/205/207, AB1-MOOT COURT HALL)
     { canonical: 'web-technology', display: 'Web Technology' },
     { canonical: 'linear-algebra', display: 'Linear Algebra' },
+    { canonical: 'linear-algebra-soai', display: 'Linear Algebra (SOAI)', aliases: ['Calculus and Linear Algebra', 'Calculus & Linear Algebra'] },
     { canonical: 'design-and-analysis-of-algorithms', display: 'Design and Analysis of Algorithms', aliases: ['DAA', 'Design and analysis of algorithms'] },
     { canonical: 'foundation-of-data-engineering', display: 'Foundation of Data Engineering', aliases: ['FDE'] },
     { canonical: 'intelligent-embedded-systems', display: 'Intelligent Embedded Systems', aliases: ['INT EMB', 'INTT EMB'] },
@@ -194,6 +195,13 @@ const COURSE_DEFINITIONS = [
     { canonical: 'property-law', display: 'Property Law', aliases: ['SL032'] },
     { canonical: 'law-of-evidence', display: 'Law of Evidence', aliases: ['SL033'] },
     { canonical: 'environmental-law', display: 'Environmental Law', aliases: ['SL024'] },
+
+    // SCDS Year 4
+    { canonical: 'advance-programming', display: 'Advance Programming', aliases: ['Advance P', 'Advance_P', 'Advance Programming', 'Advanced Programming', 'Advanced P'] },
+    { canonical: 'cyber-laws', display: 'Cyber Laws', aliases: ['Cyber Law'] },
+    { canonical: 'tinyml', display: 'TinyML', aliases: ['Tiny ML'] },
+    { canonical: 'software-engineering', display: 'Software Engineering', aliases: ['SE'] },
+    { canonical: 'agentic-ai', display: 'Agentic AI', aliases: ['Agentic AI'] },
 
     // SCDS Year 2 elective
     { canonical: 'professional-skills-and-career-readiness', display: 'Professional Skills and Career Readiness' },

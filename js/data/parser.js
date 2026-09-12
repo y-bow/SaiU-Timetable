@@ -23,7 +23,7 @@
  * multiple offerings in the sheet is supported with no per-course config.
  */
 
-import { resolveCourse, splitLabSuffix } from './course-normalizer.js?v=2026-09-11-002';
+import { resolveCourse, splitLabSuffix } from './course-normalizer.js?v=2026-09-12-001';
 
 const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
 const SECTION_REGEX = /\(Sec\s*(\d+)\)/i;
@@ -132,13 +132,20 @@ function filterCourses(raw, mandatoryCourses) {
 
     // Normalize mandatory names for case-insensitive prefix matching.
     const mandatory = mandatoryCourses.map(c => c.trim().toLowerCase());
+    // Canonical ID set for courses whose cell text (e.g. "Advance_P") uses a
+    // different spelling than the config name ("Advance Programming") but
+    // resolves to the same canonical course.
+    const mandatoryCanonicals = new Set(
+        mandatoryCourses.map(c => resolveCourse(c).canonical).filter(Boolean)
+    );
     return raw.filter(c => {
         if (c.elective) return true; // selected electives are kept as-is
         const subj = c.subject.trim().toLowerCase();
         // Skip stray single-character cells (e.g. a lone "I" left in the
         // sheet) that would otherwise match a course via reverse-prefix.
         if (subj.length < 2) return false;
-        return mandatory.some(t => subj === t || subj.startsWith(t) || t.startsWith(subj));
+        return mandatory.some(t => subj === t || subj.startsWith(t) || t.startsWith(subj))
+            || (mandatoryCanonicals.size > 0 && mandatoryCanonicals.has(c.courseId));
     });
 }
 
@@ -456,6 +463,14 @@ const SUBJECT_ALIASES = [
     // the FBO/PFM courses above.
     { match: /^Indian Constitution\s*(?:&|and)\s*Democracy(?:\s*-\s*Sem(?:ester)?\s*\.?\s*1)?$/i, name: 'Indian Constitution & Democracy' },
     { match: /^Frontiers of AI(?:\s*-?\s*Sem(?:ester)?\s*\.?\s*1)?$/i, name: 'Frontiers of AI' },
+
+    // SCDS Year 4 mandatory courses.
+    { match: /^Advance[_\s]+P(?:rogramming)?$/i, name: 'Advance Programming' },
+
+    // SOAI Year 2 elective. The sheet spells it "Calculus and Linear Algebra"
+    // (with optional "(Sem 1)" tag); the alias strips the "Calculus and" prefix
+    // and semester tag so the elective label matches.
+    { match: /^Calculus\s+(?:and|&)\s+Linear\s+Algebra(?:\s*\(?\s*Sem(?:ester)?\.?\s*1\s*\)?)?$/i, name: 'Linear Algebra (SOAI)' },
 
     // SAS Year 3 Neuroscience. "Cell Physiology" and "Chemistry" are the
     // elective courses; any "Cell Physiology - Elective" / "Cell
