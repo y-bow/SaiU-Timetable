@@ -91,7 +91,7 @@ export function splitLabSuffix(raw) {
 const COURSE_DEFINITIONS = [
     // SCDS Year 1 mandatory courses (no sections)
     { canonical: 'programming-in-c', display: 'Programming in C', aliases: ['PIC', 'Programming in C'] },
-    { canonical: 'engineering-foundation-and-application', display: 'Engineering Foundation and Application', aliases: ['EFA', 'Engineering Foundation and Application'] },
+    { canonical: 'engineering-foundation-and-application', display: 'Engineering Foundation and Application', aliases: ['EFA', 'Engineering Foundation and Application', 'Engineering Foundation and Applications', 'Engineering Foundations and Application', 'Engineering Foundations and Applications'] },
     { canonical: 'applied-mathematics', display: 'Applied Mathematics', aliases: ['AM', 'Applied Mathematics'] },
     // "Critical Thinking" and "Frontiers of AI" are already registered below
     // (shared across SCDS Year 3 / SOT / SOB / SOAI).
@@ -185,6 +185,16 @@ const COURSE_DEFINITIONS = [
     { canonical: 'psychology-behind-social-media', display: 'Psychology Behind Social Media', aliases: ['Psych Behind Social Media', 'Psychology of Social Media'] },
     { canonical: 'introduction-to-cognitive-neuroscience', display: 'Introduction to Cognitive Neuroscience', aliases: ['Intro to Cognitive Neuroscience', 'Cognitive Neuroscience'] },
     { canonical: 'research-methodology', display: 'Research Methodology', aliases: ['Research Methods'] },
+
+    // SOL Year 2 (School of Law, 4th Semester). Each course keeps its exact
+    // name and its course code as an alias so the sheet's code-only cells
+    // still resolve to the course's canonical identity.
+    { canonical: 'constitutional-law-1', display: 'Constitutional Law-1', aliases: ['SL020', 'Constitutional Law 1', 'Contitutional Law 1', 'Contitutional Law-1'] },
+    { canonical: 'law-of-contracts-2', display: 'Law of Contracts 2', aliases: ['SL022'] },
+    { canonical: 'family-law-1', display: 'Family Law 1', aliases: ['SL025'] },
+    { canonical: 'economics-3-modern-indian-economy', display: 'Economics 3 / Modern Indian Economy', aliases: ['SL055', 'Economics 3', 'Modern Indian Economy'] },
+    { canonical: 'political-science-3', display: 'Political Science 3' },
+    // 'community-psychology' is already registered above (SCDS Year 3 elective / SAS Year 2 Psychology).
 
     // SOL Year 3 (School of Law, 5th Semester). Each course keeps its exact
     // name and its course code as an alias so the sheet's code-only cells

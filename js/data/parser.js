@@ -23,7 +23,7 @@
  * multiple offerings in the sheet is supported with no per-course config.
  */
 
-import { resolveCourse, splitLabSuffix } from './course-normalizer.js?v=2026-09-12-001';
+import { resolveCourse, splitLabSuffix } from './course-normalizer.js?v=2026-09-14-001';
 
 const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
 const SECTION_REGEX = /\(Sec\s*(\d+)\)/i;
@@ -450,7 +450,7 @@ const SUBJECT_ALIASES = [
     { match: /^PIC$/i, name: 'Programming in C' },
     { match: /^Programming in C$/i, name: 'Programming in C' },
     { match: /^EFA$/i, name: 'Engineering Foundation and Application' },
-    { match: /^Engineering Foundations?(?:\s+(?:and|&)\s*Application)?$/i, name: 'Engineering Foundation and Application' },
+    { match: /^Engineering Foundations?(?:\s+(?:and|&)\s*Applications?)?$/i, name: 'Engineering Foundation and Application' },
     { match: /^AM$/i, name: 'Applied Mathematics' },
     { match: /^Applied Mathematics$/i, name: 'Applied Mathematics' },
     // "Critical Thinking" and "Frontiers of AI" aliases already exist below
@@ -492,6 +492,18 @@ const SUBJECT_ALIASES = [
     { match: /^Psych(?:ology)?\s*(?:Behind|on)\s*(?:Social\s*)?Media$/i, name: 'Psychology Behind Social Media' },
     { match: /^(?:Intro(?:duction)?(?:\s+to)?)?\s*Cognitive\s*Neuroscience$/i, name: 'Introduction to Cognitive Neuroscience' },
     { match: /^Research\s*(?:Method(?:ology|s)?|Methods)$/i, name: 'Research Methodology' },
+
+    // SOL Year 2 (School of Law, 4th Semester). The sheet may spell each
+    // course by its code or full name; codes fold onto the clean names.
+    { match: /^SL020$/i, name: 'Constitutional Law-1' },
+    { match: /^Con?s?titutional\s+Law\s*[-–]?\s*1\s*[-–]?$/i, name: 'Constitutional Law-1' },
+    { match: /^SL022$/i, name: 'Law of Contracts 2' },
+    { match: /^Law\s+of\s+Contracts\s*[-–]?\s*2$/i, name: 'Law of Contracts 2' },
+    { match: /^SL025$/i, name: 'Family Law 1' },
+    { match: /^Family\s+Law\s*[-–]?\s*1$/i, name: 'Family Law 1' },
+    { match: /^SL055$/i, name: 'Economics 3 / Modern Indian Economy' },
+    { match: /^Economics\s*[-–]?\s*3\s*\/\s*Modern\s+Indian\s+Economy$/i, name: 'Economics 3 / Modern Indian Economy' },
+    { match: /^Political\s+Science\s*[-–]?\s*3$/i, name: 'Political Science 3' },
 
     // SOL Year 3 (School of Law, 5th Semester). The sheet may spell each
     // course by its code or full name (with optional " - Sem 5" tag, which the

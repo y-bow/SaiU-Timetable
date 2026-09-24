@@ -356,6 +356,24 @@ export const SCHOOLS = [
         // mandatory (Law has no elective selector).
         years: [
             {
+                id: 'sol-2',
+                label: 'Year 2',
+                level: 2,
+                sections: null,
+                sheetId: '1Jk3KCLqHHzi-jxigIcPpcXZestcxb8Y0BeQLjhiezb8',
+                gid: '0',
+                parser: 'grid',
+                mandatoryCourses: [
+                    'Community Psychology',
+                    'Constitutional Law-1',
+                    'Law of Contracts 2',
+                    'Family Law 1',
+                    'Economics 3 / Modern Indian Economy',
+                    'Political Science 3',
+                ],
+                electives: null,
+            },
+            {
                 id: 'sol-3',
                 label: 'Year 3',
                 level: 3,
