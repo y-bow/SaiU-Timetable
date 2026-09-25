@@ -142,7 +142,15 @@ const COURSE_DEFINITIONS = [
     { canonical: 'corporate-and-business-law', display: 'Corporate and Business Law' },
     { canonical: 'operations-research', display: 'Operations Research' },
     { canonical: 'human-resource-management', display: 'Human Resource Management' },
-    { canonical: 'principles-in-financial-management', display: 'Principles of Financial Management', aliases: ['PFM', 'PIFM', 'Principles in Financial Management', 'Principles of Financial Management', 'Introduction to BFSI & Financial Technology', 'Principles of Financial Management / Introduction to BFSI & Financial Technology'] },
+    // Two DISTINCT courses that the sheet once conflated under one name.
+    // "Principles of Financial Management" is the SOB mandatory course (Surya);
+    // the slash cell "Principles of Financial Management / Introduction to
+    // BFSI & Financial Technology" (Ajit Nag) is its own course — an elective
+    // of SOB Year 2, SOAI Year 2 and SCDS Year 3. The slash spelling MUST stay
+    // registered: splitSubjectFaculty resolves it as the known-course prefix
+    // that peels the teacher ("Ajit Nag") off the cell.
+    { canonical: 'principles-in-financial-management', display: 'Principles of Financial Management', aliases: ['PFM', 'PIFM', 'Principles in Financial Management', 'Principles of Financial Management'] },
+    { canonical: 'introduction-to-bfsi-financial-technology', display: 'Introduction to BFSI & Financial Technology', aliases: ['Principles of Financial Management / Introduction to BFSI & Financial Technology'] },
 
     // SOT Biotechnology (shared grid sheet). "Critical Thinking" is
     // already registered above (SCDS Year 3); "Frontiers of AI" and

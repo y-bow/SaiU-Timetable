@@ -1876,6 +1876,37 @@ await check('"Emerging Tools and Applications" does not falsely match a partial 
 // SOB Year 2: course name contains "/" — must NOT be split
 // -------------------------------------------------------------------
 
+const BFSI_ELECTIVE_ID = 'introduction-to-bfsi-financial-technology';
+const BFSI_ELECTIVE = { id: BFSI_ELECTIVE_ID, label: 'Introduction to BFSI & Financial Technology' };
+const SOB_Y2_MANDATORY = [
+    'Corporate and Business Law',
+    'Operations Research',
+    'Human Resource Management',
+    'Principles of Financial Management',
+];
+const SOB_Y2_ELECTIVES = [
+    { id: 'forensic-psychology', label: 'Forensic Psychology' },
+    { id: 'foundation-of-data-engineering', label: 'Foundation of Data Engineering' },
+    BFSI_ELECTIVE,
+];
+// The two cells as the live sheet spells them (space-run before the teacher).
+const PFM_SURYA_CELL = 'MONDAY,02.00 PM - 02.55 PM,Principles of Financial Management            Surya';
+const BFSI_AJIT_CELL = 'THURSDAY,03.00 PM - 03.55 PM,Principles of Financial Management  /  Introduction to BFSI & Financial Technology               Ajit Nag';
+
+await check('PFM and BFSI are distinct canonical courses', () => {
+    assert.equal(resolveCourse('Principles of Financial Management').canonical, 'principles-in-financial-management');
+    assert.equal(resolveCourse('Principles in Financial Management').canonical, 'principles-in-financial-management');
+    assert.equal(resolveCourse('PFM').canonical, 'principles-in-financial-management');
+    assert.equal(resolveCourse('Introduction to BFSI & Financial Technology').canonical, BFSI_ELECTIVE_ID);
+    assert.equal(
+        resolveCourse('Principles of Financial Management / Introduction to BFSI & Financial Technology').canonical,
+        BFSI_ELECTIVE_ID,
+        'the slash cell resolves onto the BFSI course, never onto PFM',
+    );
+    assert.ok(!resolveCourse('Introduction to BFSI & Financial Technology').ambiguous, 'BFSI resolves unambiguously');
+    assert.ok(!resolveCourse('Principles of Financial Management').ambiguous, 'PFM resolves unambiguously');
+});
+
 await check('splitSubjectFaculty: "/" inside course name is NOT treated as a separator', () => {
     // Raw cell from the live SOB timetable sheet:
     const raw = 'Principles of Financial Management  /  Introduction to BFSI & Financial Technology               Ajit Nag';
@@ -1886,25 +1917,72 @@ await check('splitSubjectFaculty: "/" inside course name is NOT treated as a sep
     assert.equal(faculty, 'Prof. Ajit Nag', 'teacher extracted cleanly');
 });
 
-await check('parseCSV: SOB Year 2 "/" course parses correctly end-to-end', () => {
+await check('parseCSV: SOB Year 2 "/" course parses as the BFSI elective end-to-end', () => {
     // Simulate the real grid row with room row
     const csv = [
-        'THURSDAY,03.00 PM - 03.55 PM,Principles of Financial Management  /  Introduction to BFSI & Financial Technology               Ajit Nag',
+        BFSI_AJIT_CELL,
         ',,AB1 - 104',
     ].join('\n');
-    const mandatory = [
-        'Principles of Financial Management',
-    ];
-    const out = parseCSV(csv, 'grid', mandatory);
+    const out = parseCSV(csv, 'grid', SOB_Y2_MANDATORY, SOB_Y2_ELECTIVES);
     assert.equal(out.length, 1, 'exactly one class parsed');
     const c = out[0];
     assert.equal(c.subject,
-        'Principles of Financial Management',
-        'course name expanded to default display name');
+        'Introduction to BFSI & Financial Technology',
+        'expanded to the BFSI course name, NOT Principles of Financial Management');
+    assert.equal(c.elective, BFSI_ELECTIVE_ID, 'tagged as the BFSI elective');
+    assert.equal(c.courseId, BFSI_ELECTIVE_ID);
     assert.equal(c.faculty, 'Prof. Ajit Nag', 'teacher is Ajit Nag');
     assert.equal(c.day, 'Thursday');
     assert.equal(c.startTime, '15:00');
     assert.equal(c.endTime, '15:55');
+});
+
+await check('parseCSV: SOB Year 2 "/" course is NOT the mandatory PFM course', () => {
+    const csv = [
+        BFSI_AJIT_CELL,
+        ',,AB1 - 104',
+    ].join('\n');
+    const out = parseCSV(csv, 'grid', SOB_Y2_MANDATORY, null);
+    assert.equal(out.length, 0, 'the Ajit Nag cell is skipped when BFSI is not a configured elective');
+});
+
+await check('SOB Year 2: Surya PFM stays mandatory, Ajit BFSI is a separate elective', () => {
+    const csv = [PFM_SURYA_CELL, BFSI_AJIT_CELL, ',,AB1 - 104'].join('\n');
+    const out = parseCSV(csv, 'grid', SOB_Y2_MANDATORY, SOB_Y2_ELECTIVES);
+    assert.equal(out.length, 2, 'both cells parse');
+    const pfm = out.find(c => c.subject === 'Principles of Financial Management');
+    assert.ok(pfm, 'Surya cell parsed');
+    assert.equal(pfm.elective, undefined, 'Surya cell is mandatory, not an elective');
+    assert.equal(pfm.faculty, 'Prof. Surya');
+    const bfsi = out.find(c => c.elective === BFSI_ELECTIVE_ID);
+    assert.ok(bfsi, 'Ajit cell tagged as the BFSI elective');
+    assert.equal(bfsi.subject, 'Introduction to BFSI & Financial Technology');
+    assert.equal(bfsi.faculty, 'Prof. Ajit Nag');
+});
+
+await check('SOAI Year 2: BFSI elective contains ONLY the Ajit Nag sessions', () => {
+    // Before the split the Surya cell folded onto the BFSI elective via the
+    // canonical-id fallback, leaking a mandatory SOB course into SOAI.
+    const csv = [PFM_SURYA_CELL, BFSI_AJIT_CELL].join('\n');
+    const out = parseCSV(csv, 'grid', ['Differential Equations'], [BFSI_ELECTIVE]);
+    assert.equal(out.length, 1, 'only the Ajit Nag cell belongs to SOAI');
+    assert.equal(out[0].elective, BFSI_ELECTIVE_ID);
+    assert.equal(out[0].faculty, 'Prof. Ajit Nag');
+});
+
+await check('SCDS Year 3: PFM (Surya) and BFSI (Ajit Nag) are two separate electives', () => {
+    const csv = [PFM_SURYA_CELL, BFSI_AJIT_CELL].join('\n');
+    const out = parseCSV(csv, 'grid', ['Deep Learning'], [
+        { id: 'principles-in-financial-management', label: 'Principles of Financial Management' },
+        BFSI_ELECTIVE,
+    ]);
+    assert.equal(out.length, 2, 'both elective options parse');
+    const pfm = out.find(c => c.elective === 'principles-in-financial-management');
+    assert.ok(pfm, 'Surya cell is the PFM elective');
+    assert.equal(pfm.faculty, 'Prof. Surya');
+    const bfsi = out.find(c => c.elective === BFSI_ELECTIVE_ID);
+    assert.ok(bfsi, 'Ajit cell is the BFSI elective');
+    assert.equal(bfsi.faculty, 'Prof. Ajit Nag');
 });
 
 await check('splitSubjectFaculty: course with "/" AND multiple-word teacher', () => {

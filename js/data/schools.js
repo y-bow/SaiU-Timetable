@@ -150,6 +150,7 @@ export const SCHOOLS = [
                     { id: 'community-psychology', label: 'Community Psychology' },
                     { id: 'fundamentals-of-business-organization-and-management', label: 'Fundamentals of Business Organization & Management' },
                     { id: 'principles-in-financial-management', label: 'Principles of Financial Management' },
+                    { id: 'introduction-to-bfsi-financial-technology', label: 'Introduction to BFSI & Financial Technology' },
                     { id: 'conflict-in-contemporary-international-relations', label: 'Conflicts in Contemporary International Relations' },
                 ],
             },
@@ -196,7 +197,7 @@ export const SCHOOLS = [
                 ],
                 electives: [
                     { id: 'intelligent-embedded-systems', label: 'Intelligent Embedded Systems' },
-                    { id: 'principles-in-financial-management', label: 'Introduction to BFSI & Financial Technology' },
+                    { id: 'introduction-to-bfsi-financial-technology', label: 'Introduction to BFSI & Financial Technology' },
                     { id: 'digital-healthcare', label: 'Digital Healthcare' },
                     { id: 'linear-algebra-soai', label: 'Linear Algebra (SOAI)' },
                 ],
@@ -246,6 +247,7 @@ export const SCHOOLS = [
                         electives: [
                             { id: 'forensic-psychology', label: 'Forensic Psychology' },
                             { id: 'foundation-of-data-engineering', label: 'Foundation of Data Engineering' },
+                            { id: 'introduction-to-bfsi-financial-technology', label: 'Introduction to BFSI & Financial Technology' },
                         ],
                     },
                 ],
@@ -289,6 +291,7 @@ export const SCHOOLS = [
                         electives: [
                             { id: 'forensic-psychology', label: 'Forensic Psychology' },
                             { id: 'foundation-of-data-engineering', label: 'Foundation of Data Engineering' },
+                            { id: 'introduction-to-bfsi-financial-technology', label: 'Introduction to BFSI & Financial Technology' },
                         ],
                     },
                 ],

@@ -455,7 +455,12 @@ const SUBJECT_ALIASES = [
     { match: /^IFA$/i, name: 'Introduction to Financial Accounting' },
     { match: /^CT$/i, name: 'Critical Thinking' },
     { match: /^(?:FBO|FOB|Fundamentals of Business Organization and Management)$/i, name: 'Fundamentals of Business Organization & Management' },
-    { match: /^(?:PFM|PIFM|Principles of Financial Management|Principles in Financial Management|Introduction to BFSI\s*(?:&|and)\s*Financial Technology|Principles of Financial Management\s*\/\s*Introduction to BFSI\s*(?:&|and)\s*Financial Technology)$/i, name: 'Principles of Financial Management' },
+    // Two distinct courses (see course-normalizer.js): PFM is the SOB
+    // mandatory course (Surya); the slash cell / plain BFSI spelling is the
+    // separate "Introduction to BFSI & Financial Technology" elective (Ajit
+    // Nag). Each pattern is fully anchored, so neither can swallow the other.
+    { match: /^(?:PFM|PIFM|Principles of Financial Management|Principles in Financial Management)$/i, name: 'Principles of Financial Management' },
+    { match: /^(?:Principles of Financial Management\s*\/\s*Introduction to BFSI\s*(?:&|and)\s*Financial Technology|Introduction to BFSI\s*(?:&|and)\s*Financial Technology)$/i, name: 'Introduction to BFSI & Financial Technology' },
     { match: /^FP$/i, name: 'Forensic Psychology' },
 
     // SCDS Year 1 mandatory courses. Abbreviations and minor formatting
