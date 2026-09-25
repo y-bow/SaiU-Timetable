@@ -468,9 +468,11 @@ export const SCHOOLS = [
                         gid: '0',
                         parser: 'grid',
                         mandatoryCourses: [
-                            'Applied Biological Sciences',
                             'Microbiology',
                             'Environmental Biotechnology',
+                            'Foundation to Biological Systems',
+                            'Community Psychology',
+                            'Psychopathology',
                         ],
                         electives: null,
                     },

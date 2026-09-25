@@ -1,9 +1,9 @@
-import { CONFIG } from '../core/config.js?v=2026-09-14-001';
-import { toMinutes, minutesToLabel, minutesToClock, todayName, isBeforeToday, WEEKDAYS, labSubjectLabel } from '../core/utils.js?v=2026-09-14-001';
-import { offeringKey } from '../data/parser.js?v=2026-09-14-001';
-import { rubberband, projectMomentum } from '../core/spring.js?v=2026-09-14-001';
-import { mergeAdjacentForDisplay, displayItemHighlighted } from './display.js?v=2026-09-14-001';
-import { clashTypeLabels } from '../data/clash-detector.js?v=2026-09-14-001';
+import { CONFIG } from '../core/config.js?v=2026-09-25-002';
+import { toMinutes, minutesToLabel, minutesToClock, todayName, isBeforeToday, WEEKDAYS, labSubjectLabel } from '../core/utils.js?v=2026-09-25-002';
+import { offeringKey } from '../data/parser.js?v=2026-09-25-002';
+import { rubberband, projectMomentum } from '../core/spring.js?v=2026-09-25-002';
+import { mergeAdjacentForDisplay, displayItemHighlighted } from './display.js?v=2026-09-25-002';
+import { clashTypeLabels } from '../data/clash-detector.js?v=2026-09-25-002';
 
 /**
  * DOM rendering — sidebar filters + timeline.
@@ -635,6 +635,17 @@ function buildTimeline(timeline, items, nowMin, skipBreaks, dayStatus = 'today',
                     <li class="tl-break">
                         <span class="tl-break-line"></span>
                         <span class="tl-break-label">${ICONS.coffee}Lunch break · ${minutesToLabel(startMin - prevEnd)}</span>
+                        <span class="tl-break-line"></span>
+                    </li>`);
+            } else {
+                // Any other gap ≥ BREAK_THRESHOLD_MIN: plain "Break", no duration.
+                // Covers morning gaps, post-3 PM gaps, and later lunch-window
+                // gaps after the one-shot "Lunch break" row was already shown
+                // (those used to fall through both branches and render nothing).
+                timeline.insertAdjacentHTML('beforeend', `
+                    <li class="tl-break">
+                        <span class="tl-break-line"></span>
+                        <span class="tl-break-label">${ICONS.coffee}Break</span>
                         <span class="tl-break-line"></span>
                     </li>`);
             }

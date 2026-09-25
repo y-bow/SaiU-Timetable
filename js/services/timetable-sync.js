@@ -1,8 +1,8 @@
-import { CONFIG } from '../core/config.js?v=2026-09-14-001';
-import { parseCSV } from '../data/parser.js?v=2026-09-14-001';
-import * as nav from '../ui/navigation.js?v=2026-09-14-001';
-import { toMinutes, minutesToClock, todayName, WEEKDAYS } from '../core/utils.js?v=2026-09-14-001';
-import { loadMergedYear1Timetable, loadMergedYear2Timetable } from './lab-fetch.js?v=2026-09-14-001';
+import { CONFIG } from '../core/config.js?v=2026-09-25-002';
+import { parseCSV, parseRoomOccupancy } from '../data/parser.js?v=2026-09-25-002';
+import * as nav from '../ui/navigation.js?v=2026-09-25-002';
+import { toMinutes, minutesToClock, todayName, WEEKDAYS } from '../core/utils.js?v=2026-09-25-002';
+import { loadMergedYear1Timetable, loadMergedYear2Timetable } from './lab-fetch.js?v=2026-09-25-002';
 
 /**
  * Background timetable sync for the Breakout game page (game.html).
@@ -57,8 +57,12 @@ async function syncTimetable() {
         }
         if (!classes.length) throw new Error('No classes parsed');
 
+        // Same snapshot shape as app.js writeCache: Free Rooms depends on
+        // roomOccupancy surviving cache restores — omitting it blanks the
+        // panel on the next cold start while the timetable still looks fine.
+        const roomOccupancy = parseRoomOccupancy(text);
         try {
-            localStorage.setItem(cacheKeyFor(year), JSON.stringify({ savedAt: Date.now(), classes }));
+            localStorage.setItem(cacheKeyFor(year), JSON.stringify({ savedAt: Date.now(), classes, roomOccupancy }));
         } catch { /* storage full — ignore */ }
 
         renderContext(classes);

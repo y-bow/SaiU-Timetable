@@ -163,6 +163,10 @@ const COURSE_DEFINITIONS = [
 
     // SAS Year 2 Biological Sciences
     { canonical: 'applied-biological-sciences', display: 'Applied Biological Sciences' },
+    { canonical: 'foundation-to-biological-systems', display: 'Foundation to Biological Systems', aliases: ['Foundations to Biological Systems', 'Foundation to Biological System', 'Foundations to Biological System', 'FTBS'] },
+    // Community Psychology + Psychopathology are registered elsewhere
+    // (SCDS Year 3 elective / SAS Year 2 Psychology) and shared here via
+    // the mandatory list — do not redeclare them.
 
     // SAS Year 3 Neuroscience (shared grid sheet)
     { canonical: 'biostatistics', display: 'Biostatistics' },
@@ -180,7 +184,7 @@ const COURSE_DEFINITIONS = [
     { canonical: 'psychiatry-and-mood-disorders', display: 'Psychiatry & Mood disorders' },
 
     // SAS Year 2 Psychology
-    { canonical: 'psychopathology', display: 'Psychopathology', aliases: ['Psychopathology I', 'Psychopathology II'] },
+    { canonical: 'psychopathology', display: 'Psychopathology', aliases: ['Psychopathology I', 'Psychopathology II', 'Psychopathology 1', 'Psychopathology 2'] },
     // 'community-psychology' is already registered above (SCDS Year 3 elective).
     { canonical: 'psychology-behind-social-media', display: 'Psychology Behind Social Media', aliases: ['Psych Behind Social Media', 'Psychology of Social Media'] },
     { canonical: 'introduction-to-cognitive-neuroscience', display: 'Introduction to Cognitive Neuroscience', aliases: ['Intro to Cognitive Neuroscience', 'Cognitive Neuroscience'] },

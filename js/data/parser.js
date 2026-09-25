@@ -23,7 +23,7 @@
  * multiple offerings in the sheet is supported with no per-course config.
  */
 
-import { resolveCourse, splitLabSuffix } from './course-normalizer.js?v=2026-09-14-001';
+import { resolveCourse, splitLabSuffix } from './course-normalizer.js?v=2026-09-25-002';
 
 const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
 const SECTION_REGEX = /\(Sec\s*(\d+)\)/i;
@@ -72,9 +72,22 @@ const FACULTY_ALIASES = [
     { match: /^(?:dr\.?\s*)?pankaj(?:\s+jain)?$/i, name: 'Dr.Pankaj Jain' },
 ];
 
+/**
+ * True when a trailing dash token is a course number, not a person's name.
+ * Sheet cells like "Economics - 1" or "Psychology-1" carry the course number
+ * after a dash with no teacher; treating that token as faculty invents a
+ * phantom "Prof. 1".
+ */
+function isCourseNumberToken(token) {
+    return /^\d+[a-z]?$/i.test(String(token ?? '').trim());
+}
+
 export function normalizeFacultyName(faculty) {
     const raw = String(faculty ?? '').trim();
     if (!raw) return raw;
+    // A course number / pure punctuation is never a person's name — leave
+    // faculty blank rather than inventing "Prof. 1". Dynamic for any course.
+    if (isCourseNumberToken(raw) || /^[\d\s\-–/.]+$/.test(raw)) return '';
     let name = raw;
     for (const alias of FACULTY_ALIASES) {
         if (alias.match.test(name)) {
@@ -488,10 +501,15 @@ const SUBJECT_ALIASES = [
     // differences, "&" vs "and", or minor punctuation variants — the aliases
     // fold them onto the clean canonical names. "Community Psychology" is
     // already handled by the course normalizer (SCDS Year 3 elective).
-    { match: /^Psychopathology(?:\s*(?:I{1,3}|IV|V))?$/i, name: 'Psychopathology' },
+    { match: /^Psychopathology(?:\s*(?:I{1,3}|IV|V|[1-4]))?$/i, name: 'Psychopathology' },
     { match: /^Psych(?:ology)?\s*(?:Behind|on)\s*(?:Social\s*)?Media$/i, name: 'Psychology Behind Social Media' },
     { match: /^(?:Intro(?:duction)?(?:\s+to)?)?\s*Cognitive\s*Neuroscience$/i, name: 'Introduction to Cognitive Neuroscience' },
     { match: /^Research\s*(?:Method(?:ology|s)?|Methods)$/i, name: 'Research Methodology' },
+
+    // SAS Year 2 Biological Sciences. Live sheet spells this exactly
+    // "Foundation to Biological Systems"; plural/typo variants fold here too.
+    { match: /^Foundations?\s+to\s+Biological\s+Systems?$/i, name: 'Foundation to Biological Systems' },
+    { match: /^FTBS$/i, name: 'Foundation to Biological Systems' },
 
     // SOL Year 2 (School of Law, 4th Semester). The sheet may spell each
     // course by its code or full name; codes fold onto the clean names.
@@ -568,8 +586,13 @@ function splitClassCell(cell) {
     let faculty = '';
     const dash = text.indexOf(' - ');
     if (dash >= 0) {
-        subject = text.slice(0, dash).trim();
-        faculty = text.slice(dash + 3).trim();
+        const tail = text.slice(dash + 3).trim();
+        // "Economics - 1" — a course number after the dash is not a teacher;
+        // keep the whole cell as subject and leave faculty blank.
+        if (!isCourseNumberToken(tail)) {
+            subject = text.slice(0, dash).trim();
+            faculty = tail;
+        }
     } else {
         const parts = text.split(/\s{2,}/).map(p => p.trim()).filter(Boolean);
         subject = parts[0] || '';
@@ -598,6 +621,9 @@ function splitClassCell(cell) {
             if (res && res.matched) {
                 const rest = words.slice(len).join(' ');
                 if (/^\//.test(rest)) continue;
+                // A trailing course number after a known prefix is still part
+                // of the subject, not a teacher ("Economics - 1").
+                if (/^[-–\s]*\d+[a-z]?$/i.test(rest)) continue;
                 faculty = rest;
                 subject = prefix;
                 break;
@@ -793,8 +819,13 @@ export function splitSubjectFaculty(cell) {
     // invented from the dash.
     if ((!faculty || faculty.trim().startsWith('-')) && /-\s*\S/.test(text) && !resolveCourse(text).matched) {
         const m = text.match(/\s*-\s*(.+)$/);
-        if (m) faculty = m[1].trim();
-        subject = subject.replace(/\s*-\s*.+$/, '').trim();
+        // A trailing course number ("Economics - 1", "Psychology-1") is not a
+        // teacher: keep the full subject and leave faculty empty so
+        // normalizeFacultyName never invents "Prof. 1".
+        if (m && !isCourseNumberToken(m[1])) {
+            faculty = m[1].trim();
+            subject = subject.replace(/\s*-\s*.+$/, '').trim();
+        }
     }
     // A multi-space cell with the dash glued to the subject leaves a trailing
     // dash, e.g. "Law of Insurance -" — drop it, the teacher is isolated.
@@ -827,6 +858,9 @@ export function splitSubjectFaculty(cell) {
             if (res && res.matched) {
                 const rest = words.slice(len).join(' ');
                 if (/^\//.test(rest)) continue;
+                // A trailing course number after a known prefix is still part
+                // of the subject, not a teacher ("Deep Learning - 1").
+                if (/^[-–\s]*\d+[a-z]?$/i.test(rest)) continue;
                 faculty = rest;
                 subject = prefix;
                 break;
@@ -1163,6 +1197,7 @@ function splitTeacherCell(cell) {
             if (res && res.matched) {
                 const rest = words.slice(len).join(' ');
                 if (/^\//.test(rest)) continue;
+                if (/^[-–\s]*\d+[a-z]?$/i.test(rest)) continue;
                 faculty = rest;
                 subject = prefix;
                 break;
