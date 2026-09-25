@@ -539,6 +539,17 @@ const SUBJECT_ALIASES = [
     { match: /^SL032$/i, name: 'Property Law' },
     { match: /^SL033$/i, name: 'Law of Evidence' },
     { match: /^SL024$/i, name: 'Environmental Law' },
+
+    // SOL Year 1 (School of Law, single cohort). The sheet spells the
+    // psychology course with a "/ Psychology-1" variant and the numbered
+    // courses with a spaced dash; fold the variants onto the clean
+    // configured names. ("Law of Torts" and "Legal Methods" match the
+    // configured names verbatim, so they need no alias.)
+    { match: /^Introduction to Psychology(?:\s*\/\s*Psychology\s*[-–]?\s*1)?$/i, name: 'Introduction to Psychology' },
+    { match: /^Psychology\s*[-–]?\s*1$/i, name: 'Introduction to Psychology' },
+    { match: /^Political Science(?:s)?(?:\s*[-–]?\s*1)?$/i, name: 'Political Science 1' },
+    { match: /^Economics\s*[-–]?\s*1$/i, name: 'Economics - 1' },
+    { match: /^English\s*[-–]?\s*1$/i, name: 'English - 1' },
 ];
 
 // Normalize room names for comparison: uppercase, hyphens equivalent to

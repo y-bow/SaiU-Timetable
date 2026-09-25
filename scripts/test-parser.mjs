@@ -1126,12 +1126,12 @@ await check('SOT Year 1 exclusive courses do NOT appear in any other school/prog
     }
 });
 
-await check('SOT and SOB are the schools offering Year 1', () => {
+await check('SOT, SOB and SOL are the schools offering Year 1', () => {
     const year1Schools = SCHOOLS.filter(s => {
         const years = s.programs ? s.programs.flatMap(p => p.years) : (s.years || []);
         return years.some(y => y.level === 1);
     });
-    assert.deepStrictEqual(year1Schools.map(s => s.id).sort(), ['scds', 'sob', 'sot'], 'SCDS, SOB and SOT offer Year 1');
+    assert.deepStrictEqual(year1Schools.map(s => s.id).sort(), ['scds', 'sob', 'sol', 'sot'], 'SCDS, SOB, SOL and SOT offer Year 1');
 });
 
 console.log('--- SOT Year 2 Biotechnology config ---');
@@ -1364,9 +1364,17 @@ await check('SOT Year 2: a non-SOT cell (SCDS course) is skipped', () => {
     assert.ok(!out.some(x => x.subject === 'Deep Learning'), 'SCDS course is not pulled into SOT Year 2');
 });
 
-console.log('--- SOL Year 2 + Year 3 config ---');
+console.log('--- SOL Year 1 + Year 2 + Year 3 config ---');
 
 const sol = SCHOOLS.find(s => s.id === 'sol');
+const SOL_YEAR1_MANDATORY = [
+    'Introduction to Psychology',
+    'Political Science 1',
+    'Economics - 1',
+    'Law of Torts',
+    'Legal Methods',
+    'English - 1',
+];
 const SOL_YEAR2_MANDATORY = [
     'Community Psychology',
     'Constitutional Law-1',
@@ -1389,16 +1397,22 @@ await check('SOL school exists with shortName SOL', () => {
     assert.equal(sol.shortName, 'SOL');
 });
 
-await check('SOL has Year 2 and Year 3 configs', () => {
+await check('SOL has Year 1, Year 2 and Year 3 configs', () => {
     assert.ok(sol.years, 'SOL uses the direct school → year tree');
-    assert.equal(sol.years.length, 2, 'two year configs');
-    const year2 = sol.years[0];
+    assert.equal(sol.years.length, 3, 'three year configs');
+    const year1 = sol.years.find(y => y.id === 'sol-1');
+    assert.ok(year1, 'sol-1 config present');
+    assert.equal(year1.label, 'Year 1');
+    assert.equal(year1.level, 1);
+    assert.equal(year1.sections, null);
+    assert.equal(year1.parser, 'grid');
+    const year2 = sol.years.find(y => y.id === 'sol-2');
     assert.equal(year2.label, 'Year 2');
     assert.equal(year2.level, 2);
     assert.equal(year2.id, 'sol-2');
     assert.equal(year2.sections, null);
     assert.equal(year2.parser, 'grid');
-    const year3 = sol.years[1];
+    const year3 = sol.years.find(y => y.id === 'sol-3');
     assert.equal(year3.label, 'Year 3');
     assert.equal(year3.level, 3);
     assert.equal(year3.id, 'sol-3');
@@ -1406,9 +1420,9 @@ await check('SOL has Year 2 and Year 3 configs', () => {
     assert.equal(year3.parser, 'grid');
 });
 
-await check('SOL appears in the Year 2 and Year 3 school selectors', () => {
+await check('SOL appears in the Year 1, Year 2 and Year 3 school selectors', () => {
+    assert.equal(schoolHasLevel(sol, 1), true, 'SOL is shown for Year 1');
     assert.equal(schoolHasLevel(sol, 3), true, 'SOL is shown when Year 3 is selected');
-    assert.equal(schoolHasLevel(sol, 1), false, 'SOL is hidden for Year 1 (no SOL Year 1 yet)');
     assert.equal(schoolHasLevel(sol, 2), true, 'SOL is shown for Year 2');
 });
 
@@ -1418,6 +1432,20 @@ await check('SOL Year 3 config is registered in the year map', () => {
     assert.ok(resolved, 'sol-3 resolves in buildYearMap');
     assert.equal(resolved.school.id, 'sol');
     assert.equal(resolved.year.level, 3);
+});
+
+await check('SOL Year 1 config is registered in the year map', () => {
+    const map = buildYearMap();
+    const resolved = map.get('sol-1');
+    assert.ok(resolved, 'sol-1 resolves in buildYearMap');
+    assert.equal(resolved.school.id, 'sol');
+    assert.equal(resolved.year.level, 1);
+});
+
+await check('SOL Year 1 has exactly the 6 mandatory courses and no electives', () => {
+    const year1 = sol.years.find(y => y.id === 'sol-1');
+    assert.deepStrictEqual(year1.mandatoryCourses, SOL_YEAR1_MANDATORY);
+    assert.equal(year1.electives, null);
 });
 
 await check('SOL Year 2 has exactly the 6 mandatory courses and no electives', () => {
@@ -1465,6 +1493,21 @@ await check('SOL Year 2 exclusive courses do NOT appear in any other school/prog
     }
 });
 
+await check('SOL Year 1 courses do NOT appear in any other school/programme/year', () => {
+    for (const school of SCHOOLS) {
+        const yearConfigs = school.programs
+            ? school.programs.flatMap(p => p.years)
+            : (school.years || []);
+        for (const year of yearConfigs) {
+            if (school.id === 'sol') continue;
+            const all = [...(year.mandatoryCourses || []), ...(year.electives || []).map(e => e.label)];
+            for (const name of all) {
+                assert.ok(!SOL_YEAR1_MANDATORY.includes(name), `${school.id} / ${year.id} must not contain "${name}"`);
+            }
+        }
+    }
+});
+
 await check('SOL Year 2 courses resolve to stable canonical courseIds', () => {
     assert.equal(resolveCourse('Community Psychology').canonical, 'community-psychology');
     assert.equal(resolveCourse('Constitutional Law-1').canonical, 'constitutional-law-1');
@@ -1472,6 +1515,23 @@ await check('SOL Year 2 courses resolve to stable canonical courseIds', () => {
     assert.equal(resolveCourse('Family Law 1').canonical, 'family-law-1');
     assert.equal(resolveCourse('Economics 3 / Modern Indian Economy').canonical, 'economics-3-modern-indian-economy');
     assert.equal(resolveCourse('Political Science 3').canonical, 'political-science-3');
+});
+
+await check('SOL Year 1 courses resolve to stable canonical courseIds', () => {
+    assert.equal(resolveCourse('Introduction to Psychology').canonical, 'introduction-to-psychology');
+    assert.equal(resolveCourse('Political Science 1').canonical, 'political-science-1');
+    assert.equal(resolveCourse('Economics - 1').canonical, 'economics-1');
+    assert.equal(resolveCourse('Law of Torts').canonical, 'law-of-torts');
+    assert.equal(resolveCourse('Legal Methods').canonical, 'legal-methods');
+    assert.equal(resolveCourse('English - 1').canonical, 'english-1');
+});
+
+await check('SOL Year 1 sheet/alternate spellings resolve to the same courseIds', () => {
+    assert.equal(resolveCourse('Introduction to Psychology / Psychology-1').canonical, 'introduction-to-psychology');
+    assert.equal(resolveCourse('Psychology-1').canonical, 'introduction-to-psychology');
+    assert.equal(resolveCourse('Political Sciences').canonical, 'political-science-1');
+    assert.equal(resolveCourse('Economics 1').canonical, 'economics-1');
+    assert.equal(resolveCourse('English 1').canonical, 'english-1');
 });
 
 await check('SOL Year 3 courses resolve to stable canonical courseIds', () => {
@@ -1605,6 +1665,63 @@ await check('SOL Year 2: course-number cells never invent Prof.N and are filtere
     for (const c of out) {
         assert.ok(!/^Prof\.\s*\d/.test(c.faculty || ''), `no phantom Prof.N on ${c.subject}`);
     }
+});
+
+console.log('--- parseCSV (grid): SOL Year 1 ---');
+// Real sheet cell spellings: multiple spaces separate subject from faculty,
+// the psychology course carries the "/ Psychology-1" variant, and the
+// numbered courses ("Economics - 1", "English - 1") contain course numbers
+// that must never be mistaken for a teacher.
+const SOL1_GRID = [
+    'MONDAY,09:15 AM -  10:10 AM,Legal Methods                     Anjana Janardhanan',
+    ',10:15 AM -  11:10 AM,Political Science 1                        Dr. Sridhar Krishnaswamy',
+    ',01.00PM - 01.55PM,Economics - 1',
+    ',02.00 PM - 2.55PM,Introduction to Psychology / Psychology-1                Mridula',
+    ',03.00 PM - 03.55 PM,English - 1                 Grace',
+    'TUESDAY,02.00 PM - 2.55PM,Law of Torts                (Payal)',
+    'WEDNESDAY,09:15 AM - 10:10 AM,Deep Learning - Sec 1 - Dr. KK',
+    ',10:15 AM - 11:10 AM,Political Sciences',
+].join('\n');
+
+await check('SOL Year 1: all six mandatory courses parse with real sheet spellings', () => {
+    const out = parseCSV(SOL1_GRID, 'grid', SOL_YEAR1_MANDATORY, null, null);
+    for (const name of SOL_YEAR1_MANDATORY) {
+        const c = out.find(x => x.subject === name);
+        assert.ok(c, `${name} parsed`);
+        assert.equal(c.elective, undefined, `${name} is not tagged as elective`);
+    }
+    assert.equal(out.length, 7, 'seven cells parse (two Political Science spellings)');
+    assert.equal(new Set(out.map(x => x.subject)).size, 6, 'both spellings fold onto six distinct courses');
+    assert.ok(out.some(x => x.subject === 'Political Science 1' && x.faculty === ''),
+        '"Political Sciences" variant folds onto Political Science 1');
+});
+
+await check('SOL Year 1: faculty split correctly and no phantom Prof.N from course numbers', () => {
+    const out = parseCSV(SOL1_GRID, 'grid', SOL_YEAR1_MANDATORY, null, null);
+    assert.equal(out.find(x => x.subject === 'Legal Methods').faculty, 'Prof. Anjana Janardhanan');
+    assert.equal(out.find(x => x.subject === 'Political Science 1').faculty, 'Prof. Dr.Sridhar Krishnaswamy');
+    assert.equal(out.find(x => x.subject === 'Introduction to Psychology').faculty, 'Prof. Dr.Mridula');
+    assert.equal(out.find(x => x.subject === 'English - 1').faculty, 'Prof. Grace');
+    assert.equal(out.find(x => x.subject === 'Law of Torts').faculty, 'Prof. Payal');
+    assert.equal(out.find(x => x.subject === 'Economics - 1').faculty, '', 'sheet cell has no teacher; none invented');
+    for (const c of out) {
+        assert.ok(!/^Prof\.\s*\d/.test(c.faculty || ''), `no phantom Prof.N on ${c.subject}`);
+    }
+});
+
+await check('SOL Year 1: mandatory courses carry stable canonical courseIds', () => {
+    const out = parseCSV(SOL1_GRID, 'grid', SOL_YEAR1_MANDATORY, null, null);
+    assert.equal(out.find(x => x.subject === 'Introduction to Psychology').courseId, 'introduction-to-psychology');
+    assert.equal(out.find(x => x.subject === 'Political Science 1').courseId, 'political-science-1');
+    assert.equal(out.find(x => x.subject === 'Economics - 1').courseId, 'economics-1');
+    assert.equal(out.find(x => x.subject === 'Law of Torts').courseId, 'law-of-torts');
+    assert.equal(out.find(x => x.subject === 'Legal Methods').courseId, 'legal-methods');
+    assert.equal(out.find(x => x.subject === 'English - 1').courseId, 'english-1');
+});
+
+await check('SOL Year 1: a non-SOL cell (SCDS course) is skipped', () => {
+    const out = parseCSV(SOL1_GRID, 'grid', SOL_YEAR1_MANDATORY, null, null);
+    assert.ok(!out.some(x => x.subject === 'Deep Learning'), 'SCDS course is not pulled into SOL Year 1');
 });
 
 console.log('--- SCDS Year 2 elective: Professional Skills and Career Readiness ---');

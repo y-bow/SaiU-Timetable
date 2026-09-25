@@ -210,6 +210,17 @@ const COURSE_DEFINITIONS = [
     { canonical: 'law-of-evidence', display: 'Law of Evidence', aliases: ['SL033'] },
     { canonical: 'environmental-law', display: 'Environmental Law', aliases: ['SL024'] },
 
+    // SOL Year 1 (School of Law, single cohort). Each course keeps its exact
+    // name as the canonical display so the sheet's cells resolve to a stable
+    // identity; alternate spellings (the slash form of the psychology course,
+    // "Political Sciences", "Economics 1") fold onto the same canonical id.
+    { canonical: 'introduction-to-psychology', display: 'Introduction to Psychology', aliases: ['Introduction to Psychology / Psychology-1', 'Psychology-1', 'Intro to Psychology'] },
+    { canonical: 'political-science-1', display: 'Political Science 1', aliases: ['Political Sciences', 'Political Science I'] },
+    { canonical: 'economics-1', display: 'Economics - 1', aliases: ['Economics 1'] },
+    { canonical: 'law-of-torts', display: 'Law of Torts' },
+    { canonical: 'legal-methods', display: 'Legal Methods' },
+    { canonical: 'english-1', display: 'English - 1', aliases: ['English 1'] },
+
     // SCDS Year 4
     { canonical: 'advance-programming', display: 'Advance Programming', aliases: ['Advance P', 'Advance_P', 'Advance Programming', 'Advanced Programming', 'Advanced P'] },
     { canonical: 'cyber-laws', display: 'Cyber Laws', aliases: ['Cyber Law'] },

@@ -352,9 +352,28 @@ export const SCHOOLS = [
         id: 'sol',
         shortName: 'SOL',
         // School of Law. Uses the direct school → year tree (like SCDS / SOAI).
-        // Year 3 is a single 5th-Semester cohort; every listed course is
-        // mandatory (Law has no elective selector).
+        // Year 3 is a single 5th-Semester cohort and Year 1 is a single
+        // cohort; every listed course is mandatory (Law has no elective
+        // selector).
         years: [
+            {
+                id: 'sol-1',
+                label: 'Year 1',
+                level: 1,
+                sections: null,
+                sheetId: '1Jk3KCLqHHzi-jxigIcPpcXZestcxb8Y0BeQLjhiezb8',
+                gid: '0',
+                parser: 'grid',
+                mandatoryCourses: [
+                    'Introduction to Psychology',
+                    'Political Science 1',
+                    'Economics - 1',
+                    'Law of Torts',
+                    'Legal Methods',
+                    'English - 1',
+                ],
+                electives: null,
+            },
             {
                 id: 'sol-2',
                 label: 'Year 2',
