@@ -32,7 +32,7 @@ const isDevHost = DEV_HOSTS.includes(self.location.hostname);
 
 // Replaced by scripts/build.mjs on every build — the file's bytes change every
 // deployment so the Service Worker update is always detected.
-const BUILD_ID = '2026-10-04-008';
+const BUILD_ID = '2026-10-04-010';
 
 // Versioned cache names. Old caches are deleted on activate so stale assets
 // never survive a deployment. Both names change every build.
@@ -119,16 +119,16 @@ const EXTRA_ASSETS = [
   versioned('icons/app/black-icon-maskable-512.png'),
   // iOS launch images. Only fetched by iOS, and only after the app is already
   // installed, so they are firmly in the optional tier.
-  'icons/startup/startup-640x1136.png',
-  'icons/startup/startup-750x1334.png',
-  'icons/startup/startup-1170x2532.png',
-  'icons/startup/startup-1179x2556.png',
-  'icons/startup/startup-828x1792.png',
-  'icons/startup/startup-1284x2778.png',
-  'icons/startup/startup-1290x2796.png',
-  'icons/startup/startup-1334x750.png',
-  'icons/startup/startup-2532x1170.png',
-  'icons/startup/startup-2778x1284.png',
+  versioned('icons/startup/startup-640x1136.png'),
+  versioned('icons/startup/startup-750x1334.png'),
+  versioned('icons/startup/startup-1170x2532.png'),
+  versioned('icons/startup/startup-1179x2556.png'),
+  versioned('icons/startup/startup-828x1792.png'),
+  versioned('icons/startup/startup-1284x2778.png'),
+  versioned('icons/startup/startup-1290x2796.png'),
+  versioned('icons/startup/startup-1334x750.png'),
+  versioned('icons/startup/startup-2532x1170.png'),
+  versioned('icons/startup/startup-2778x1284.png'),
 ];
 
 // --- Helpers ---------------------------------------------------------------

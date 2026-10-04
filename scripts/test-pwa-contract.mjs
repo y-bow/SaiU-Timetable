@@ -28,6 +28,10 @@ import { dirname, join, resolve } from 'node:path';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (rel) => readFileSync(join(ROOT, rel), 'utf8');
 
+// Comments quote the markup they replaced, so strip them before matching —
+// otherwise a page's own "this used to be a preload" comment trips the guards below.
+const stripComments = (html) => html.replace(/<!--[\s\S]*?-->/g, '');
+
 const sw = read('sw.js');
 const app = read('js/core/app.js');
 
@@ -98,33 +102,41 @@ ok('every reload waits for SKIP_WAITING first');
 // 3. Precache tiers
 // ---------------------------------------------------------------------------
 
+// Entries look like `'teachers.html'` or `versioned('style.css')`, so the
+// versioned-ness has to be read from the wrapper — there is no literal ?v= in
+// sw.js to recover it from.
 const extractArray = (name) => {
     const m = sw.match(new RegExp(`const ${name} = \\[([\\s\\S]*?)\\n\\];`));
     assert.ok(m, `could not find ${name} in sw.js`);
-    return [...m[1].matchAll(/'([^']+)'/g)].map((x) => x[1]);
+    return [...m[1].matchAll(/^[ \t]*(versioned\()?'([^']+)'/gm)].map((x) => ({
+        path: x[2],
+        versioned: Boolean(x[1]),
+    }));
 };
 
 const core = extractArray('CORE_ASSETS');
 const extra = extractArray('EXTRA_ASSETS');
+const entries = [...core, ...extra];
+const corePaths = core.map((e) => e.path);
+const extraPaths = extra.map((e) => e.path);
 
 assert.ok(core.length > 0, 'CORE_ASSETS is empty — an offline launch would be broken');
 assert.ok(extra.length > 0, 'EXTRA_ASSETS is empty — nothing is being deferred');
 ok(`precache tiers parsed (core=${core.length}, extra=${extra.length})`);
 
-for (const [name, list] of [['CORE_ASSETS', core], ['EXTRA_ASSETS', extra]]) {
+for (const [name, list] of [['CORE_ASSETS', corePaths], ['EXTRA_ASSETS', extraPaths]]) {
     const dupes = list.filter((u, i) => list.indexOf(u) !== i);
     assert.deepEqual(dupes, [], `${name} has duplicate entries: ${dupes.join(', ')}`);
 }
 ok('no duplicates within either tier');
 
-const overlap = core.filter((u) => extra.includes(u));
+const overlap = corePaths.filter((u) => extraPaths.includes(u));
 assert.deepEqual(overlap, [], `assets in both tiers: ${overlap.join(', ')}`);
 ok('the two tiers are disjoint');
 
 // Everything listed must exist, or the cache silently stores a 404/HTML page.
-const strip = (u) => u.split('?v=')[0];
-for (const u of [...core, ...extra].map(strip)) {
-    assert.ok(existsSync(join(ROOT, u)), `precached asset does not exist on disk: ${u}`);
+for (const e of entries) {
+    assert.ok(existsSync(join(ROOT, e.path)), `precached asset does not exist on disk: ${e.path}`);
 }
 ok('every precached asset exists on disk');
 
@@ -132,11 +144,35 @@ ok('every precached asset exists on disk');
 // system fallback, and the woff2 URL must be versioned like every other asset
 // (the SW's cache-first handler is only safe because URLs are versioned).
 for (const font of ['fonts/inter-latin.woff2', 'fonts/inter-latin-ext.woff2']) {
-    assert.ok(core.some((u) => u.includes(font)), `${font} is not precached`);
+    assert.ok(corePaths.some((p) => p === font), `${font} is not precached`);
     const css = read('style.css');
     assert.match(css, new RegExp(`url\\('${font.replace(/\//g, '\\/')}\\?v=`), `${font} is not versioned in style.css`);
 }
 ok('self-hosted fonts are precached and versioned in style.css');
+
+// Every asset a page references must be precached under the *same* URL — same
+// path AND same versioning. A mismatch means the precache entry is dead weight
+// and the real request misses the cache: that is exactly how the iOS startup
+// images ended up cached unversioned while index.html asked for them with ?v=,
+// silently wasting ~424KB on every install and pushing iOS onto the network.
+const precached = new Map(entries.map((e) => [e.path, e.versioned]));
+const problems = [];
+for (const f of ['index.html', 'teachers.html', '404.html']) {
+    const html = stripComments(read(f));
+    for (const m of html.matchAll(/(?:href|src)="([^"?#]+\.(?:png|woff2|css|js|json))(\?v=[^"]*)?"/g)) {
+        const [, path, query] = m;
+        if (!precached.has(path)) {
+            problems.push(`${f}: ${path} is referenced but not precached`);
+        } else if (precached.get(path) !== Boolean(query)) {
+            problems.push(
+                `${f}: ${path} is ${query ? 'versioned' : 'unversioned'} in the page but ` +
+                `${precached.get(path) ? 'versioned' : 'unversioned'} in the precache`
+            );
+        }
+    }
+}
+assert.deepEqual(problems, [], problems.join('\n  '));
+ok(`all page-referenced assets are precached with a matching version`);
 
 // The index.html preload must match the @font-face URL exactly, otherwise the
 // browser downloads the font twice and logs a preload-mismatch warning.
@@ -164,10 +200,6 @@ ok('no Google Fonts references remain in any page or in sw.js');
 // ---------------------------------------------------------------------------
 // 5. FOUC guards (see scripts/build.mjs verifyHtml)
 // ---------------------------------------------------------------------------
-
-// Comments quote the markup they replaced, so strip them before matching —
-// otherwise this page's own "this used to be a preload" comment trips it.
-const stripComments = (html) => html.replace(/<!--[\s\S]*?-->/g, '');
 
 for (const f of ['index.html', 'teachers.html', '404.html']) {
     const html = stripComments(read(f));
