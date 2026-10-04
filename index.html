@@ -60,6 +60,88 @@
             } catch (_) {}
         })();
     </script>
+    <style>
+        /* ---------- Critical CSS ----------
+           Inlined deliberately. This is the only styling that is guaranteed to
+           be applied at the very first paint, which is what lets the browser
+           hand off from the OS splash screen without a white flash.
+
+           --bg-tint was just set inline by the theme script above, so these
+           rules already reflect the user's saved theme (dark / light / warm /
+           cool) before any stylesheet request is made.
+
+           Everything here must stay in sync with the real rules in the
+           stylesheet: html -> background: var(--bg), body -> background,
+           font-family, color. */
+        html { background: var(--bg-tint, #000); }
+        body {
+            margin: 0;
+            background: var(--bg-tint, #000);
+            color: #EDEDED;
+            font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+            overflow-x: clip;
+            -webkit-font-smoothing: antialiased;
+        }
+        /* Reserve the scrollbar gutter so late-loading content never shifts the
+           layout sideways. */
+        html { scrollbar-gutter: stable; }
+
+        /* ---------- Boot layer ----------
+           Painted by the first frame, before any stylesheet or module has
+           loaded. It exists so the transition from the OS splash screen to the
+           app is a continuous themed surface instead of black -> white ->
+           black -> spinner. Styled here rather than in the stylesheet precisely
+           because it must not depend on a network round trip.
+
+           Removed by the app on the first successful render, with a timeout and
+           an error handler as failsafes so it can never trap the user on a
+           blank screen. */
+        #boot {
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            background: var(--bg-tint, #000);
+            /* Fade rather than vanish, so the hand-off reads as a cross-fade.
+               `boot-hidden` (display:none) is applied afterwards to stop it
+               eating taps on the UI underneath. */
+            transition: opacity 180ms ease-out;
+        }
+        #boot.boot-done { opacity: 0; pointer-events: none; }
+        #boot.boot-hidden { display: none; }
+        #boot .boot-logo {
+            width: 76px;
+            height: 76px;
+            object-fit: contain;
+            /* The vendored mark is white; on the light theme it must invert to
+               black so it stays visible on a near-white canvas. */
+        }
+        html[data-bg="light"] #boot .boot-logo { filter: invert(1); }
+        #boot .boot-word {
+            font-size: 0.95rem;
+            font-weight: 600;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: #8A8A8E;
+        }
+        #boot .boot-ring {
+            width: 22px; height: 22px;
+            margin-top: 6px;
+            border: 2px solid rgba(255, 255, 255, 0.16);
+            border-top-color: #d85757;
+            border-radius: 50%;
+            animation: boot-spin 0.7s linear infinite;
+        }
+        @keyframes boot-spin { to { transform: rotate(360deg); } }
+        @media (prefers-reduced-motion: reduce) {
+            #boot .boot-ring { animation-duration: 2.4s; }
+            #boot { transition: none; }
+        }
+    </style>
     <script type="application/ld+json">
     {
         "@context": "https://schema.org",
@@ -85,10 +167,16 @@
         }
     }
     </script>
-    <script src="js/generated/build.js?v=2026-09-25-004" defer></script>
-    <link rel="preload" href="style.css?v=2026-09-25-004" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="style.css?v=2026-09-25-004"></noscript>
-    <link rel="manifest" href="manifest.json?v=2026-09-25-004">
+    <script src="js/generated/build.js?v=2026-10-04-008" defer></script>
+    <!-- Render-blocking on purpose. This used to be an async
+         `<link rel="preload" as="style" onload="this.rel='stylesheet'">` pair,
+         which made the stylesheet non-render-blocking and caused a ~180ms flash
+         of unstyled white HTML on every cold load (first visit, and every
+         deploy, since the ?v= URL changes). The app is JS-rendered, so blocking
+         on CSS costs no meaningful time-to-content while removing the flash
+         entirely. The inline critical <style> covers the themed canvas. -->
+    <link rel="stylesheet" href="style.css?v=2026-10-04-008">
+    <link rel="manifest" href="manifest.json?v=2026-10-04-008">
     <script>
         // Theme-adaptive PWA icon (applies at install time): phones always
         // use manifest-light.json (black glyph on white); light-color-scheme
@@ -110,19 +198,42 @@
             else if (mq && mq.addListener) mq.addListener(apply);
         })();
     </script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
-    <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"></noscript>
-    <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon/favicon-32.png?v=2026-09-25-004">
-    <link rel="icon" type="image/png" sizes="48x48" href="icons/favicon/favicon-48.png?v=2026-09-25-004">
-    <link rel="icon" type="image/png" sizes="192x192" href="icons/favicon/favicon-192.png?v=2026-09-25-004">
-    <link rel="icon" type="image/png" sizes="512x512" href="icons/app/white-icon-512.png?v=2026-09-25-004">
+    <!-- Inter is self-hosted (see the @font-face block at the top of the
+         stylesheet) so it can be precached for offline use and versioned with
+         the rest of the app. The previous Google Fonts <link> was loaded async
+         via media="print" + onload, which meant every label painted in the
+         system fallback and then reflowed to Inter a frame or two later, a
+         visible text flicker on mobile. -->
+    <link rel="preload" href="fonts/inter-latin.woff2?v=2026-10-04-008" as="font" type="font/woff2" crossorigin>
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon/favicon-32.png?v=2026-10-04-008">
+    <link rel="icon" type="image/png" sizes="48x48" href="icons/favicon/favicon-48.png?v=2026-10-04-008">
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/favicon/favicon-192.png?v=2026-10-04-008">
+    <link rel="icon" type="image/png" sizes="512x512" href="icons/app/white-icon-512.png?v=2026-10-04-008">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <!-- `black-translucent` instead of `default`. `default` renders a WHITE
+         status bar, which put a white strip above this dark app when launched
+         from the iOS home screen. The app already declares viewport-fit=cover
+         and consumes env(safe-area-inset-top) in its topbar, so translucent is
+         handled correctly and the status bar text stays legible. -->
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <!-- iOS launch images. Without these, iOS shows a blank white screen from
+         tap until first paint. Each is a themed canvas with the centred mark,
+         generated by scripts/gen-startup-images.py. The media queries key off
+         device resolution + orientation, and -webkit-device-pixel-ratio splits
+         the @1x/@2x/@3x variants, which is the combination Safari matches on. -->
+    <link rel="apple-touch-startup-image" media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="icons/startup/startup-640x1136.png?v=2026-10-04-008">
+    <link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="icons/startup/startup-750x1334.png?v=2026-10-04-008">
+    <link rel="apple-touch-startup-image" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/startup/startup-1170x2532.png?v=2026-10-04-008">
+    <link rel="apple-touch-startup-image" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/startup/startup-1179x2556.png?v=2026-10-04-008">
+    <link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="icons/startup/startup-828x1792.png?v=2026-10-04-008">
+    <link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/startup/startup-1284x2778.png?v=2026-10-04-008">
+    <link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="icons/startup/startup-1290x2796.png?v=2026-10-04-008">
+    <link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)" href="icons/startup/startup-1334x750.png?v=2026-10-04-008">
+    <link rel="apple-touch-startup-image" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="icons/startup/startup-2532x1170.png?v=2026-10-04-008">
+    <link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)" href="icons/startup/startup-2778x1284.png?v=2026-10-04-008">
     <meta name="apple-mobile-web-app-title" content="SaiU Timetable">
-    <link rel="apple-touch-icon" href="icons/app/apple-touch-icon.png?v=2026-09-25-004">
+    <link rel="apple-touch-icon" href="icons/app/apple-touch-icon.png?v=2026-10-04-008">
     <script>
         (function () {
             var id = 'G-GYB0SEBGZM';
@@ -144,12 +255,23 @@
 
 </head>
 <body>
+    <!-- Boot layer. Pure HTML + inline critical CSS, so it is on screen at the
+         very first paint and turns the OS splash -> app hand-off into a
+         cross-fade on one themed surface instead of black -> white -> black ->
+         spinner. Removed by the app on the first successful render; a timeout
+         and an error handler act as failsafes. Duplicated in teachers.html. -->
+    <div id="boot" role="status" aria-live="polite">
+        <img class="boot-logo" src="icons/app/white-icon-512.png?v=2026-10-04-008" alt="" aria-hidden="true" width="76" height="76" decoding="async">
+        <span class="boot-word">Timetable</span>
+        <span class="boot-ring" aria-hidden="true"></span>
+    </div>
+
     <!-- Mobile top bar -->
     <header class="mobile-topbar">
         <button id="hamburger-btn" class="icon-btn" aria-label="Open navigation" title="Menu">
             <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
         </button>
-        <h1 class="mobile-title"><img class="brand-logo" src="icons/favicon/favicon-48.png?v=2026-09-25-004" alt="" aria-hidden="true" width="48" height="48" decoding="async"><span>Timetable</span></h1>
+        <h1 class="mobile-title"><img class="brand-logo" src="icons/favicon/favicon-48.png?v=2026-10-04-008" alt="" aria-hidden="true" width="48" height="48" decoding="async"><span>Timetable</span></h1>
         <button id="theme-btn-mobile" class="icon-btn theme-topbar-btn" aria-label="Change theme" title="Theme">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22a10 10 0 1 1 10-10 4 4 0 0 1-4 4h-2.5a2.5 2.5 0 0 0-1.6 4.4A2 2 0 0 1 12 22z"/><circle cx="7.5" cy="10.5" r="1"/><circle cx="12" cy="7.5" r="1"/><circle cx="16.5" cy="10.5" r="1"/></svg>
         </button>
@@ -167,7 +289,7 @@
     <!-- Sidebar: desktop permanent + mobile drawer -->
     <aside id="sidebar" class="sidebar" role="navigation" aria-label="Filters">
         <div class="sidebar-header">
-            <h2 class="sidebar-brand"><img class="brand-logo" src="icons/favicon/favicon-48.png?v=2026-09-25-004" alt="" aria-hidden="true" width="48" height="48" decoding="async"><span>Timetable</span></h2>
+            <h2 class="sidebar-brand"><img class="brand-logo" src="icons/favicon/favicon-48.png?v=2026-10-04-008" alt="" aria-hidden="true" width="48" height="48" decoding="async"><span>Timetable</span></h2>
             <button id="sidebar-close-btn" class="icon-btn sidebar-close-btn" aria-label="Close navigation">
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
             </button>
@@ -276,6 +398,17 @@
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
+    <!-- Update prompt. The service worker serves HTML cache-first, so the first
+         launch after a deploy would otherwise run the previous build with no
+         indication anything changed. Shown only when the page detects that
+         mismatch; never auto-reloads, because yanking the app away mid-class is
+         worse than running one build behind. -->
+    <div id="update-bar" class="update-bar" hidden role="status" aria-live="polite">
+        <span class="update-bar-text">A new version is available</span>
+        <button id="update-bar-btn" class="update-bar-btn" type="button">Reload</button>
+        <button id="update-bar-close" class="update-bar-close" type="button" aria-label="Dismiss">&times;</button>
+    </div>
+
     <div id="section-modal" class="section-modal hidden" role="dialog" aria-modal="true" aria-labelledby="section-modal-title">
         <div class="section-modal-backdrop"></div>
         <div class="section-modal-sheet">
@@ -349,7 +482,7 @@
         </div>
     </div>
 
-    <script type="module" src="js/core/app.js?v=2026-09-25-004"></script>
+    <script type="module" src="js/core/app.js?v=2026-10-04-008"></script>
 
     <!-- === TEMPORARY: TIMETABLE UPDATE STATUS =============================
          Shows the "Timetable update in progress" banner above the schedule.

@@ -1,5 +1,5 @@
-import { getStoredLabSection, setStoredLabSection, getStoredLabGroup, setStoredLabGroup } from '../services/storage.js?v=2026-09-25-004';
-import { isYear2SCDS } from '../data/lab-config.js?v=2026-09-25-004';
+import { getStoredLabSection, setStoredLabSection, getStoredLabGroup, setStoredLabGroup } from '../services/storage.js?v=2026-10-04-008';
+import { isYear2SCDS } from '../data/lab-config.js?v=2026-10-04-008';
 
 /**
  * Lab-group selector state + UI for Year 2 SCDS.

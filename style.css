@@ -4,6 +4,46 @@
    Refactored per SKILL.md (apple-design).
    ============================================================ */
 
+/* ---------- Self-hosted Inter ----------
+   Vendored from Google Fonts (Inter v20, SIL Open Font License 1.1).
+   Self-hosted so the woff2 files can be precached by the service worker
+   (works offline) and versioned like every other asset (?v=BUILD_ID),
+   instead of depending on a third-party host at runtime.
+
+   Inter v20 ships as a *variable* font: one file per unicode subset covers
+   the whole 400-700 weight range, so a single @font-face rule with a
+   font-weight range replaces four static rules.
+
+   font-display: optional — the app is a frequently-opened PWA, so after the
+   first (precached) load the font is available before first paint and never
+   swaps. `swap` would repaint every label from the system fallback to Inter a
+   frame or two after load, which reads as a flicker on mobile.
+
+   The two subsets are separate files purely for the unicode-range split, so
+   the browser only downloads latin-ext if a character in that range actually
+   appears. Both files are precached anyway (~100KB combined) so a first
+   offline launch has no third-party or cold-cache dependency at all. */
+@font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 400 700;
+    font-display: optional;
+    src: url('fonts/inter-latin.woff2?v=2026-10-04-008') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+        U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+        U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 400 700;
+    font-display: optional;
+    src: url('fonts/inter-latin-ext.woff2?v=2026-10-04-008') format('woff2');
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF,
+        U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0,
+        U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
 /* ---------- Tokens ---------- */
 :root {
     --bg: #000000;
@@ -282,6 +322,11 @@ html[data-bg="light"] {
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html {
+    /* Paint the themed canvas on <html> as well as <body>. The inline
+       critical CSS in index.html does the same before this stylesheet
+       arrives; keeping both means the browser canvas is never the
+       default white, even mid-swap. */
+    background: var(--bg);
     scroll-behavior: smooth;
     font: 100%/1.5 system-ui, -apple-system, 'Segoe UI', sans-serif;
     font-optical-sizing: auto;
@@ -1526,6 +1571,66 @@ input[type="color"].theme-picker-input::-moz-color-swatch {
     opacity: 0; pointer-events: none;
 }
 .toast.show { transform: translate(-50%, 0); opacity: 1; }
+
+/* ============================================================
+   Update prompt — service worker detected a newer deploy
+   ============================================================ */
+.update-bar {
+    position: fixed;
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    left: 50%;
+    transform: translate(-50%, 0);
+    z-index: 450;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: max-content;
+    max-width: min(92vw, 440px);
+    padding: 10px 10px 10px 18px;
+    background: var(--material-toast);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid var(--border-bright);
+    border-radius: var(--radius-pill);
+    box-shadow: var(--shadow-xl);
+    font-size: 0.82rem;
+    color: var(--text);
+}
+.update-bar[hidden] { display: none; }
+.update-bar-text { font-weight: 500; white-space: nowrap; }
+.update-bar-btn {
+    flex: none;
+    appearance: none;
+    border: 0;
+    cursor: pointer;
+    padding: 7px 16px;
+    border-radius: var(--radius-pill);
+    background: var(--primary);
+    color: var(--on-primary, #fff);
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+.update-bar-btn:active { opacity: 0.75; }
+.update-bar-close {
+    flex: none;
+    appearance: none;
+    border: 0;
+    background: none;
+    cursor: pointer;
+    padding: 0 6px;
+    color: var(--text-tertiary);
+    font-size: 1.25rem;
+    line-height: 1;
+}
+.update-bar-close:active { color: var(--text); }
+@media (prefers-reduced-motion: no-preference) {
+    .update-bar { animation: update-bar-in 320ms cubic-bezier(0.1, 0.6, 0.2, 1.15); }
+    @keyframes update-bar-in {
+        from { opacity: 0; transform: translate(-50%, 60px); }
+        to   { opacity: 1; transform: translate(-50%, 0); }
+    }
+}
 
 /* ============================================================
    Section modal — bottom sheet with material

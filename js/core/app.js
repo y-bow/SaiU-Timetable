@@ -1,19 +1,19 @@
-import { CONFIG } from './config.js?v=2026-09-25-004';
-import { parseCSV, parseRoomOccupancy, offeringKey } from '../data/parser.js?v=2026-09-25-004';
-import { compareTimetables, classIdentity } from '../data/change-detector.js?v=2026-09-25-004';
-import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen, hasSeenElectiveSectionModal, markElectiveSectionModalSeen } from '../services/storage.js?v=2026-09-25-004';
-import * as nav from '../ui/navigation.js?v=2026-09-25-004';
-import * as ui from '../ui/ui.js?v=2026-09-25-004';
-import { checkArjunSinghTransition, resetArjunSinghTransition } from '../ui/easter-eggs.js?v=2026-09-25-004';
-import * as labSection from '../ui/lab-section.js?v=2026-09-25-004';
-import { loadMergedYear1Timetable, loadMergedYear2Timetable } from '../services/lab-fetch.js?v=2026-09-25-004';
-import { matchesEmergingToolsSection } from '../data/lab-parser.js?v=2026-09-25-004';
-import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-09-25-004';
-import { init as initAnalytics, trackEvent } from '../services/analytics.js?v=2026-09-25-004';
-import { initFreeRooms } from '../ui/free-rooms.js?v=2026-09-25-004';
-import { initTeacherLookup } from '../ui/teacher-lookup.js?v=2026-09-25-004';
-import { detectClashes } from '../data/clash-detector.js?v=2026-09-25-004';
-import { applyStoredTheme, initThemeControls } from './theme.js?v=2026-09-25-004';
+import { CONFIG } from './config.js?v=2026-10-04-008';
+import { parseCSV, parseRoomOccupancy, offeringKey } from '../data/parser.js?v=2026-10-04-008';
+import { compareTimetables, classIdentity } from '../data/change-detector.js?v=2026-10-04-008';
+import { getSection as getStoredSection, setSection as setStoredSection, hasSeenSectionModal, markSectionModalSeen, hasSeenElectiveSectionModal, markElectiveSectionModalSeen } from '../services/storage.js?v=2026-10-04-008';
+import * as nav from '../ui/navigation.js?v=2026-10-04-008';
+import * as ui from '../ui/ui.js?v=2026-10-04-008';
+import { checkArjunSinghTransition, resetArjunSinghTransition } from '../ui/easter-eggs.js?v=2026-10-04-008';
+import * as labSection from '../ui/lab-section.js?v=2026-10-04-008';
+import { loadMergedYear1Timetable, loadMergedYear2Timetable } from '../services/lab-fetch.js?v=2026-10-04-008';
+import { matchesEmergingToolsSection } from '../data/lab-parser.js?v=2026-10-04-008';
+import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-10-04-008';
+import { init as initAnalytics, trackEvent } from '../services/analytics.js?v=2026-10-04-008';
+import { initFreeRooms } from '../ui/free-rooms.js?v=2026-10-04-008';
+import { initTeacherLookup } from '../ui/teacher-lookup.js?v=2026-10-04-008';
+import { detectClashes } from '../data/clash-detector.js?v=2026-10-04-008';
+import { applyStoredTheme, initThemeControls } from './theme.js?v=2026-10-04-008';
 
 /**
  * App bootstrap, fetch, and interactivity.
@@ -272,6 +272,7 @@ async function load({ silent = false, background = false } = {}) {
         classes = [];
         roomOccupancy = [];
         loadedFor = null;
+        dismissBoot();
         ui.renderError();
         return;
     }
@@ -377,6 +378,9 @@ async function load({ silent = false, background = false } = {}) {
             }
         } else {
             // No cached data — show error card with an appropriate message.
+            // Failsafe 2: the error card is real content, so the boot layer
+            // must get out of the way or it would cover the retry button.
+            dismissBoot();
             if (isOffline) {
                 ui.renderError({
                     title: "You're offline",
@@ -478,6 +482,9 @@ function render() {
     if (loadedFor !== (nav.getYear()?.id ?? null)) {
         return;
     }
+    // Failsafe 1: the timetable is about to be drawn, so the boot layer has
+    // done its job. Fades out over 180ms to hand over to the real UI.
+    dismissBoot();
     ui.hideLoading();
     renderNavigation();
     const day = selectedDay || contextDay();
@@ -852,7 +859,42 @@ function initNavigationListeners() {
 }
 
 function initAutoRefresh() {
-    setInterval(() => load({ background: true }), CONFIG.REFRESH_INTERVAL);
+    // Refresh only while the page is actually in front of the user.
+    //
+    // The timer used to run unconditionally, so a minimised or backgrounded tab
+    // still pulled the timetable CSV from Google Sheets every 5 minutes. On
+    // mobile that wakes the radio and spends data while the app is not being
+    // looked at, which is exactly the kind of thing gets an installed PWA
+    // deleted. Instead the interval is stopped when hidden and restarted on
+    // return, where a refresh is also kicked off immediately so the timetable is
+    // current the moment it becomes visible again.
+    let timer = null;
+
+    const stop = () => {
+        if (timer) { clearInterval(timer); timer = null; }
+    };
+
+    const start = () => {
+        if (timer) return;
+        timer = setInterval(() => {
+            if (document.visibilityState === 'visible') load({ background: true });
+        }, CONFIG.REFRESH_INTERVAL);
+    };
+
+    const sync = () => {
+        if (document.visibilityState === 'visible') {
+            const wasHidden = timer === null;
+            start();
+            // Coming back from the background: the data on screen is at least one
+            // interval old, so refresh now rather than making the user wait.
+            if (wasHidden && loadedFor) load({ background: true });
+        } else {
+            stop();
+        }
+    };
+
+    document.addEventListener('visibilitychange', sync);
+    sync();
 }
 
 // ============================================================
@@ -941,6 +983,135 @@ function initPWA() {
 }
 
 // ============================================================
+// Boot layer
+// ============================================================
+
+// The #boot element (see index.html) is pure HTML + inline critical CSS, so it
+// covers the window between the OS splash screen and the first successful
+// render with one continuous themed surface. Without it that window shows a
+// blank page and then a bare spinner.
+//
+// It must never be able to trap the user on a blank screen, so it is torn down
+// by whichever of these fires first:
+//   1. the first render() that actually draws a timetable  (normal path)
+//   2. renderError() — the load failed and there is no cached data
+//   3. a timeout, in case neither happens (module error, offline first run)
+//   4. an uncaught error or a rejected module load
+const BOOT_FALLBACK_MS = 4000;
+let bootTimer = null;
+let bootGone = false;
+
+function dismissBoot() {
+    if (bootGone) return;
+    bootGone = true;
+    if (bootTimer) { clearTimeout(bootTimer); bootTimer = null; }
+    const el = document.getElementById('boot');
+    if (!el) return;
+    el.classList.add('boot-done');
+    // After the opacity transition the element is display:none, so it stops
+    // intercepting taps meant for the UI underneath. Belt-and-braces: also
+    // remove it from the a11y tree and the tab order.
+    el.setAttribute('aria-hidden', 'true');
+    el.setAttribute('inert', '');
+    const finish = () => {
+        el.classList.add('boot-hidden');
+        el.remove();
+    };
+    if (el.animate) {
+        setTimeout(finish, 220);
+    } else {
+        finish();
+    }
+}
+
+function initBootLayer() {
+    if (!document.getElementById('boot')) return;
+    // Failsafe 3.
+    bootTimer = setTimeout(dismissBoot, BOOT_FALLBACK_MS);
+    // Failsafe 4. 'error' catches resource load failures too when it fires on
+    // window with capture, which is what catches a failed module graph.
+    addEventListener('error', dismissBoot, true);
+    addEventListener('unhandledrejection', dismissBoot);
+}
+
+// ============================================================
+// Update prompt
+// ============================================================
+
+// The service worker deliberately serves HTML cache-first, so the FIRST launch
+// after a deploy still runs the previous build, and only the second launch
+// picks up the new one. That reads as "my change didn't deploy".
+//
+// Reloading unprompted would be worse: yanking the timetable away while someone
+// is reading it is a far bigger irritation than briefly running one build
+// behind. So the mismatch is surfaced as a dismissible prompt and the user
+// chooses when to switch.
+//
+// The stamp in the page's own HTML (CONFIG.BUILD_ID, set by js/generated/build.js
+// which the HTML versioned) is compared against the stamp inside the active
+// worker. A lower page stamp means the shell is stale.
+const UPDATE_PROMPT_KEY = 'tt-update-dismissed-for';
+
+function showUpdateBar() {
+    const bar = $('#update-bar');
+    if (!bar) return;
+
+    // Only nag once per deploy. Storing the build id (rather than a boolean)
+    // means the prompt returns for the NEXT deploy, not forever.
+    const current = CONFIG.BUILD_ID;
+    try {
+        if (localStorage.getItem(UPDATE_PROMPT_KEY) === current) return;
+    } catch { /* private mode — just show it */ }
+
+    bar.hidden = false;
+
+    const dismiss = () => {
+        bar.hidden = true;
+        try { localStorage.setItem(UPDATE_PROMPT_KEY, current); } catch { /* ignore */ }
+    };
+
+    $('#update-bar-btn')?.addEventListener('click', () => {
+        bar.hidden = true;
+        // Make sure a waiting worker takes over before the reload, otherwise the
+        // reload could be served the same stale shell again.
+        navigator.serviceWorker?.getRegistration()
+            .then((reg) => reg?.waiting?.postMessage({ type: 'SKIP_WAITING' }))
+            .catch(() => {})
+            .finally(() => location.reload());
+    });
+    $('#update-bar-close')?.addEventListener('click', dismiss);
+}
+
+function initUpdatePrompt() {
+    if (!('serviceWorker' in navigator)) return;
+
+    navigator.serviceWorker.addEventListener('message', (e) => {
+        // Sent by sw.js from its activate handler once a newer build has taken
+        // over, so a page already on screen can offer the reload.
+        if (e.data?.type === 'SAIU_UPDATE_READY') { showUpdateBar(); return; }
+        // Reply to our version probe. Compare as strings: both stamps are
+        // YYYY-MM-DD-NNN, which sorts correctly both lexically and by date.
+        if (e.data?.type === 'SAIU_VERSION') {
+            const workerBuild = e.data.buildId;
+            const pageBuild = CONFIG.BUILD_ID;
+            if (workerBuild && pageBuild && workerBuild !== pageBuild) {
+                console.log(`[PWA] Shell is stale: page ${pageBuild}, worker ${workerBuild}`);
+                showUpdateBar();
+            }
+        }
+    });
+
+    // Ask the active worker which build it is. Done after load() rather than
+    // inline so the registration has settled and the message has a listener.
+    navigator.serviceWorker.ready
+        .then((reg) => {
+            if (!reg.active) return;
+            reg.active.postMessage({ type: 'SAIU_VERSION_CHECK' });
+        })
+        .catch(() => {});
+}
+
+// ============================================================
 // Legacy section migration
 // ============================================================
 
@@ -961,6 +1132,9 @@ function migrateLegacySection() {
 // ============================================================
 
 function init() {
+    // Arm the boot-layer failsafes before anything that can throw.
+    initBootLayer();
+    initUpdatePrompt();
     initAnalytics();
     initPWA();
     // Register navigation listeners BEFORE initNavigation() so the

@@ -31,6 +31,7 @@
     "test:clock": "node scripts/test-clock.mjs",
     "test:change-detector": "node scripts/test-change-detector.mjs",
     "test:clash": "node scripts/test-clash-detector.mjs",
-    "test:theme": "node scripts/test-theme.mjs"
+    "test:theme": "node scripts/test-theme.mjs",
+    "test:pwa": "node scripts/test-pwa-contract.mjs"
   }
 }

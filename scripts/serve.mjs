@@ -12,6 +12,11 @@ const MIME = {
   '.png': 'image/png',
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
+  // Self-hosted Inter. Without this the browser refuses the stylesheet's
+  // @font-face src and silently falls back to the system font, which makes the
+  // font work impossible to verify locally.
+  '.woff2': 'font/woff2',
+  '.woff': 'font/woff',
 };
 
 createServer(async (req, res) => {

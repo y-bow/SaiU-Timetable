@@ -11,10 +11,10 @@
  * never invented — the timeline simply shows the classes that exist.
  */
 
-import { loadTeacherIndex } from '../services/teacher-fetch.js?v=2026-09-25-004';
-import { CONFIG } from '../core/config.js?v=2026-09-25-004';
-import { toMinutes, minutesToLabel, minutesToClock, todayName, WEEKDAYS, labSubjectLabel } from '../core/utils.js?v=2026-09-25-004';
-import { confirmTeacherMerge, dismissTeacherMerge } from '../data/teacher-identity.js?v=2026-09-25-004';
+import { loadTeacherIndex } from '../services/teacher-fetch.js?v=2026-10-04-008';
+import { CONFIG } from '../core/config.js?v=2026-10-04-008';
+import { toMinutes, minutesToLabel, minutesToClock, todayName, WEEKDAYS, labSubjectLabel } from '../core/utils.js?v=2026-10-04-008';
+import { confirmTeacherMerge, dismissTeacherMerge } from '../data/teacher-identity.js?v=2026-10-04-008';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -275,6 +275,10 @@ function showLoading() {
 
 function hideLoading() {
     $('#loading-state')?.classList.remove('visible');
+    // Every terminal state on this page routes through here — a rendered
+    // timeline (line 430), an empty result, or the error card (both via
+    // showEmpty). That makes it the one place the boot layer must come off.
+    dismissBoot();
 }
 
 function showToast(message) {
@@ -496,8 +500,47 @@ async function initServiceWorkerUpdate() {
 // ============================================================
 // Bootstrap
 // ============================================================
+// Boot layer
+// ============================================================
+
+// The #boot element (see teachers.html) is pure HTML + inline critical CSS, so
+// it covers the window between the OS splash screen and the first render with
+// one continuous themed surface. Mirrors the implementation in js/core/app.js.
+//
+// It must never trap the user on a blank screen, so it is torn down by
+// whichever fires first: the first hideLoading() call (i.e. any terminal
+// state), a timeout, or an uncaught error / rejected module load.
+const BOOT_FALLBACK_MS = 4000;
+let bootTimer = null;
+let bootGone = false;
+
+function dismissBoot() {
+    if (bootGone) return;
+    bootGone = true;
+    if (bootTimer) { clearTimeout(bootTimer); bootTimer = null; }
+    const el = document.getElementById('boot');
+    if (!el) return;
+    el.classList.add('boot-done');
+    el.setAttribute('aria-hidden', 'true');
+    el.setAttribute('inert', '');
+    setTimeout(() => {
+        el.classList.add('boot-hidden');
+        el.remove();
+    }, 220);
+}
+
+function initBootLayer() {
+    if (!document.getElementById('boot')) return;
+    bootTimer = setTimeout(dismissBoot, BOOT_FALLBACK_MS);
+    addEventListener('error', dismissBoot, true);
+    addEventListener('unhandledrejection', dismissBoot);
+}
+
+// ============================================================
 
 function init() {
+    initBootLayer();
+
     const search = $('#teacher-search');
     if (search) {
         search.addEventListener('input', () => applySearch(search.value));
@@ -520,7 +563,37 @@ function init() {
     // Courses added to the sheets/config show up automatically: every load
     // rebuilds the index from the live sheet, and a silent periodic refresh
     // keeps an open page current (same cadence as the student app).
-    setInterval(() => load({ silent: true }), CONFIG.REFRESH_INTERVAL || 5 * 60 * 1000);
+    //
+    // The refresh only runs while the page is visible. An unconditional interval
+    // kept pulling the sheets while the tab sat in the background, which on
+    // mobile spends data and wakes the radio for a page nobody is looking at.
+    // On return to visibility a refresh is kicked off straight away so the list
+    // is current when it reappears.
+    let refreshTimer = null;
+
+    const stopRefresh = () => {
+        if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
+    };
+
+    const startRefresh = () => {
+        if (refreshTimer) return;
+        refreshTimer = setInterval(() => {
+            if (document.visibilityState === 'visible') load({ silent: true });
+        }, CONFIG.REFRESH_INTERVAL || 5 * 60 * 1000);
+    };
+
+    const syncRefresh = () => {
+        if (document.visibilityState === 'visible') {
+            const wasHidden = refreshTimer === null;
+            startRefresh();
+            if (wasHidden) load({ silent: true });
+        } else {
+            stopRefresh();
+        }
+    };
+
+    document.addEventListener('visibilitychange', syncRefresh);
+    syncRefresh();
 
     load();
 }

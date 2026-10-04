@@ -74,59 +74,156 @@ write('build.json', `${JSON.stringify({ id: BUILD_ID }, null, 2)}\n`);
 // ---------------------------------------------------------------------------
 // index.html — version every same-origin static asset reference.
 // ---------------------------------------------------------------------------
+/**
+ * Rewrite `asset.ext` -> `asset.ext?v=BUILD_ID` throughout an HTML document.
+ *
+ * Two regions must be left alone:
+ *
+ *   - HTML comments. The pattern's optional `?v=...` tail is `[^"']*`, which is
+ *     unbounded, so a match that *starts* inside a comment happily runs past the
+ *     comment's `-->` and swallows live markup up to the next quote. A comment
+ *     that merely mentions `style.css` would silently delete the markup after
+ *     it. Skipping comments entirely removes the whole failure mode.
+ *
+ *   - `<style>` bodies, for the same reason: CSS comments inside a stylesheet
+ *     mention asset names too, and CSS is not a URL-attribute context.
+ *
+ * `<script>` bodies are deliberately still rewritten. index.html fetches
+ * manifest-light.json from an inline script and relies on it being versioned,
+ * so that behaviour is preserved; the build.js probe URL is not matched by any
+ * pattern and is handled separately below.
+ */
 function versionRefs(html, patterns) {
-  for (const pat of patterns) {
-    html = html.replace(new RegExp(`(${pat})(\\?v=[^"']*)?`, 'g'), `$1?v=${BUILD_ID}`);
+  const apply = (chunk) => {
+    for (const pat of patterns) {
+      chunk = chunk.replace(new RegExp(`(${pat})(\\?v=[^"']*)?`, 'g'), `$1?v=${BUILD_ID}`);
+    }
+    return chunk;
+  };
+
+  const out = [];
+  let last = 0;
+  // A <style> element's content is protected; its own tags are not, so they
+  // stay in the rewritten side of the split.
+  const re = /<!--[\s\S]*?-->|<style\b[^>]*>[\s\S]*?<\/style\s*>/gi;
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    out.push(apply(html.slice(last, m.index)));
+    const whole = m[0];
+    if (/^<style\b/i.test(whole)) {
+      const open = whole.match(/^<style\b[^>]*>/i)[0];
+      out.push(apply(open));
+      out.push(whole.slice(open.length));
+    } else {
+      out.push(whole);
+    }
+    last = m.index + whole.length;
   }
-  return html;
+  out.push(apply(html.slice(last)));
+  return out.join('');
+}
+
+/**
+ * Fail the build if a versioning pass left the HTML malformed.
+ *
+ * The version-stamping regexes rewrite quoted URL fragments by matching the
+ * asset name plus an optional `?v=...`, and several of them also swallow a
+ * neighbouring quote character that the replacement string has to put back.
+ * Getting that wrong is silent: the page still parses, the tag just quietly
+ * stops working (a `src="...?v=ID defer>` tag loads nothing, and nothing in the
+ * build complains). These assertions turn that class of mistake into a hard
+ * failure instead of a deployed bug.
+ */
+function verifyHtml(file, html) {
+  const problems = [];
+
+  // Comments legitimately quote markup patterns (this file's own comments
+  // mention the preload hack they replaced), so strip them before scanning or
+  // every such comment reads as live markup.
+  const live = html.replace(/<!--[\s\S]*?-->/g, '');
+
+  // Every tag that carries a src/href must have balanced quoting. A leaked
+  // attribute shows up as an odd number of quotes on the tag.
+  for (const tag of live.match(/<(?:script|link|img)\b[^>]*>/g) || []) {
+    const quotes = (tag.match(/"/g) || []).length;
+    if (quotes % 2 !== 0) problems.push(`unbalanced quotes in tag: ${tag}`);
+  }
+
+  // The build stamp is load-bearing: js/core/config.js reads
+  // window.__TT_BUILD_ID__ from it and everything downstream versions off it.
+  if (!/<script src="js\/generated\/build\.js\?v=\d{4}-\d{2}-\d{2}-\d{3}"/.test(live)) {
+    problems.push('js/generated/build.js is not versioned correctly');
+  }
+
+  // The stylesheet must stay render-blocking. The async
+  // `<link rel="preload" as="style" onload=...>` form is what caused the
+  // unstyled white flash, so guard against it creeping back in.
+  if (/<link[^>]*rel="preload"[^>]*as="style"/.test(live)) {
+    problems.push('style.css is preloaded instead of linked — that reintroduces the FOUC');
+  }
+  if (!/<link rel="stylesheet" href="style\.css\?v=/.test(live)) {
+    problems.push('no render-blocking <link rel="stylesheet"> for style.css');
+  }
+
+  if (problems.length) {
+    console.error(`[build] ${file} failed verification:`);
+    for (const p of problems) console.error(`  - ${p}`);
+    process.exit(1);
+  }
 }
 
 {
   const file = 'index.html';
   let html = read(file);
 
-  // Ensure js/generated/build.js is loaded before app.js (sets window.__TT_BUILD_ID__).
+  // js/generated/build.js sets window.__TT_BUILD_ID__, which js/core/config.js
+  // reads; that id drives asset versioning and the stale-shell check. Fail the
+  // build loudly if the tag ever disappears, rather than silently stamping
+  // assets with an id nothing can verify.
   if (!/<script src="js\/generated\/build\.js/.test(html)) {
-    html = html.replace(
-      '<link rel="stylesheet" href="',
-      '<script src="js/generated/build.js?v=' + BUILD_ID + '"></script>\n    <link rel="stylesheet" href="'
+    console.error(
+      `[build] ${file} no longer references js/generated/build.js; cannot verify the build id.`
     );
+    process.exit(1);
   }
+
+  // Version the <script src="js/generated/build.js"> tag directly (avoids
+  // matching the probe's fetch('js/generated/build.js?t=...') URL).
+  //
+  // The regex's trailing `"?` consumes the attribute's closing quote, so the
+  // replacement has to put it back — otherwise the tag becomes
+  // src="js/generated/build.js?v=ID defer></script>, the script never loads,
+  // window.__TT_BUILD_ID__ stays undefined and CONFIG.BUILD_ID falls back to
+  // 'dev'. Keep the quote in the replacement string.
+  html = html.replace(
+    /(<script\s+src="js\/generated\/build\.js)(\?v=[^"]*)?"/,
+    `$1?v=${BUILD_ID}"`
+  );
 
   html = versionRefs(html, [
     'style\\.css',
     'manifest\\.json',
     'icons/[A-Za-z0-9._/-]+\\.png',
     'js/core/app\\.js',
+    // Self-hosted Inter. Must be versioned like every other asset, otherwise the
+    // service worker's versioned-URL assumption (and so its cache-first safety)
+    // does not hold for the web font.
+    'fonts/[A-Za-z0-9._/-]+\\.woff2',
   ]);
 
-  // Version the <script src="js/generated/build.js"> tag directly (avoids
-  // matching the probe's fetch('js/generated/build.js?t=...') URL).
-  html = html.replace(
-    /(<script\s+src="js\/generated\/build\.js)(\?v=[^"]*)?"/,
-    `$1?v=${BUILD_ID}"`
-  );
-
-  // Update the PWA version probe's hardcoded MY value so it matches
-  // the current BUILD_ID. The probe compares MY against the live build.js
-  // to detect stale service-worker caches on mobile PWAs.
-  html = html.replace(
-    /var MY = '[^']*'/,
-    `var MY = '${BUILD_ID}'`
-  );
-
-  // OG/Twitter image URLs must not have ?v= query strings — social crawlers
-  // may not follow them. Strip any that versionRefs accidentally added.
+  // OG/Twitter image URLs must not have ?v= query strings (social crawlers may
+  // not follow them). Strip any that versionRefs accidentally added.
   html = html.replace(/(<meta\s+(?:name|property)="(?:og:image|twitter:image)"[^>]*content="[^"]*?)\?v=[^"]*"/g, '$1"');
+  verifyHtml(file, html);
   write(file, html);
 }
 
 // ---------------------------------------------------------------------------
-// game.html / 404.html — version every same-origin static asset reference.
+// 404.html / teachers.html -- version every same-origin static asset reference.
 // These pages are not otherwise processed by the build, but they must still
 // point at the current BUILD_ID so a cache never serves them stale CSS/JS.
 // ---------------------------------------------------------------------------
-for (const file of ['game.html', '404.html', 'teachers.html']) {
+for (const file of ['404.html', 'teachers.html']) {
   if (!existsSync(join(ROOT, file))) continue;
   let html = versionRefs(read(file), [
     'style\\.css',
@@ -135,6 +232,7 @@ for (const file of ['game.html', '404.html', 'teachers.html']) {
     'js/teachers/teacher-app\\.js',
     'js/generated/build\\.js',
     'icons/[A-Za-z0-9._/-]+\\.png',
+    'fonts/[A-Za-z0-9._/-]+\\.woff2',
   ]);
   // OG/Twitter image URLs must not have ?v= query strings.
   html = html.replace(/(<meta\s+(?:name|property)="(?:og:image|twitter:image)"[^>]*content="[^"]*?)\?v=[^"]*"/g, '$1"');
@@ -167,6 +265,42 @@ for (const file of ['game.html', '404.html', 'teachers.html']) {
     }
   }
   walk('js');
+}
+
+// ---------------------------------------------------------------------------
+// style.css — version the self-hosted @font-face URLs.
+//
+// These live inside a stylesheet rather than in markup, so the index.html
+// versionRefs pass cannot reach them. They still need a version stamp for two
+// reasons:
+//
+//   1. Cache-busting. Without ?v=, a changed font file would be served from
+//      the CDN/browser cache (GitHub Pages sends max-age=600) indefinitely.
+//   2. Preload matching. index.html preloads the same files with ?v=ID. If the
+//      two URLs differ the browser downloads the font twice and logs
+//      "preloaded but not used within a few seconds" — it discards the preload
+//      and fetches the @font-face URL separately, which delays the first
+//      real text paint.
+//
+// Keeping the stamp on both sides is load-bearing for the service worker too:
+// its cache-first handler is only safe because same-origin asset URLs are
+// versioned, so an unversioned URL could be served stale forever.
+// ---------------------------------------------------------------------------
+{
+  const file = 'style.css';
+  let css = read(file);
+  css = css.replace(
+    /(url\(\s*['"]?fonts\/[A-Za-z0-9._/-]+\.woff2)(\?v=[^'")]*)?(['"]?\s*\))/g,
+    `$1?v=${BUILD_ID}$3`
+  );
+  write(file, css);
+
+  // Fail loudly if any font URL ended up without a stamp.
+  const unversioned = css.match(/url\(\s*['"]?fonts\/[A-Za-z0-9._/-]+\.woff2(?![^'")]*\?v=)[^'")]*['"]?\s*\)/g);
+  if (unversioned) {
+    console.error(`[build] ${file}: unversioned font URL(s): ${unversioned.join(', ')}`);
+    process.exit(1);
+  }
 }
 
 // ---------------------------------------------------------------------------
