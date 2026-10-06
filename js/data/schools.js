@@ -450,6 +450,7 @@ export const SCHOOLS = [
                         electives: [
                             { id: 'cell-physiology', label: 'Cell Physiology' },
                             { id: 'chemistry', label: 'Chemistry' },
+                            { id: 'thinking-through-indian-traditions', label: 'Thinking through Indian Traditions' },
                         ],
                     },
                 ],

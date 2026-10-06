@@ -190,6 +190,9 @@ const COURSE_DEFINITIONS = [
     // the courseId stays stable and change detection never sees a rename.
     { canonical: 'analytical-methods', display: 'Analytical Methods', aliases: ['Analytical Methods & Instrumentation'] },
     { canonical: 'psychiatry-and-mood-disorders', display: 'Psychiatry & Mood disorders' },
+    // Registered so splitSubjectFaculty peels "Ankita Kushwaha" off the sheet
+    // cell instead of leaving the teacher glued to the subject.
+    { canonical: 'thinking-through-indian-traditions', display: 'Thinking through Indian Traditions' },
 
     // SAS Year 2 Psychology
     { canonical: 'psychopathology', display: 'Psychopathology', aliases: ['Psychopathology I', 'Psychopathology II', 'Psychopathology 1', 'Psychopathology 2'] },

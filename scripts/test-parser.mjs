@@ -682,6 +682,7 @@ const SAS_MANDATORY = ['Biostatistics', 'Clinical Neuroscience', 'Molecular Neur
 const SAS_ELECTIVES = [
     { id: 'cell-physiology', label: 'Cell Physiology' },
     { id: 'chemistry', label: 'Chemistry' },
+    { id: 'thinking-through-indian-traditions', label: 'Thinking through Indian Traditions' },
 ];
 
 await check('SAS school exists with the Neuroscience programme', () => {
@@ -702,7 +703,7 @@ await check('SAS Neuroscience has exactly one Year 3 config', () => {
     assert.equal(year3.id, 'sas-neuro-3');
 });
 
-await check('SAS Year 3 has exactly the 5 mandatory + 2 elective courses', () => {
+await check('SAS Year 3 has exactly the 5 mandatory + 3 elective courses', () => {
     const year3 = sas.programs.find(p => p.id === 'neuroscience').years[0];
     assert.deepStrictEqual(year3.mandatoryCourses, SAS_MANDATORY);
     assert.deepStrictEqual(year3.electives, SAS_ELECTIVES);
@@ -753,6 +754,7 @@ const SAS_GRID = [
     'TUESDAY,09:15 AM - 10:10 AM,Analytical Methods         Dr. Mehta',
     ',10:15 AM - 11:10 AM,Psychiatry & Mood disorders         Dr. Khan',
     ',11:15 AM - 12:10 PM,Chemistry         Dr. Nair',
+    ',01:00 PM - 01:55 PM,Thinking through Indian Traditions',
 ].join('\n');
 
 await check('SAS Year 3: all five mandatory courses parse', () => {
@@ -834,6 +836,30 @@ await check('SAS Year 3: "Psychiatry and Mood disorders" (with "and") matches th
     const c = out.find(x => x.courseId === 'psychiatry-and-mood-disorders');
     assert.ok(c, 'Psychiatry course parsed via & ↔ and normalization');
     assert.equal(c.subject, 'Psychiatry & Mood disorders');
+});
+
+await check('SAS Year 3: "Thinking through Indian Traditions" is parsed as the elective', () => {
+    const out = parseCSV(SAS_GRID, 'grid', SAS_MANDATORY, SAS_ELECTIVES, null);
+    const c = out.find(x => x.elective === 'thinking-through-indian-traditions');
+    assert.ok(c, 'Thinking through Indian Traditions parsed');
+    assert.equal(c.subject, 'Thinking through Indian Traditions');
+    assert.equal(c.courseId, 'thinking-through-indian-traditions');
+    assert.equal(c.faculty, '', 'the fixture cell carries no teacher');
+});
+
+await check('SAS Year 3: the sheet cell keeps the full course name and isolates Ankita Kushwaha', () => {
+    const sheet = [
+        'WEDNESDAY,10:15 AM - 11:10 AM,Thinking through Indian Traditions                              Ankita Kushwaha',
+    ].join('\n');
+    const out = parseCSV(sheet, 'grid', SAS_MANDATORY, SAS_ELECTIVES, null);
+    const c = out.find(x => x.elective === 'thinking-through-indian-traditions');
+    assert.ok(c, 'elective parsed from the live sheet spelling');
+    assert.equal(c.subject, 'Thinking through Indian Traditions', 'course name not truncated');
+    assert.equal(c.courseId, 'thinking-through-indian-traditions');
+    assert.equal(c.faculty, 'Prof. Ankita Kushwaha', 'teacher peeled off the cell');
+    assert.equal(c.day, 'Wednesday');
+    assert.equal(c.startTime, '10:15');
+    assert.equal(c.endTime, '11:10');
 });
 
 await check('SAS Year 3: a non-SAS cell (SCDS course) is skipped', () => {
@@ -1793,6 +1819,10 @@ await check('SAS Neuroscience Year 3 lists Cell Physiology and Chemistry as two 
     assert.ok(ids.includes('chemistry'), 'Chemistry is a separate SAS elective');
     assert.equal(year3.electives.find(x => x.id === 'cell-physiology').label, 'Cell Physiology');
     assert.equal(year3.electives.find(x => x.id === 'chemistry').label, 'Chemistry');
+    assert.ok(ids.includes('thinking-through-indian-traditions'), 'Thinking through Indian Traditions is a separate SAS elective');
+    assert.equal(year3.electives.find(x => x.id === 'thinking-through-indian-traditions').label, 'Thinking through Indian Traditions');
+    assert.equal(resolveCourse('Thinking through Indian Traditions').canonical, 'thinking-through-indian-traditions');
+    assert.equal(resolveCourse('Thinking through Indian Traditions').ambiguous, false, 'no ambiguous match');
 });
 
 console.log('--- generic lab classification (grid) ---');
