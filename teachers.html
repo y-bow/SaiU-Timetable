@@ -61,7 +61,7 @@
         })();
     </script>
 
-    <script src="js/generated/build.js?v=2026-10-04-010" defer></script>
+    <script src="js/generated/build.js?v=2026-10-06-001" defer></script>
     <!-- Render-blocking on purpose. This used to be an async
          `<link rel="preload" as="style" onload="this.rel='stylesheet'">` pair,
          which made the stylesheet non-render-blocking and caused a ~180ms flash
@@ -69,23 +69,23 @@
          deploy, since the ?v= URL changes). The app is JS-rendered, so blocking
          on CSS costs no meaningful time-to-content while removing the flash
          entirely. The inline critical <style> covers the themed canvas. -->
-    <link rel="stylesheet" href="style.css?v=2026-10-04-010">
-    <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon/favicon-32.png?v=2026-10-04-010">
-    <link rel="icon" type="image/png" sizes="48x48" href="icons/favicon/favicon-48.png?v=2026-10-04-010">
-    <link rel="icon" type="image/png" sizes="192x192" href="icons/favicon/favicon-192.png?v=2026-10-04-010">
-    <link rel="icon" type="image/png" sizes="512x512" href="icons/app/white-icon-512.png?v=2026-10-04-010">
+    <link rel="stylesheet" href="style.css?v=2026-10-06-001">
+    <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon/favicon-32.png?v=2026-10-06-001">
+    <link rel="icon" type="image/png" sizes="48x48" href="icons/favicon/favicon-48.png?v=2026-10-06-001">
+    <link rel="icon" type="image/png" sizes="192x192" href="icons/favicon/favicon-192.png?v=2026-10-06-001">
+    <link rel="icon" type="image/png" sizes="512x512" href="icons/app/white-icon-512.png?v=2026-10-06-001">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="SaiU Teacher Timetable">
-    <link rel="apple-touch-icon" href="icons/app/apple-touch-icon.png?v=2026-10-04-010">
+    <link rel="apple-touch-icon" href="icons/app/apple-touch-icon.png?v=2026-10-06-001">
     <!-- Inter is self-hosted (see the @font-face block at the top of the
          stylesheet) so it can be precached for offline use and versioned with
          the rest of the app. The previous Google Fonts <link> was loaded async
          via media="print" + onload, which meant every label painted in the
          system fallback and then reflowed to Inter a frame or two later, a
          visible text flicker on mobile. -->
-    <link rel="preload" href="fonts/inter-latin.woff2?v=2026-10-04-010" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="fonts/inter-latin.woff2?v=2026-10-06-001" as="font" type="font/woff2" crossorigin>
     <script type="application/ld+json">
     {
         "@context": "https://schema.org",
@@ -202,7 +202,7 @@
          spinner. Removed by the app on the first successful render; a timeout
          and an error handler act as failsafes. Duplicated in index.html. -->
     <div id="boot" role="status" aria-live="polite">
-        <img class="boot-logo" src="icons/app/white-icon-512.png?v=2026-10-04-010" alt="" aria-hidden="true" width="76" height="76" decoding="async">
+        <img class="boot-logo" src="icons/app/white-icon-512.png?v=2026-10-06-001" alt="" aria-hidden="true" width="76" height="76" decoding="async">
         <span class="boot-word">Teacher Timetable</span>
         <span class="boot-ring" aria-hidden="true"></span>
     </div>
@@ -210,7 +210,7 @@
 
     <header class="teacher-topbar">
         <h1 class="teacher-title">
-            <img class="brand-logo" src="icons/favicon/favicon-48.png?v=2026-10-04-010" alt="" aria-hidden="true" width="48" height="48" decoding="async">
+            <img class="brand-logo" src="icons/favicon/favicon-48.png?v=2026-10-06-001" alt="" aria-hidden="true" width="48" height="48" decoding="async">
             Teacher Timetable
         </h1>
         <div class="teacher-topbar-actions">
@@ -267,6 +267,6 @@
 
     <div class="toast" role="status" aria-live="polite"></div>
 
-    <script type="module" src="js/teachers/teacher-app.js?v=2026-10-04-010"></script>
+    <script type="module" src="js/teachers/teacher-app.js?v=2026-10-06-001"></script>
 </body>
 </html>
