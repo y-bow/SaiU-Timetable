@@ -1,5 +1,5 @@
-import { toMinutes, minutesToClock } from '../core/utils.js?v=2026-10-06-001';
-import { trackEvent } from '../services/analytics.js?v=2026-10-06-001';
+import { toMinutes, minutesToClock } from '../core/utils.js?v=2026-10-07-001';
+import { trackEvent } from '../services/analytics.js?v=2026-10-07-001';
 
 /**
  * Free Rooms — shows which rooms are available during each period
@@ -88,7 +88,7 @@ function displayRoom(raw) {
  * spaces) so they match the canonical keys produced by normalizeRoom().
  */
 const EXCLUDED_ROOM_PATTERNS = /\b(moot\s*court|lab|faculty\s*conference)\b/i;
-const EXCLUDED_ROOMS = new Set(['AB2-208'].map(normalizeRoom));
+const EXCLUDED_ROOMS = new Set(['AB2-208', 'AB1-102'].map(normalizeRoom));
 
 /**
  * Build the complete room inventory from:

@@ -1,4 +1,4 @@
-import { CONFIG } from '../core/config.js?v=2026-10-06-001';
+import { CONFIG } from '../core/config.js?v=2026-10-07-001';
 
 /**
  * Google Analytics 4 helpers.
