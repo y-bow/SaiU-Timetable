@@ -1082,22 +1082,36 @@ function showUpdateBar() {
     $('#update-bar-close')?.addEventListener('click', dismiss);
 }
 
+// Both message paths funnel through here so the "is the shell actually stale?"
+// decision lives in one place. 'activate' also fires on a first install, where
+// the worker and the page are the same build — comparing avoids nagging users
+// who are already up to date.
+function maybeShowUpdateBar(workerBuild, source) {
+    const pageBuild = CONFIG.BUILD_ID;
+    if (!workerBuild || !pageBuild) return;
+    if (workerBuild !== pageBuild) {
+        console.log(`[PWA] Shell is stale (${source}): page ${pageBuild}, worker ${workerBuild}`);
+        showUpdateBar();
+    }
+}
+
 function initUpdatePrompt() {
     if (!('serviceWorker' in navigator)) return;
 
     navigator.serviceWorker.addEventListener('message', (e) => {
-        // Sent by sw.js from its activate handler once a newer build has taken
-        // over, so a page already on screen can offer the reload.
-        if (e.data?.type === 'SAIU_UPDATE_READY') { showUpdateBar(); return; }
+        // Sent by sw.js from its activate handler once a worker has taken over.
+        // The comparison is still required: 'activate' also fires on a normal
+        // first install, where the page is already the current build. Showing
+        // the bar unconditionally nags users who are up to date, which is worse
+        // than not having it at all.
+        if (e.data?.type === 'SAIU_UPDATE_READY') {
+            maybeShowUpdateBar(e.data.buildId, 'activate');
+            return;
+        }
         // Reply to our version probe. Compare as strings: both stamps are
         // YYYY-MM-DD-NNN, which sorts correctly both lexically and by date.
         if (e.data?.type === 'SAIU_VERSION') {
-            const workerBuild = e.data.buildId;
-            const pageBuild = CONFIG.BUILD_ID;
-            if (workerBuild && pageBuild && workerBuild !== pageBuild) {
-                console.log(`[PWA] Shell is stale: page ${pageBuild}, worker ${workerBuild}`);
-                showUpdateBar();
-            }
+            maybeShowUpdateBar(e.data.buildId, 'probe');
         }
     });
 
