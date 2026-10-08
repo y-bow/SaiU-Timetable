@@ -152,6 +152,7 @@ export const SCHOOLS = [
                     { id: 'principles-in-financial-management', label: 'Principles of Financial Management' },
                     { id: 'introduction-to-bfsi-financial-technology', label: 'Introduction to BFSI & Financial Technology' },
                     { id: 'conflict-in-contemporary-international-relations', label: 'Conflicts in Contemporary International Relations' },
+                    { id: 'indian-constitution-and-democracy', label: 'Indian Constitution & Democracy' },
                 ],
             },
             {

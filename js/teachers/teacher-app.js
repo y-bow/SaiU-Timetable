@@ -11,11 +11,11 @@
  * never invented — the timeline simply shows the classes that exist.
  */
 
-import { loadTeacherIndex } from '../services/teacher-fetch.js?v=2026-10-08-001';
-import { CONFIG } from '../core/config.js?v=2026-10-08-001';
-import { toMinutes, minutesToLabel, minutesToClock, todayName, WEEKDAYS, labSubjectLabel } from '../core/utils.js?v=2026-10-08-001';
-import { confirmTeacherMerge, dismissTeacherMerge } from '../data/teacher-identity.js?v=2026-10-08-001';
-import { getStoredTeacher, setStoredTeacher } from '../services/storage.js?v=2026-10-08-001';
+import { loadTeacherIndex } from '../services/teacher-fetch.js?v=2026-10-08-002';
+import { CONFIG } from '../core/config.js?v=2026-10-08-002';
+import { toMinutes, minutesToLabel, minutesToClock, todayName, WEEKDAYS, labSubjectLabel } from '../core/utils.js?v=2026-10-08-002';
+import { confirmTeacherMerge, dismissTeacherMerge } from '../data/teacher-identity.js?v=2026-10-08-002';
+import { getStoredTeacher, setStoredTeacher } from '../services/storage.js?v=2026-10-08-002';
 
 const $ = (sel) => document.querySelector(sel);
 

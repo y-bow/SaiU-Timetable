@@ -1133,10 +1133,12 @@ await check('SOT Year 1 has exactly the 6 mandatory courses and no electives', (
 await check('SOT Year 1 exclusive courses do NOT appear in any other school/programme/year', () => {
     // "Critical Thinking" is a pre-existing shared course (already offered by
     // SCDS Year 3 before SOT was added), "Frontiers of AI" is shared with
-    // SOB Year 1, and "Chemistry" is shared with SCDS Year 3 — the requirement
-    // is that the NEW SOT courses are not added to any other programme, so only
-    // the SOT-specific courses are checked for cross-contamination.
-    const exclusive = SOT_MANDATORY.filter(name => !['Critical Thinking', 'Frontiers of AI', 'Chemistry'].includes(name));
+    // SOB Year 1, "Chemistry" is shared with SCDS Year 3, and "Indian
+    // Constitution & Democracy" is shared with the SCDS Year 3 electives —
+    // the requirement is that the NEW SOT courses are not added to any other
+    // programme, so only the SOT-specific courses are checked for
+    // cross-contamination.
+    const exclusive = SOT_MANDATORY.filter(name => !['Critical Thinking', 'Frontiers of AI', 'Chemistry', 'Indian Constitution & Democracy'].includes(name));
     const sotCourses = new Set(exclusive);
     for (const school of SCHOOLS) {
         if (school.id === 'sot') continue;
@@ -1809,6 +1811,27 @@ await check('SCDS Year 3 no longer lists Cell Physiology or Chemistry as electiv
 await check('Cell Physiology and Chemistry resolve to distinct canonical courseIds', () => {
     assert.equal(resolveCourse('Cell Physiology').canonical, 'cell-physiology');
     assert.equal(resolveCourse('Chemistry').canonical, 'chemistry');
+});
+
+await check('Indian Constitution & Democracy is configured as an SCDS Year 3 elective', () => {
+    const ids = scds3.electives.map(x => x.id);
+    assert.ok(ids.includes('indian-constitution-and-democracy'), 'ICD is in the scds-3 electives list');
+});
+
+await check('ICD cells parse as the SCDS Year 3 elective (full label and ICD alias)', () => {
+    const g = [
+        'MONDAY,09:15 AM - 10:10 AM,Indian Constitution & Democracy - Sec 1 - Sharma',
+        ',,AB2-101',
+        'TUESDAY,10:15 AM - 11:10 AM,ICD - Sec 1 - Sharma',
+        ',,AB2-101',
+    ].join('\n');
+    const out = parseCSV(g, 'grid', null, scds3.electives, ['AB2-101']);
+    const full = out.find(x => x.elective === 'indian-constitution-and-democracy' && x.day === 'Monday');
+    assert.ok(full, 'full-label cell kept as the elective');
+    assert.equal(full.courseId, 'indian-constitution-and-democracy');
+    assert.equal(full.subject, 'Indian Constitution & Democracy');
+    const alias = out.find(x => x.elective === 'indian-constitution-and-democracy' && x.day === 'Tuesday');
+    assert.ok(alias, '"ICD" alias cell kept as the same elective');
 });
 
 await check('SAS Neuroscience Year 3 lists Cell Physiology and Chemistry as two distinct electives', () => {
