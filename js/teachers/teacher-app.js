@@ -11,10 +11,11 @@
  * never invented — the timeline simply shows the classes that exist.
  */
 
-import { loadTeacherIndex } from '../services/teacher-fetch.js?v=2026-10-07-001';
-import { CONFIG } from '../core/config.js?v=2026-10-07-001';
-import { toMinutes, minutesToLabel, minutesToClock, todayName, WEEKDAYS, labSubjectLabel } from '../core/utils.js?v=2026-10-07-001';
-import { confirmTeacherMerge, dismissTeacherMerge } from '../data/teacher-identity.js?v=2026-10-07-001';
+import { loadTeacherIndex } from '../services/teacher-fetch.js?v=2026-10-08-001';
+import { CONFIG } from '../core/config.js?v=2026-10-08-001';
+import { toMinutes, minutesToLabel, minutesToClock, todayName, WEEKDAYS, labSubjectLabel } from '../core/utils.js?v=2026-10-08-001';
+import { confirmTeacherMerge, dismissTeacherMerge } from '../data/teacher-identity.js?v=2026-10-08-001';
+import { getStoredTeacher, setStoredTeacher } from '../services/storage.js?v=2026-10-08-001';
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -94,13 +95,15 @@ function applySearch(query) {
     }
 }
 
-function select(key) {
+function select(key, { restore = false } = {}) {
     if (!state.index.has(key)) return;
     state.selectedKey = key;
+    setStoredTeacher(key);
     for (const btn of $('#teacher-list').children) {
         const active = btn.dataset.key === key;
         btn.classList.toggle('active', active);
         btn.setAttribute('aria-selected', active ? 'true' : 'false');
+        if (active && restore) btn.scrollIntoView({ block: 'nearest' });
     }
 
     const rec = state.index.get(key);
@@ -435,8 +438,9 @@ async function load({ silent = false } = {}) {
     $('#teacher-empty').classList.add('hidden');
     renderTeacherList();
 
-    if (state.selectedKey && state.index.has(state.selectedKey)) {
-        select(state.selectedKey);
+    const savedKey = getStoredTeacher() || state.selectedKey;
+    if (savedKey && state.index.has(savedKey)) {
+        select(savedKey, { restore: true });
     } else {
         select(state.order[0]);
     }

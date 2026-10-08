@@ -1,4 +1,4 @@
-import { CONFIG } from '../core/config.js?v=2026-10-07-001';
+import { CONFIG } from '../core/config.js?v=2026-10-08-001';
 
 /**
  * localStorage persistence: timetable cache, room-change map,
@@ -105,6 +105,24 @@ export function setNavState({ schoolId, programId, yearId, section }) {
         if (section === null) localStorage.removeItem(NAV_KEYS.section);
         else localStorage.setItem(NAV_KEYS.section, String(section));
     }
+}
+
+// --- Remembered teacher selection (teachers.html) ---
+//
+// Mirrors the student nav persistence: the last teacher the user opened is
+// stored so the teacher page reopens to the same name. The key is outside
+// every stale prefix cleared by emergencyPWARefresh (tt-cache-*, tt-rooms-*),
+// so the preference survives a forced PWA refresh.
+
+const TEACHER_KEY = 'tt-teacher-selected';
+
+export function getStoredTeacher() {
+    return localStorage.getItem(TEACHER_KEY) || null;
+}
+
+export function setStoredTeacher(key) {
+    if (key === null || key === undefined || key === '') localStorage.removeItem(TEACHER_KEY);
+    else localStorage.setItem(TEACHER_KEY, key);
 }
 
 // --- Section modal seen flag ---
