@@ -477,6 +477,26 @@ export const SCHOOLS = [
                         ],
                         electives: null,
                     },
+                    {
+                        id: 'sas-psych-3',
+                        label: 'Year 3',
+                        level: 3,
+                        sections: null,
+                        sheetId: '1Jk3KCLqHHzi-jxigIcPpcXZestcxb8Y0BeQLjhiezb8',
+                        gid: '0',
+                        parser: 'grid',
+                        // SAS Year 3 Psychology. Every course is an elective:
+                        // Community Psychology and Psychopathology II share
+                        // slots in the sheet, so no student attends all five.
+                        mandatoryCourses: null,
+                        electives: [
+                            { id: 'forensic-psychology', label: 'Forensic Psychology' },
+                            { id: 'organizational-psychology', label: 'Organizational Psychology' },
+                            { id: 'counselling-psychology', label: 'Counselling Psychology' },
+                            { id: 'psychopathology-ii', label: 'Psychopathology II' },
+                            { id: 'community-psychology', label: 'Community Psychology' },
+                        ],
+                    },
                 ],
             },
             {

@@ -23,7 +23,7 @@
  * multiple offerings in the sheet is supported with no per-course config.
  */
 
-import { resolveCourse, splitLabSuffix } from './course-normalizer.js?v=2026-10-08-002';
+import { resolveCourse, splitLabSuffix } from './course-normalizer.js?v=2026-10-17-001';
 
 const DAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
 const SECTION_REGEX = /\(Sec\s*(\d+)\)/i;
@@ -280,8 +280,17 @@ function parseGridCSV(text, mandatoryCourses = null, electives = null, rooms = n
     // would wrongly match "Intelligent Embedded Systems".
     const electiveList = electives && electives.length ? electives : null;
 
+    // A prefix match never crosses two distinct known courses: a
+    // "Psychopathology II" cell is not the "Psychopathology" mandatory course.
+    const isDistinctCourse = (subject, name) => {
+        const a = resolveCourse(subject);
+        const b = resolveCourse(name);
+        return a.matched && b.matched && a.canonical !== b.canonical;
+    };
+
     const matchesName = (subject, name) =>
-        subject === name || subject.startsWith(name) || name.startsWith(subject);
+        subject === name ||
+        ((subject.startsWith(name) || name.startsWith(subject)) && !isDistinctCourse(subject, name));
 
     const matchElective = (subject) => {
         if (!electiveList) return null;
@@ -506,7 +515,11 @@ const SUBJECT_ALIASES = [
     // differences, "&" vs "and", or minor punctuation variants — the aliases
     // fold them onto the clean canonical names. "Community Psychology" is
     // already handled by the course normalizer (SCDS Year 3 elective).
-    { match: /^Psychopathology(?:\s*(?:I{1,3}|IV|V|[1-4]))?$/i, name: 'Psychopathology' },
+    // "Psychopathology I" is the Year 2 course; "Psychopathology II" is the
+    // separate SAS Year 3 Psychology course and must not fold onto it.
+    { match: /^Psychopathology(?:\s*(?:I|1))?$/i, name: 'Psychopathology' },
+    { match: /^Psychopathology\s*(?:II|2)$/i, name: 'Psychopathology II' },
+    { match: /^Counsel{1,2}ing\s+Psychology$/i, name: 'Counselling Psychology' },
     { match: /^Psych(?:ology)?\s*(?:Behind|on)\s*(?:Social\s*)?Media$/i, name: 'Psychology Behind Social Media' },
     { match: /^(?:Intro(?:duction)?(?:\s+to)?)?\s*Cognitive\s*Neuroscience$/i, name: 'Introduction to Cognitive Neuroscience' },
     { match: /^Research\s*(?:Method(?:ology|s)?|Methods)$/i, name: 'Research Methodology' },
@@ -811,6 +824,14 @@ export function splitSubjectFaculty(cell) {
         .filter(p => !/^\(Sec\s*\d+\)$/i.test(p));
     let subject = (parts[0] || '').replace(/\s*\(Sec\s*\d+\)/i, '').trim();
     let faculty = parts.slice(1).join(' ');
+
+    // A course-number suffix padded by a space run ("Psychopathology  II
+    // Dr. Jemima") belongs to the course name, not the teacher — otherwise
+    // "Psychopathology II" collapses onto "Psychopathology".
+    if (parts.length >= 2 && /^(?:I{1,3}|IV|V|\d+)$/i.test(parts[1])) {
+        subject = `${subject} ${parts[1]}`;
+        faculty = parts.slice(2).join(' ');
+    }
 
     // A multi-space run INSIDE a course name that contains "/" (e.g.
     // "Management  /  Introduction to BFSI") splits the name at the run,

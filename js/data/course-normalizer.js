@@ -195,11 +195,18 @@ const COURSE_DEFINITIONS = [
     { canonical: 'thinking-through-indian-traditions', display: 'Thinking through Indian Traditions' },
 
     // SAS Year 2 Psychology
-    { canonical: 'psychopathology', display: 'Psychopathology', aliases: ['Psychopathology I', 'Psychopathology II', 'Psychopathology 1', 'Psychopathology 2'] },
+    // "Psychopathology" is the Year 2 course (sheet: "Psychopathology I");
+    // "Psychopathology II" is the separate SAS Year 3 Psychology course.
+    { canonical: 'psychopathology', display: 'Psychopathology', aliases: ['Psychopathology I', 'Psychopathology 1'] },
     // 'community-psychology' is already registered above (SCDS Year 3 elective).
     { canonical: 'psychology-behind-social-media', display: 'Psychology Behind Social Media', aliases: ['Psych Behind Social Media', 'Psychology of Social Media'] },
     { canonical: 'introduction-to-cognitive-neuroscience', display: 'Introduction to Cognitive Neuroscience', aliases: ['Intro to Cognitive Neuroscience', 'Cognitive Neuroscience'] },
     { canonical: 'research-methodology', display: 'Research Methodology', aliases: ['Research Methods'] },
+
+    // SAS Year 3 Psychology. Forensic, Organizational and Community
+    // Psychology are already registered above (SCDS Year 3 electives).
+    { canonical: 'psychopathology-ii', display: 'Psychopathology II', aliases: ['Psychopathology 2'] },
+    { canonical: 'counselling-psychology', display: 'Counselling Psychology', aliases: ['Counseling Psychology'] },
 
     // SOL Year 2 (School of Law, 4th Semester). Each course keeps its exact
     // name and its course code as an alias so the sheet's code-only cells
