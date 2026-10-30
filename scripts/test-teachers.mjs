@@ -459,7 +459,7 @@ try {
         assert.ok(index.has('jemima'));
         assert.ok(!index.has('ii-dr-jemima'), 'course suffix "II" must not leak into the teacher');
         const entry = index.get('jemima').classes[0];
-        assert.equal(entry.subject, 'Psychopathology');
+        assert.equal(entry.subject, 'Psychopathology II', 'Psychopathology II stays distinct from Psychopathology (I)');
     });
     await check('title-boundary: "Mridula" folds to Dr.Mridula, never "Mr.idula"', () => {
         const text = grid([['MONDAY', '09:15 AM - 10:10 AM', 'Community Psychology  Mridula']]);
@@ -574,7 +574,7 @@ try {
         assert.ok(index.has('mridula'), 'the added course teacher appears automatically, no config change');
         const entry = index.get('mridula').classes[0];
         assert.equal(entry.subject, 'Forensic Psychology');
-        assert.deepEqual(entry.contexts, ['SCDS · Year 3', 'SOB · BBA Year 2', 'SOB · B.Com Year 2'], 'a configured elective gets contexts from every matching year');
+        assert.deepEqual(entry.contexts, ['SCDS · Year 3', 'SOB · BBA Year 2', 'SOB · B.Com Year 2', 'SAS · Psychology Year 3'], 'a configured elective gets contexts from every matching year');
     });
     await check('lab classes merge in with a lab context label', () => {
         const lab = cls({ school: 'SCDS', year: 2, lab: true });

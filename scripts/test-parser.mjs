@@ -737,7 +737,7 @@ await check('SAS courses never appear under another programme of the same school
     const psych = sas.programs.find(p => p.id === 'psychology');
     assert.ok(neuro && psych, 'both programmes exist');
     assert.equal(neuro.years.length, 1, 'single year in Neuroscience');
-    assert.equal(psych.years.length, 1, 'single year in Psychology');
+    assert.deepStrictEqual(psych.years.map(y => y.id), ['sas-psych-2', 'sas-psych-3'], 'Year 2 and Year 3 in Psychology');
 });
 
 await check('SAS shows the programme selector so Neuroscience is an explicit, selectable level', () => {
@@ -887,7 +887,7 @@ await check('SAS has a Psychology programme with Year 2', () => {
     const psych = sas.programs.find(p => p.id === 'psychology');
     assert.ok(psych, 'Psychology programme exists');
     assert.equal(psych.label, 'Psychology');
-    assert.equal(psych.years.length, 1, 'one year config');
+    assert.equal(psych.years.length, 2, 'Year 2 and Year 3 configs');
     const year2 = psych.years[0];
     assert.equal(year2.id, 'sas-psych-2');
     assert.equal(year2.label, 'Year 2');
@@ -975,18 +975,69 @@ await check('SAS Year 2 Psychology: alias "Cognitive Neuroscience" maps to Intro
     assert.equal(c.subject, 'Introduction to Cognitive Neuroscience', 'canonical name used');
 });
 
-await check('SAS Year 2 Psychology: alias "Psychopathology II" maps to Psychopathology', () => {
+await check('SAS Year 2 Psychology: "Psychopathology I" is kept, "Psychopathology II" is skipped', () => {
     const variant = [
-        'MONDAY,09:15 AM - 10:10 AM,Psychopathology  II       Dr. Jemima',
+        'MONDAY,09:15 AM - 10:10 AM,Psychopathology I             Dr. Jemima',
+        ',11:15 AM - 12:10 PM,Psychopathology  II                     Dr. Jemima',
     ].join('\n');
     const out = parseCSV(variant, 'grid', SAS_PSYCH_MANDATORY, null, null);
-    const c = out.find(x => x.courseId === 'psychopathology');
-    assert.ok(c, 'Psychopathology II alias parsed');
-    assert.equal(c.subject, 'Psychopathology', 'canonical name used');
-    // The student grid parser splits at the first 2+ space run, so the Roman
-    // numeral suffix "II" stays with the faculty side. The teacher parser
-    // (splitTeacherCell) uses the LAST 2+ space run and handles this correctly.
-    assert.ok(c.faculty.includes('Dr.'), 'teacher is correctly extracted');
+    assert.equal(out.length, 1, 'only Psychopathology I is a Year 2 class');
+    assert.equal(out[0].courseId, 'psychopathology');
+    assert.equal(out[0].subject, 'Psychopathology', 'canonical name used');
+    assert.equal(out[0].faculty, 'Prof. Dr.Jemima', 'teacher is correctly extracted');
+});
+
+console.log('--- SAS Year 3 Psychology config ---');
+
+const SAS_PSYCH3_ELECTIVES = [
+    { id: 'forensic-psychology', label: 'Forensic Psychology' },
+    { id: 'organizational-psychology', label: 'Organizational Psychology' },
+    { id: 'counselling-psychology', label: 'Counselling Psychology' },
+    { id: 'psychopathology-ii', label: 'Psychopathology II' },
+    { id: 'community-psychology', label: 'Community Psychology' },
+];
+
+await check('SAS Psychology Year 3 has the 5 psychology electives and no mandatory courses', () => {
+    const year3 = buildYearMap().get('sas-psych-3');
+    assert.ok(year3, 'sas-psych-3 exists');
+    assert.equal(year3.program.id, 'psychology');
+    assert.equal(year3.year.label, 'Year 3');
+    assert.equal(year3.year.level, 3);
+    assert.equal(year3.year.parser, 'grid');
+    assert.equal(year3.year.mandatoryCourses, null);
+    assert.deepStrictEqual(year3.year.electives, SAS_PSYCH3_ELECTIVES);
+});
+
+await check('SAS Psychology Year 3 electives resolve to distinct, unambiguous courses', () => {
+    for (const e of SAS_PSYCH3_ELECTIVES) {
+        const res = resolveCourse(e.label);
+        assert.equal(res.ambiguous, false, `${e.label} is not ambiguous`);
+        assert.equal(res.canonical, e.id, `${e.label} resolves to ${e.id}`);
+    }
+    assert.equal(resolveCourse('Psychopathology II').canonical, 'psychopathology-ii');
+    assert.equal(resolveCourse('Psychopathology 2').canonical, 'psychopathology-ii');
+    assert.equal(resolveCourse('Counseling Psychology').canonical, 'counselling-psychology');
+});
+
+console.log('--- parseCSV (grid): SAS Year 3 Psychology ---');
+
+await check('SAS Year 3 Psychology: live-sheet cells parse as the five electives', () => {
+    // Cell spellings and spacing copied from the master timetable.
+    const g = [
+        'MONDAY,09:15 AM - 10:10 AM,Psychopathology I             Dr. Jemima',
+        ',11.15 AM - 12.10 PM,Psychopathology  II                     Dr. Jemima,Community Psychology             Mridula',
+        ',01.00PM - 01.55PM,Counselling Psychology     Dr. Jemima',
+        ',02.00 PM - 2.55PM,Organizational Psychology - Micro Perspective                             Dr. Maya,Introduction to Psychology / Psychology-1 Mridula',
+        ',04.00 PM - 04.55 PM,Forensic Psychology Dr Mridula,Psychiatry and Mood Disorders Dr. Anil',
+    ].join('\n');
+    const out = parseCSV(g, 'grid', null, SAS_PSYCH3_ELECTIVES, null);
+    assert.deepStrictEqual(out.map(x => x.elective).sort(), SAS_PSYCH3_ELECTIVES.map(e => e.id).sort(),
+        'exactly one class per elective; Psychopathology I and other programmes skipped');
+    const p2 = out.find(x => x.elective === 'psychopathology-ii');
+    assert.equal(p2.subject, 'Psychopathology II');
+    assert.equal(p2.faculty, 'Prof. Dr.Jemima', '"II" is not glued onto the teacher');
+    assert.equal(out.find(x => x.elective === 'counselling-psychology').faculty, 'Prof. Dr.Jemima');
+    assert.equal(out.find(x => x.elective === 'forensic-psychology').faculty, 'Prof. Dr.Mridula');
 });
 
 console.log('--- SAS Year 2 Biological Sciences config ---');
