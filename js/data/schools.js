@@ -182,6 +182,24 @@ export const SCHOOLS = [
         programs: null,
         years: [
             {
+                id: 'soai-1',
+                label: 'Year 1',
+                level: 1,
+                sections: null,
+                sheetId: '1Jk3KCLqHHzi-jxigIcPpcXZestcxb8Y0BeQLjhiezb8',
+                gid: '0',
+                parser: 'grid',
+                mandatoryCourses: [
+                    'Tracking of Critical Thinking',
+                    'Frontiers of AI',
+                    'Indian Constitution and Democracy (ICD)',
+                    'Programming in C',
+                    'Calculus and Linear Algebra',
+                    'Calculus and Linear Algebra',
+                ],
+                electives: null,
+            },
+            {
                 id: 'soai-2',
                 label: 'Year 2',
                 level: 2,
@@ -202,7 +220,7 @@ export const SCHOOLS = [
                     { id: 'digital-healthcare', label: 'Digital Healthcare' },
                     { id: 'linear-algebra-soai', label: 'Linear Algebra (SOAI)' },
                 ],
-            },
+            }
         ],
     },
     {
