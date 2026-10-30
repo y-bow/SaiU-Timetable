@@ -88,7 +88,7 @@ function displayRoom(raw) {
  * spaces) so they match the canonical keys produced by normalizeRoom().
  */
 const EXCLUDED_ROOM_PATTERNS = /\b(moot\s*court|lab|faculty\s*conference)\b/i;
-const EXCLUDED_ROOMS = new Set(['AB2-208', 'AB1-102', 'AB2 MEETING ROOM 1', 'AB2 MEETING HALL'].map(normalizeRoom));
+const EXCLUDED_ROOMS = new Set(['AB2-208', 'AB1-102', 'AB2 MEETING ROOM 1', 'AB2 MEETING HALL', 'AB1-104'].map(normalizeRoom));
 
 /**
  * Build the complete room inventory from:
