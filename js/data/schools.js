@@ -38,7 +38,12 @@ export const SCHOOLS = [
                 parser: 'grid',
                 mandatoryCourses: [
                     'Programming in C',
+                    'Programming in C Lab',
                     'Critical Thinking',
+                    'Engineering Foundation and Application',
+                    'Frontiers of AI',
+                    'Applied Mathematics',
+                    'ICD',
                     'Engineering Foundation and Application',
                     'Frontiers of AI',
                     'Applied Mathematics',
