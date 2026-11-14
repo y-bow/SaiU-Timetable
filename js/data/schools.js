@@ -196,6 +196,7 @@ export const SCHOOLS = [
                     'Indian Constitution and Democracy',
                     'Critical Thinking',
                     'Programming in C',
+                    'Programming in C Lab',
                     'Calculus and Linear Algebra',
                 ],
                 electives: null,

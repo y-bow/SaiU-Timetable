@@ -6,8 +6,9 @@ import * as nav from '../ui/navigation.js?v=2026-10-17-001';
 import * as ui from '../ui/ui.js?v=2026-10-17-001';
 import { checkArjunSinghTransition, resetArjunSinghTransition } from '../ui/easter-eggs.js?v=2026-10-17-001';
 import * as labSection from '../ui/lab-section.js?v=2026-10-17-001';
-import { loadMergedYear1Timetable, loadMergedYear2Timetable } from '../services/lab-fetch.js?v=2026-10-17-001';
+import { isYear1LabYear } from '../data/lab-config.js?v=2026-10-17-001';
 import { matchesEmergingToolsSection } from '../data/lab-parser.js?v=2026-10-17-001';
+import { loadMergedYear1Timetable, loadMergedYear2Timetable } from '../services/lab-fetch.js?v=2026-10-17-001';
 import { todayName, nowMinutes, nextSchoolDay, isSchoolDay } from './utils.js?v=2026-10-17-001';
 import { init as initAnalytics, trackEvent } from '../services/analytics.js?v=2026-10-17-001';
 import { initFreeRooms } from '../ui/free-rooms.js?v=2026-10-17-001';
@@ -338,12 +339,14 @@ async function load({ silent = false, background = false } = {}) {
         // filtering, so Free Rooms knows about every occupied room.
         const occ = parseRoomOccupancy(text);
 
-        // SCDS Year 1 + Year 2: merge separate lab timetables under the main
-        // sheet classes so labs appear on the same timeline.
+        // Year 1 (SCDS / SOAI) + Year 2 (SCDS): merge separate lab timetables
+        // under the main sheet classes so labs appear on the same timeline.
+        // The lab sources are scoped by year id — SCDS Year 1 and SOAI Year 1
+        // read the same 'C Lab' tab through separate config entries.
         if (year && year.id === 'scds-2') {
             classes = (await loadMergedYear2Timetable(parsed)).classes;
-        } else if (year && year.id === 'scds-1') {
-            classes = (await loadMergedYear1Timetable(parsed)).classes;
+        } else if (isYear1LabYear(year)) {
+            classes = (await loadMergedYear1Timetable(parsed, { yearId: year.id })).classes;
         } else {
             classes = parsed;
         }
@@ -1168,12 +1171,17 @@ function init() {
     initPullToRefresh();
     initActions();
     initAutoRefresh();
-    initFreeRooms({
-        getClasses: () => classes,
-        getSelectedDay: () => selectedDay || contextDay(),
-        getRoomOccupancy: () => roomOccupancy,
-        getYearConfig: () => nav.getYear(),
-    });
+    // TEMPORARY: Free Rooms is turned off for now. Flip this to true (or
+    // remove the guard) to bring the feature back.
+    const FREE_ROOMS_ENABLED = true;
+    if (FREE_ROOMS_ENABLED) {
+        initFreeRooms({
+            getClasses: () => classes,
+            getSelectedDay: () => selectedDay || contextDay(),
+            getRoomOccupancy: () => roomOccupancy,
+            getYearConfig: () => nav.getYear(),
+        });
+    }
     initTeacherLookup({
         getSelectedDay: () => selectedDay || contextDay(),
         getSheetUrl: () => nav.getSheetUrl(),

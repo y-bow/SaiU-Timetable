@@ -1205,12 +1205,12 @@ await check('SOT Year 1 exclusive courses do NOT appear in any other school/prog
     }
 });
 
-await check('SOT, SOB and SOL are the schools offering Year 1', () => {
+await check('SCDS, SOAI, SOB, SOT and SOL are the schools offering Year 1', () => {
     const year1Schools = SCHOOLS.filter(s => {
         const years = s.programs ? s.programs.flatMap(p => p.years) : (s.years || []);
         return years.some(y => y.level === 1);
     });
-    assert.deepStrictEqual(year1Schools.map(s => s.id).sort(), ['scds', 'sob', 'sol', 'sot'], 'SCDS, SOB, SOL and SOT offer Year 1');
+    assert.deepStrictEqual(year1Schools.map(s => s.id).sort(), ['scds', 'soai', 'sob', 'sol', 'sot'], 'SCDS, SOAI, SOB, SOL and SOT offer Year 1');
 });
 
 console.log('--- SOT Year 2 Biotechnology config ---');

@@ -2,6 +2,8 @@
  * Year 2 lab parser test harness (Node).
  *
  * Covers, per the current list-format tab design (Day | Time | Section):
+ *   Year 1 (SCDS / SOAI) → Programming in C Lab parsed from the shared 'C Lab'
+ *                tab, scoped per year so the two schools never cross-merge.
  *   DAA / FDE  → mandatory lab row parsed with its lab section + faculty,
  *                day inheritance across repeated rows, LUNCH BREAK skipped,
  *                removal from the sheet produces no record.
@@ -47,8 +49,10 @@ try {
         writeFileSync(dest, src);
     }
 
-    const { YEAR_2_LAB_SOURCES, isMissingSheetId, labCacheKey, isYear2SCDS, labSheetUrl } =
-        await import(pathToFileURL(join(dir, 'js/data/lab-config.js')).href);
+    const {
+        YEAR_2_LAB_SOURCES, YEAR_1_LAB_SOURCES, getYear1LabSources, isMissingSheetId,
+        labCacheKey, isYear2SCDS, isYear1LabYear, labSheetUrl,
+    } = await import(pathToFileURL(join(dir, 'js/data/lab-config.js')).href);
     const { parseCSV } = await import(pathToFileURL(join(dir, 'js/data/parser.js')).href);
     const { parseLabCSV, recordsToAppClasses, mergeTimelines, stableIdentity, matchesEmergingToolsSection } =
         await import(pathToFileURL(join(dir, 'js/data/lab-parser.js')).href);
@@ -57,7 +61,7 @@ try {
     const { compareTimetables, classIdentity } =
         await import(pathToFileURL(join(dir, 'js/data/change-detector.js')).href);
     const labFetch = await import(pathToFileURL(join(dir, 'js/services/lab-fetch.js')).href);
-    const { fetchLabSource, syncYear2Labs } = labFetch;
+    const { fetchLabSource, syncYear1Labs, syncYear2Labs } = labFetch;
 
     const DAA = YEAR_2_LAB_SOURCES.DAA_LAB;
     const FDE = YEAR_2_LAB_SOURCES.FDE_LAB;
@@ -103,6 +107,100 @@ try {
         assert.ok(isYear2SCDS({ id: 'scds-2' }));
         assert.ok(!isYear2SCDS({ id: 'scds-3' }));
         assert.ok(!isYear2SCDS(null));
+    });
+
+    console.log('--- Year 1 sources (SCDS + SOAI share the C Lab tab) ---');
+    const C1 = YEAR_1_LAB_SOURCES.CS121_LAB;
+    const C1_SOAI = YEAR_1_LAB_SOURCES.CS121_LAB_SOAI;
+    await check('each Year 1 school owns its own Programming in C Lab source', () => {
+        assert.ok(C1 && C1_SOAI, 'SCDS and SOAI Year 1 both configure a CS121 lab');
+        assert.equal(C1.yearId, 'scds-1');
+        assert.equal(C1_SOAI.yearId, 'soai-1');
+        assert.equal(C1.school, 'scds');
+        assert.equal(C1_SOAI.school, 'soai');
+        assert.notEqual(C1.source, C1_SOAI.source, 'sources (and their caches) stay distinct');
+    });
+    await check(`SOAI's lab parses from the SAME 'C Lab' tab as SCDS Year 1, not the default sheet`, () => {
+        assert.equal(C1_SOAI.sheetId, C1.sheetId, 'same spreadsheet');
+        assert.equal(C1_SOAI.sheet, 'C Lab', 'same tab name');
+        assert.equal(C1_SOAI.course, C1.course, 'same lab course');
+        const url = labSheetUrl(C1_SOAI);
+        assert.ok(url.includes('gviz/tq'), 'tab endpoint, not the gid export');
+        assert.ok(url.includes(`sheet=${encodeURIComponent('C Lab')}`));
+        assert.ok(!url.includes('export?format=csv'), 'never the default gid-0 sheet');
+        assert.equal(isMissingSheetId(C1_SOAI), false);
+    });
+    await check('Year 1 sources are scoped to the year being loaded', () => {
+        assert.deepEqual(getYear1LabSources('scds-1').map((s) => s.source), ['cs121-lab', 'cs128-lab']);
+        assert.deepEqual(getYear1LabSources('soai-1').map((s) => s.source), ['cs121-lab-soai']);
+        assert.deepEqual(getYear1LabSources('soai-2'), [], 'a year without lab sources gets none');
+        assert.equal(getYear1LabSources().length, 3, 'unscoped returns every Year 1 source');
+    });
+    await check('Year 1 cache keys never collide across years sharing one tab', () => {
+        const keys = getYear1LabSources().map(labCacheKey);
+        assert.equal(new Set(keys).size, keys.length);
+        assert.ok(keys.some((k) => k.startsWith('tt-cache-v2-soai-1-')));
+        assert.ok(keys.some((k) => k.startsWith('tt-cache-v2-scds-1-')));
+    });
+    await check('isYear1LabYear recognises every Year 1 lab year (and only those)', () => {
+        assert.ok(isYear1LabYear({ id: 'scds-1' }));
+        assert.ok(isYear1LabYear({ id: 'soai-1' }));
+        assert.ok(!isYear1LabYear({ id: 'soai-2' }), 'SOAI Year 2 has no lab tabs');
+        assert.ok(!isYear1LabYear({ id: 'scds-2' }), 'Year 2 is merged by its own path');
+        assert.ok(!isYear1LabYear(null));
+    });
+
+    console.log('--- Programming in C Lab (Year 1 list tab) ---');
+    const cLabCsv = [
+        'Day,Time,Section',
+        'Monday,10:15 AM - 11:05 AM,Programming in C LAB - Sem1 - Ujjwal   (AI Lab)',
+        ',11:15 AM - 12:10 PM,Programming in C LAB - Sem1 - Ujjwal',
+    ].join('\n');
+    await check('C Lab rows become section-less Year 1 lab classes', () => {
+        const c = parse(cLabCsv, C1_SOAI, {});
+        assert.equal(c.length, 2);
+        assert.ok(c.every((x) => x.lab === true), 'every record is a lab class');
+        assert.ok(c.every((x) => x.section === 1), 'Year 1 has no section structure → section 1');
+        assert.equal(c[0].subject, 'Programming in C Lab');
+        assert.equal(c[0].faculty, 'Prof. Ujjwal');
+        assert.equal(c[0].day, 'Monday');
+        assert.deepEqual(c.map((x) => x.startTime), ['10:15', '11:15']);
+        assert.equal(c[0].source, 'cs121-lab-soai');
+        assert.equal(c[0].school, 'soai');
+        assert.equal(c[0].year, 1);
+    });
+    await check('cell room is normalized, missing room falls back to the computer lab', () => {
+        const c = parse(cLabCsv, C1_SOAI, {});
+        assert.equal(c[0].room, 'AB1 - AI Lab', 'room in trailing parens');
+        assert.equal(c[1].room, 'AB1 - Computer Lab', 'no room declared on the row');
+    });
+    await check('the same tab parses identically for SCDS Year 1', () => {
+        const strip = (list) => list.map(({ source, school, ...rest }) => rest);
+        const scds = parse(cLabCsv, C1, {});
+        const soai = parse(cLabCsv, C1_SOAI, {});
+        assert.equal(scds.length, soai.length);
+        assert.ok(scds.every((x) => x.school === 'scds' && x.source === 'cs121-lab'));
+        assert.ok(soai.every((x) => x.school === 'soai' && x.source === 'cs121-lab-soai'));
+        assert.deepEqual(strip(scds), strip(soai),
+            'same tab, same parse — only school/source differ, which is why the fetch must be year-scoped');
+    });
+    await check('syncYear1Labs fetches only the requested year — no cross-school merge', async () => {
+        const prevFetch = globalThis.fetch;
+        globalThis.fetch = async () => ({ ok: true, text: async () => cLabCsv });
+        try {
+            const soai = await syncYear1Labs({ yearId: 'soai-1' });
+            assert.deepEqual(soai.statuses, { 'cs121-lab-soai': 'ok' });
+            assert.ok(soai.classes.length > 0, 'SOAI Year 1 gets the lab classes');
+            assert.ok(soai.classes.every((c) => c.school === 'soai' && c.year === 1));
+
+            const scds = await syncYear1Labs({ yearId: 'scds-1' });
+            assert.ok(scds.classes.length > 0, 'SCDS Year 1 still gets its own lab classes');
+            assert.ok(!scds.classes.some((c) => c.source === 'cs121-lab-soai'),
+                'SCDS Year 1 must never merge the SOAI source (same tab → duplicate lab)');
+            assert.ok(scds.classes.every((c) => c.school === 'scds' && c.year === 1));
+            assert.equal(new Set(scds.classes.map(stableIdentity)).size, scds.classes.length,
+                'no duplicated records within one year');
+        } finally { globalThis.fetch = prevFetch; }
     });
 
     console.log('--- DAA Lab (limit list tab) ---');

@@ -120,18 +120,25 @@ export async function loadMergedYear2Timetable(mainClasses, ctx = {}) {
 }
 
 // ---------------------------------------------------------------------------
-// Year 1 SCDS lab timetable fetching + merging
+// Year 1 lab timetable fetching + merging (SCDS Year 1, SOAI Year 1)
 // ---------------------------------------------------------------------------
 
 /**
- * Fetch and parse every Year 1 lab source. Always resolves; every returned
- * entry carries a per-source status. Errors in one source never affect others.
+ * Fetch and parse every Year 1 lab source FOR ONE YEAR. Always resolves; every
+ * returned entry carries a per-source status. Errors in one source never affect
+ * others.
  *
+ * The sources are scoped by `ctx.yearId` because SCDS Year 1 and SOAI Year 1
+ * read the SAME 'C Lab' tab through two separate config entries: without the
+ * scope both years would merge the other school's duplicate lab records in.
+ *
+ * @param {{yearId?: string}} [ctx] merge context — pass `nav.getYear().id`
+ *   ('scds-1' / 'soai-1') so only that year's sources are fetched.
  * @returns {Promise<{classes: Array<object>, statuses: Record<string,string>,
  *                    sources: Array<object>}>}
  */
 export async function syncYear1Labs(ctx = {}) {
-    const sources = getYear1LabSources();
+    const sources = getYear1LabSources(ctx.yearId);
     const settled = await Promise.allSettled(sources.map((src) => fetchLabSource(src)));
 
     const classes = [];
@@ -151,12 +158,13 @@ export async function syncYear1Labs(ctx = {}) {
 }
 
 /**
- * Convenience: fetch all Year 1 labs and merge them under the given main
- * timetable classes.
+ * Convenience: fetch all Year 1 labs for ONE year and merge them under the
+ * given main timetable classes.
  *
- * @param {Array<object>} mainClasses classes already parsed from the main SCDS
+ * @param {Array<object>} mainClasses classes already parsed from the main
  *   sheet (e.g. output of parseCSV).
- * @param {{}} [ctx]
+ * @param {{yearId?: string}} [ctx] must carry the loading year's id so only
+ *   that year's lab sources are merged (see syncYear1Labs).
  * @returns {Promise<{classes: Array<object>, labClasses: Array<object>,
  *                    statuses: Record<string,string>}>}
  */

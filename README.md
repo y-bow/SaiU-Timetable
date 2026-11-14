@@ -119,7 +119,6 @@ SaiU-Timetable/
 +-- LICENSE                 MIT License
 +-- robots.txt              Search engine directives
 +-- sitemap.xml             XML sitemap
-+-- llms.txt                LLM-friendly project description
 +-- .gitignore              Git ignore rules
 +-- icons/                  App icons and favicons
 |   +-- app/                PWA icons (dark + light, maskable)

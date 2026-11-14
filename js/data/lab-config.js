@@ -1,10 +1,10 @@
 /**
- * SCDS lab timetable sources.
+ * Lab timetable sources (SCDS + SOAI Year 1, SCDS Year 2).
  *
- * The main SCDS timetable is one Google Sheet. Years 1 and 2 also have
- * separate lab schedules, each as its own TAB inside the same spreadsheet.
- * Each tab is fetched/parsed independently, then merged with the main
- * timetable in JavaScript (see js/services/lab-fetch.js and the
+ * The main timetable for every year is one Google Sheet (gid 0). Years 1 and 2
+ * also have separate lab schedules, each as its own TAB inside the same
+ * spreadsheet. Each tab is fetched/parsed independently, then merged with the
+ * main timetable in JavaScript (see js/services/lab-fetch.js and the
  * mergeTimelines helper in js/data/lab-parser.js).
  *
  * This module is the single place that knows *which* lab tabs exist. The
@@ -21,6 +21,13 @@
  * Year 1: CS121 (Programming in C Lab) and CS128 (Engineering Foundations
  * and Application Lab) are mandatory labs without section selectors. Year 1
  * has no section structure, so labs use `sectionLess: true`.
+ *
+ * Year 1 labs are per SCHOOL, not per spreadsheet: SCDS Year 1 and SOAI Year 1
+ * each own a source entry, and both of those entries read the SAME 'C Lab' tab
+ * (different from the default gid-0 grid both years parse their main timetable
+ * from). Because one tab can back several years, `getYear1LabSources(yearId)`
+ * must be narrowed to the year being loaded — otherwise SCDS would show SOAI's
+ * lab records and vice versa.
  */
 
 // The lecture/elective that the Emerging Tools Lab belongs to. Selecting the
@@ -136,6 +143,31 @@ export const YEAR_1_LAB_SOURCES = {
         sectionLess: true,
     },
 
+    CS121_LAB_SOAI: {
+        source: 'cs121-lab-soai',
+        yearId: 'soai-1',
+        year: 1,
+        school: 'soai',
+        // Deliberately the SAME 'C Lab' tab SCDS Year 1 reads (same spreadsheet,
+        // a non-default tab — the main SOAI timetable comes from gid 0). The tab
+        // is shared; the school/year stamped onto the records is what keeps the
+        // two years' lab lists apart.
+        sheetId: SPREADSHEET_ID,
+        sheet: 'C Lab',
+        course: 'Programming in C Lab',
+        subjectAliases: [
+            /^cs121\b/i,
+            /programming\s+in\s+c\s+lab\b/i,
+            /programming\s+in\s+c\b/i,
+            /^c\s+lab\b/i,
+        ],
+        isElective: false,
+        electiveId: null,
+        rooms: null,
+        fixedRoom: '',
+        sectionLess: true,
+    },
+
     CS128_LAB: {
         source: 'cs128-lab',
         yearId: 'scds-1',
@@ -163,9 +195,19 @@ export const YEAR_1_LAB_SOURCES = {
 
 /**
  * Flat, ordered list of all Year 1 lab sources.
+ *
+ * Year 1 spans several schools (SCDS, SOAI), so pass the year id being loaded
+ * ('scds-1', 'soai-1') to get only that year's sources — several entries read
+ * the SAME lab tab and must never leak into another year's merge. Calling it
+ * without a year id returns every Year 1 source (diagnostics / tests only).
+ *
+ * @param {string} [yearId] the year config id to scope the list to
+ * @returns {Array<object>}
  */
-export function getYear1LabSources() {
-    return Object.values(YEAR_1_LAB_SOURCES).filter((s) => s.enabled !== false);
+export function getYear1LabSources(yearId) {
+    const all = Object.values(YEAR_1_LAB_SOURCES).filter((s) => s.enabled !== false);
+    if (!yearId) return all;
+    return all.filter((s) => s.yearId === yearId);
 }
 
 /**
@@ -208,9 +250,22 @@ export function isYear2SCDS(yearConfig) {
 }
 
 /**
- * Whether the active year config is Year 1 SCDS — the year the Year 1 lab
- * sources apply to. Used to decide when to fetch/merge the Year 1 lab sheets.
+ * Whether the active year config is Year 1 SCDS.
  */
 export function isYear1SCDS(yearConfig) {
     return !!yearConfig && yearConfig.id === 'scds-1';
+}
+
+/**
+ * Whether the active year config owns Year 1 lab sources — i.e. its main
+ * timetable must be merged with the separate Year 1 lab tabs. True for
+ * SCDS Year 1 and SOAI Year 1 (and any year added to YEAR_1_LAB_SOURCES),
+ * so callers never hardcode a year id again.
+ *
+ * @param {object|null} yearConfig the active year config (nav.getYear())
+ * @returns {boolean}
+ */
+export function isYear1LabYear(yearConfig) {
+    if (!yearConfig || !yearConfig.id) return false;
+    return getYear1LabSources().some((s) => s.yearId === yearConfig.id);
 }
