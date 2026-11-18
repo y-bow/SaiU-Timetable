@@ -1,5 +1,5 @@
-import { toMinutes, minutesToClock } from '../core/utils.js?v=2026-10-17-001';
-import { trackEvent } from '../services/analytics.js?v=2026-10-17-001';
+import { toMinutes, minutesToClock } from '../core/utils.js?v=2026-11-18-001';
+import { trackEvent } from '../services/analytics.js?v=2026-11-18-001';
 
 /**
  * Free Rooms — shows which rooms are available during each period
@@ -81,13 +81,16 @@ function displayRoom(raw) {
 // ============================================================
 
 /**
- * Rooms to exclude from the free-rooms list: labs and the Moot Court Hall
- * are special-purpose spaces, not bookable classrooms. AB2-208 is barred by
- * permanent exception — it must never be shown as free, even when its
- * timetable slot is empty. Entries are normalized (uppercase, hyphens →
- * spaces) so they match the canonical keys produced by normalizeRoom().
+ * Rooms to exclude from the free-rooms list: labs, meeting rooms/halls
+ * and the Moot Court Hall are special-purpose spaces, not bookable
+ * classrooms. The meeting pattern covers "AB2 - Meeting Room",
+ * "AB2 - Meeting Room (Near Reception)", "AB2 - Meeting Room - 1" and
+ * "AB2 - Meeting Hall". AB2-208 is barred by permanent exception — it
+ * must never be shown as free, even when its timetable slot is empty.
+ * Entries are normalized (uppercase, hyphens → spaces) so they match
+ * the canonical keys produced by normalizeRoom().
  */
-const EXCLUDED_ROOM_PATTERNS = /\b(moot\s*court|lab|faculty\s*conference)\b/i;
+const EXCLUDED_ROOM_PATTERNS = /\b(moot\s*court|lab|faculty\s*conference|meeting\s*(room|hall))\b/i;
 const EXCLUDED_ROOMS = new Set(['AB2-208', 'AB1-102', 'AB1-104'].map(normalizeRoom));
 
 /**

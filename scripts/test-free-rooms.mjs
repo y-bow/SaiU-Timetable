@@ -436,6 +436,31 @@ await check('labs and Moot Court Hall are excluded from discoverRooms', () => {
     assert.ok(roomMap.has(normalizeRoom('AB2 - 101')), 'AB2-101 should be included');
 });
 
+// ── Meeting rooms excluded by free-rooms.js itself ──────────────
+
+console.log('--- free-rooms.js excludes meeting rooms ---');
+
+await check('AB2 meeting rooms are excluded by the real EXCLUDED_ROOM_PATTERNS', () => {
+    // Read the pattern straight from the shipped module so this test fails if
+    // the exclusion is ever dropped or loosened.
+    const src = readFileSync(join(ROOT, 'js/ui/free-rooms.js'), 'utf8');
+    const m = src.match(/const EXCLUDED_ROOM_PATTERNS = (\/.*\/i);/);
+    assert.ok(m, 'EXCLUDED_ROOM_PATTERNS not found in free-rooms.js');
+    const pattern = eval(m[1]);
+    for (const room of [
+        'AB2 - Meeting Room',
+        'AB2 - Meeting Room (Near Reception)',
+        'AB2 - Meeting Room - 1',
+        'AB2 - Meeting Hall',
+    ]) {
+        assert.ok(pattern.test(normalizeRoom(room)), `${room} should be excluded`);
+    }
+    // Regular classrooms must stay bookable.
+    for (const room of ['AB2 - 101', 'AB1 - 201', 'AB2 - 211']) {
+        assert.ok(!pattern.test(normalizeRoom(room)), `${room} should NOT be excluded`);
+    }
+});
+
 // ── Summary ──────────────────────────────────────────────────────
 
 console.log(`\n${passed} passed, ${failed} failed`);
