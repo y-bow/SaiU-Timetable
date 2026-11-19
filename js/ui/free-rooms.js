@@ -1,5 +1,5 @@
-import { toMinutes, minutesToClock } from '../core/utils.js?v=2026-11-18-001';
-import { trackEvent } from '../services/analytics.js?v=2026-11-18-001';
+import { toMinutes, minutesToClock } from '../core/utils.js?v=2026-11-19-001';
+import { trackEvent } from '../services/analytics.js?v=2026-11-19-001';
 
 /**
  * Free Rooms — shows which rooms are available during each period
@@ -85,7 +85,7 @@ function displayRoom(raw) {
  * and the Moot Court Hall are special-purpose spaces, not bookable
  * classrooms. The meeting pattern covers "AB2 - Meeting Room",
  * "AB2 - Meeting Room (Near Reception)", "AB2 - Meeting Room - 1" and
- * "AB2 - Meeting Hall". AB2-208 is barred by permanent exception — it
+ * 
  * must never be shown as free, even when its timetable slot is empty.
  * Entries are normalized (uppercase, hyphens → spaces) so they match
  * the canonical keys produced by normalizeRoom().

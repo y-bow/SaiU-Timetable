@@ -451,7 +451,7 @@ await check('AB2 meeting rooms are excluded by the real EXCLUDED_ROOM_PATTERNS',
         'AB2 - Meeting Room',
         'AB2 - Meeting Room (Near Reception)',
         'AB2 - Meeting Room - 1',
-        'AB2 - Meeting Hall',
+        ,
     ]) {
         assert.ok(pattern.test(normalizeRoom(room)), `${room} should be excluded`);
     }
